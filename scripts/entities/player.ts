@@ -39,7 +39,12 @@ export class Player implements IPlayer {
   isAlive: boolean;
   isInvulnerable: boolean;
   showingSkillMenu: boolean;
-
+  lastDamageTime: number; // Track last damage time for collision cooldown
+  invulnerabilityTimeoutId: number | null = null; // Track invulnerability timeout
+  
+  // Damage handling and collision tracking
+  collidingEnemies: Set<string> = new Set(); // Track enemies colliding by ID
+  
   // Attack properties
   lastAttack: number;
   attackCooldown: number;
@@ -94,6 +99,7 @@ export class Player implements IPlayer {
     this.isAlive = true;
     this.isInvulnerable = false;
     this.showingSkillMenu = false;
+    this.lastDamageTime = 0; // Initialize last damage time
 
     // Attack properties
     this.lastAttack = 0;
@@ -120,6 +126,62 @@ export class Player implements IPlayer {
     this.element.className = "player";
     this.gameContainer.appendChild(this.element);
     this.updatePosition();
+  }
+
+  /**
+   * Calculate dynamic damage cooldown based on player stats and environment
+   * As life steal increases or more enemies are present, the cooldown decreases
+   * to keep the game challenging regardless of player upgrades
+   * @returns cooldown in milliseconds
+   */
+  private getDynamicDamageCooldown(): number {
+    // Base cooldown for collision detection
+    const baseCooldown = 100; // ms between damage applications
+    
+    // Get life steal percentage
+    const lifeStealPct = this.stats.getLifeStealPercentage();
+    
+    // Calculate cooldown - scale down as life steal increases
+    let cooldown = baseCooldown;
+    
+    // For high life steal percentages, reduce cooldown to allow more damage through
+    if (lifeStealPct > 50) {
+      // Scale down cooldown based on life steal (min 10ms)
+      const reductionFactor = Math.min(0.9, (lifeStealPct - 50) / 100);
+      cooldown *= (1 - reductionFactor);
+    }
+    
+    // If many enemies are colliding, reduce cooldown even further
+    const enemyCount = this.collidingEnemies.size;
+    if (enemyCount > 1) {
+      // Scale down cooldown based on number of enemies (minimum 10ms)
+      cooldown = Math.max(10, cooldown / Math.sqrt(enemyCount));
+    }
+    
+    logger.debug(`Dynamic damage cooldown: ${cooldown}ms, Enemies: ${enemyCount}, Life steal: ${lifeStealPct}%`);
+    return cooldown;
+  }
+  
+  /**
+   * Register an enemy collision - called when an enemy begins colliding
+   * @param enemy - The enemy that started colliding
+   */
+  registerEnemyCollision(enemy: any): void {
+    if (enemy && enemy.id) {
+      this.collidingEnemies.add(enemy.id);
+      logger.debug(`Enemy ${enemy.id} registered collision. Total colliding: ${this.collidingEnemies.size}`);
+    }
+  }
+  
+  /**
+   * Unregister an enemy collision - called when an enemy stops colliding
+   * @param enemy - The enemy that stopped colliding
+   */
+  unregisterEnemyCollision(enemy: any): void {
+    if (enemy && enemy.id && this.collidingEnemies.has(enemy.id)) {
+      this.collidingEnemies.delete(enemy.id);
+      logger.debug(`Enemy ${enemy.id} unregistered collision. Total colliding: ${this.collidingEnemies.size}`);
+    }
   }
 
   /**
@@ -169,11 +231,23 @@ export class Player implements IPlayer {
    * @returns Whether damage was actually applied (not invulnerable)
    */
   takeDamage(amount: number): boolean {
+    const now = Date.now();
+    
+    // Check invulnerability
     if (this.isInvulnerable) {
       return false;
     }
+    
+    // Use dynamic damage cooldown based on player stats and situation
+    const cooldown = this.getDynamicDamageCooldown();
+    if (now - this.lastDamageTime < cooldown) {
+      return false;
+    }
+    
+    // Update last damage time
+    this.lastDamageTime = now;
 
-    let damageTaken = amount; // Declare damageTaken
+    let damageTaken = amount;
 
     // Apply defense reduction
     damageTaken = Math.max(1, damageTaken - this.stats.getDefense());
@@ -205,7 +279,6 @@ export class Player implements IPlayer {
   }
 
   /**
-   * Heals the player
    * Heals the player
    * @param amount - Healing amount
    */
@@ -312,11 +385,35 @@ export class Player implements IPlayer {
    * @param duration - Duration in milliseconds
    */
   setInvulnerable(duration: number): void {
+    // Clear any existing invulnerability timeout
+    if (this.invulnerabilityTimeoutId !== null) {
+      window.clearTimeout(this.invulnerabilityTimeoutId);
+      this.invulnerabilityTimeoutId = null;
+    }
+    
+    // Set invulnerable state
     this.isInvulnerable = true;
 
-    setTimeout(() => {
+    // Add visual indication of invulnerability
+    if (this.element) {
+      this.element.classList.add('invulnerable');
+    }
+    
+    // Set timeout to remove invulnerability after duration
+    this.invulnerabilityTimeoutId = window.setTimeout(() => {
       this.isInvulnerable = false;
+      
+      // Remove visual indication
+      if (this.element) {
+        this.element.classList.remove('invulnerable');
+      }
+      
+      this.invulnerabilityTimeoutId = null;
+      
+      logger.debug('Invulnerability ended');
     }, duration);
+    
+    logger.debug(`Player invulnerable for ${duration}ms`);
   }
 
   /**
@@ -339,27 +436,38 @@ export class Player implements IPlayer {
   }
 
   /**
- * Set the level system reference and ensure level property is kept in sync
- * @param levelSystem - The level system instance
- */
-setLevelSystem(levelSystem: LevelSystem): void {
-  this.levelSystem = levelSystem;
-  
-  // Initialize with current level from the level system
-  this.level = levelSystem.getLevel();
-  
-  // Listen for level changes
-  levelSystem.onLevelUp((newLevel: number) => {
-    this.level = newLevel;
-  });
-}
+   * Set the level system reference and ensure level property is kept in sync
+   * @param levelSystem - The level system instance
+   */
+  setLevelSystem(levelSystem: LevelSystem): void {
+    this.levelSystem = levelSystem;
+    
+    // Initialize with current level from the level system
+    this.level = levelSystem.getLevel();
+    
+    // Listen for level changes
+    levelSystem.onLevelUp((newLevel: number) => {
+      this.level = newLevel;
+    });
+  }
 
   /**
    * Clean up player resources
    */
   destroy(): void {
+    // Clear any invulnerability timeout
+    if (this.invulnerabilityTimeoutId !== null) {
+      window.clearTimeout(this.invulnerabilityTimeoutId);
+      this.invulnerabilityTimeoutId = null;
+    }
+    
+    // Remove DOM element
     if (this.element && this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
+      this.element = null;
     }
+    
+    // Reset collision tracking
+    this.collidingEnemies.clear();
   }
 }

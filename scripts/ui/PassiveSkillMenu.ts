@@ -70,14 +70,82 @@ export class PassiveSkillMenu {
   }
 
   /**
+   * Cache of DOM elements by id to avoid repeated querySelector calls
+   */
+  private domCache: Map<string, HTMLElement> = new Map();
+
+  /**
+   * Get cached DOM element or find it once and cache
+   * @param selector - CSS selector for element
+   * @param parent - Optional parent element to search within (defaults to document)
+   * @returns DOM element or null if not found
+   */
+  private getElement(selector: string, parent: Document | HTMLElement = document): HTMLElement | null {
+    // Create a unique key for the selector and parent
+    const key = parent === document ? selector : `${parent instanceof HTMLElement ? parent.id || 'unknown' : 'document'}-${selector}`;
+    
+    // Return cached element if we have it
+    if (this.domCache.has(key)) {
+      return this.domCache.get(key) || null;
+    }
+    
+    // Find the element
+    let element: HTMLElement | null = null;
+    if (selector.startsWith('#')) {
+      element = parent.querySelector(selector) as HTMLElement;
+    } else {
+      element = parent.querySelector(selector) as HTMLElement;
+    }
+    
+    // Cache the element if found
+    if (element) {
+      this.domCache.set(key, element);
+    }
+    
+    return element;
+  }
+
+  /**
+   * Clear the DOM element cache
+   */
+  private clearDomCache(): void {
+    this.domCache.clear();
+  }
+
+  /**
+   * Create a DOM element with attributes and append to parent
+   * @param tagName - HTML tag name
+   * @param attributes - Optional map of attributes to set
+   * @param parent - Optional parent to append to
+   * @returns The created element
+   */
+  private createElement<T extends HTMLElement>(tagName: string, attributes: Record<string, string> = {}, parent?: HTMLElement): T {
+    const element = document.createElement(tagName) as T;
+    
+    // Set attributes
+    Object.entries(attributes).forEach(([key, value]) => {
+      if (key === 'textContent') {
+        element.textContent = value;
+      } else if (key === 'innerHTML') {
+        element.innerHTML = value;
+      } else {
+        element.setAttribute(key, value);
+      }
+    });
+    
+    // Append to parent if provided
+    if (parent) {
+      parent.appendChild(element);
+    }
+    
+    return element;
+  }
+
+  /**
    * Ensure the skill menu elements exist
    */
   ensureMenuExists(): void {
     if (!this.menuOverlay) {
-      this.menuOverlay = document.createElement("div");
-      this.menuOverlay.id = "passive-skill-menu-overlay";
-      this.menuOverlay.className = "skill-menu-overlay passive-skill-menu-overlay";
-      
       // Get the correct initial points value
       let initialPoints = 0;
       if (this.game && this.game.availableKillPoints !== undefined) {
@@ -86,25 +154,60 @@ export class PassiveSkillMenu {
         initialPoints = this.levelSystem.kills;
       }
 
-      this.menuOverlay.innerHTML = `
-                <div class="skill-menu">
-                    <div class="skill-menu-header">
-                        <h2>Passive Skills</h2>
-                        <div class="skill-points-display">
-                            Available Skill Points: <span id="available-skill-points">${initialPoints}</span>
-                        </div>
-                        <button class="skill-menu-close" id="skill-menu-close">Close</button>
-                    </div>
-                    
-                    <div class="skill-grid"></div>
-                </div>
-            `;
-
-      this.gameContainer.appendChild(this.menuOverlay);
-      this.killPointsDisplay = document.getElementById(
-        "available-skill-points"
-      );
-      this.skillGrid = this.menuOverlay.querySelector(".skill-grid");
+      // Clear DOM cache when creating a new menu
+      this.clearDomCache();
+      
+      // Create menu overlay
+      this.menuOverlay = this.createElement('div', {
+        id: 'passive-skill-menu-overlay',
+        className: 'skill-menu-overlay passive-skill-menu-overlay'
+      }, this.gameContainer);
+      
+      // Set display style to ensure proper styling
+      this.menuOverlay.style.display = 'none';
+      
+      // Create menu container
+      const menuContainer = this.createElement('div', {
+        className: 'skill-menu'
+      }, this.menuOverlay);
+      
+      // Create header
+      const header = this.createElement('div', {
+        className: 'skill-menu-header'
+      }, menuContainer);
+      
+      // Add title
+      this.createElement('h2', {
+        textContent: 'Passive Skills'
+      }, header);
+      
+      // Add points display
+      const pointsDisplay = this.createElement('div', {
+        className: 'skill-points-display'
+      }, header);
+      pointsDisplay.textContent = 'Available Skill Points: ';
+      
+      this.killPointsDisplay = this.createElement('span', {
+        id: 'available-skill-points',
+        textContent: initialPoints.toString()
+      }, pointsDisplay);
+      
+      // Add close button
+      this.createElement('button', {
+        id: 'skill-menu-close',
+        className: 'skill-menu-close',
+        textContent: 'Close'
+      }, header);
+      
+      // Add skill grid
+      this.skillGrid = this.createElement('div', {
+        className: 'skill-grid'
+      }, menuContainer);
+      
+      // Cache elements for faster access
+      this.domCache.set('#passive-skill-menu-overlay', this.menuOverlay);
+      this.domCache.set('#available-skill-points', this.killPointsDisplay);
+      this.domCache.set('.skill-grid', this.skillGrid);
       
       // Create the skill cards after the menu is added to the DOM
       this.createPassiveSkillCards();
@@ -126,11 +229,13 @@ export class PassiveSkillMenu {
    * Set up event listeners for all passive skill buttons
    */
   setupPassiveSkillEventListeners(): void {
-    // Close button - add this listener directly to the element in our overlay
-    const closeButton = this.menuOverlay?.querySelector("#skill-menu-close");
+    // First remove all existing listeners to avoid duplicates
+    this.eventManager.removeAllListeners();
+    
+    // Close button - use our cached element getter
+    const closeButton = this.getElement('#skill-menu-close', this.menuOverlay || document);
     if (closeButton) {
-      // Add listener through event manager
-      this.eventManager.addListener(closeButton as HTMLElement, "click", () => {
+      this.eventManager.addListener(closeButton, "click", () => {
         logger.debug('Close button clicked');
         this.close();
         
@@ -143,26 +248,22 @@ export class PassiveSkillMenu {
       logger.error('Close button not found in menu');
     }
     
-    // Attack damage upgrade
-    const damageUpgradeBtn = this.menuOverlay?.querySelector('#increased-attack-damage-upgrade');
-    if (damageUpgradeBtn) {
-      this.eventManager.addListener(damageUpgradeBtn as HTMLElement, 'click', 
-        () => this.upgradePassiveSkill('increased-attack-damage'));
-    }
+    // Add event listeners to all upgrade buttons in one loop
+    // This avoids repeating similar code for each skill type
+    const allSkills = passiveSkillModel.getAllSkills();
     
-    // Attack speed upgrade
-    const speedUpgradeBtn = this.menuOverlay?.querySelector('#increased-attack-speed-upgrade');
-    if (speedUpgradeBtn) {
-      this.eventManager.addListener(speedUpgradeBtn as HTMLElement, 'click', 
-        () => this.upgradePassiveSkill('increased-attack-speed'));
-    }
-    
-    // Life steal upgrade
-    const lifeStealUpgradeBtn = this.menuOverlay?.querySelector('#life-steal-upgrade');
-    if (lifeStealUpgradeBtn) {
-      this.eventManager.addListener(lifeStealUpgradeBtn as HTMLElement, 'click', 
-        () => this.upgradePassiveSkill('life-steal'));
-    }
+    allSkills.forEach(skill => {
+      const buttonSelector = `#${skill.id}-upgrade`;
+      const upgradeBtn = this.getElement(buttonSelector, this.menuOverlay || document);
+      
+      if (upgradeBtn) {
+        this.eventManager.addListener(upgradeBtn, 'click', 
+          () => this.upgradePassiveSkill(skill.id));
+        logger.debug(`Added click listener to ${skill.id} upgrade button`);
+      } else {
+        logger.warn(`Button ${buttonSelector} not found for skill ${skill.id}`);
+      }
+    });
   }
 
   /**
@@ -188,6 +289,8 @@ export class PassiveSkillMenu {
       
       // Make sure the menu is displayed with flex
       this.menuOverlay.style.display = "flex";
+      this.menuOverlay.style.justifyContent = "center";
+      this.menuOverlay.style.alignItems = "center";
       this.player.showingSkillMenu = true;
       this.isOpen = true;
       
@@ -245,6 +348,9 @@ export class PassiveSkillMenu {
       this.menuOverlay = null;
     }
     
+    // Clear DOM cache
+    this.clearDomCache();
+    
     logger.debug('PassiveSkillMenu destroyed and resources cleaned up');
   }
 
@@ -287,9 +393,9 @@ export class PassiveSkillMenu {
    * Create skill cards if they don't exist
    */
   createPassiveSkillCards(): void {
-    // Find the skill grid inside our menu
-    if (this.menuOverlay) {
-      this.skillGrid = this.menuOverlay.querySelector(".skill-grid");
+    // Get the skill grid using our cached element getter
+    if (!this.skillGrid && this.menuOverlay) {
+      this.skillGrid = this.getElement('.skill-grid', this.menuOverlay);
     }
     
     if (!this.skillGrid) {
@@ -297,103 +403,108 @@ export class PassiveSkillMenu {
       return;
     }
     
+    // Clear existing cards to avoid duplication
+    if (this.skillGrid.children.length > 0) {
+      logger.debug(`Clearing ${this.skillGrid.children.length} existing skill cards`);
+      this.skillGrid.innerHTML = '';
+      // Also clear any cached elements related to cards
+      this.clearDomCache();
+    }
+    
     logger.debug('Creating passive skill cards...');
     
     // Get all skills from the model
     const allSkills = passiveSkillModel.getAllSkills();
-    logger.debug('Loaded skills from model for card creation:', allSkills);
+    logger.debug(`Creating ${allSkills.length} skill cards from model`);
+
+    // Create a document fragment to batch DOM operations
+    const fragment = document.createDocumentFragment();
 
     // Create a card for each skill from the model
     allSkills.forEach(skill => {
-      this.createSkillCard(
-        skill.id,
-        skill.name,
-        skill.description,
-        [
-          {
-            name: skill.id === 'increased-attack-damage' ? 'Damage' : 
-                  skill.id === 'increased-attack-speed' ? 'Attack Speed' : 'Life Steal',
-            id: `${skill.id}-value`,
-            value: skill.displayValue,
-          },
-        ]
-      );
+      const effectName = skill.id === 'increased-attack-damage' ? 'Damage' : 
+                        skill.id === 'increased-attack-speed' ? 'Attack Speed' : 'Life Steal';
+      
+      // Create card using our helper method
+      const card = this.createElement('div', {
+        className: 'skill-card',
+        id: `${skill.id}-card`
+      });
+      
+      // Create a card inner container for better styling
+      const cardInner = this.createElement('div', {
+        className: 'skill-card-inner'
+      }, card);
+      
+      // Create header
+      const header = this.createElement('div', {
+        className: 'skill-card-header'
+      }, cardInner);
+      
+      // Add title
+      this.createElement('h3', {
+        textContent: skill.name
+      }, header);
+      
+      // Add description
+      this.createElement('div', {
+        className: 'skill-description',
+        textContent: skill.description
+      }, cardInner);
+      
+      // Add effects container
+      const effectsContainer = this.createElement('div', {
+        className: 'skill-effects'
+      }, cardInner);
+      
+      // Add effect
+      const effectElement = this.createElement('div', {
+        className: 'skill-effect'
+      }, effectsContainer);
+      
+      // Add effect name and value in the correct format
+      this.createElement('span', {
+        className: 'skill-effect-name',
+        textContent: `${effectName}:`
+      }, effectElement);
+      
+      const valueElement = this.createElement('span', {
+        className: 'skill-effect-value',
+        id: `${skill.id}-value`,
+        textContent: skill.displayValue
+      }, effectElement);
+      
+      // Cache this element for faster updates
+      this.domCache.set(`#${skill.id}-value`, valueElement);
+      
+      // Add upgrade button
+      const button = this.createElement('button', {
+        className: 'skill-upgrade-btn',
+        id: `${skill.id}-upgrade`,
+        textContent: 'Purchase (1 Skill Point)'
+      }, cardInner);
+      
+      // Cache the button for faster access
+      this.domCache.set(`#${skill.id}-upgrade`, button);
+      
+      // Add card to fragment
+      fragment.appendChild(card);
     });
     
-    logger.debug('Passive skill cards created');
+    // Append all cards to the grid at once (single DOM operation)
+    this.skillGrid.appendChild(fragment);
+    
+    logger.debug('Passive skill cards created efficiently');
   }
 
-  /**
-   * Create a skill card element
-   * @param id - Skill ID
-   * @param name - Skill name
-   * @param description - Skill description
-   * @param effects - Array of effect objects { name, id: string; value: string }
-   */
-  createSkillCard(
-    id: string,
-    name: string,
-    description: string,
-    effects: Array<{ name: string; id: string; value: string }>
-  ): void {
-    if (!this.skillGrid) {
-      return;
-    }
-
-    // Create card element
-    const card = document.createElement("div");
-    card.className = "skill-card";
-    card.id = `${id}-card`;
-
-    // Add header
-    const header = document.createElement("div");
-    header.className = "skill-card-header";
-    header.innerHTML = `<h3>${name}</h3>`;
-    card.appendChild(header);
-
-    // Add description
-    const desc = document.createElement("div");
-    desc.className = "skill-description";
-    desc.textContent = description;
-    card.appendChild(desc);
-
-    // Add effects
-    const effectsContainer = document.createElement("div");
-    effectsContainer.className = "skill-effects";
-
-    effects.forEach((effect) => {
-      const effectElement = document.createElement("div");
-      effectElement.className = "skill-effect";
-      effectElement.innerHTML = `
-                <span class="skill-effect-name">${effect.name}:</span>
-                <span class="skill-effect-value" id="${effect.id}">${effect.value}</span>
-            `;
-      effectsContainer.appendChild(effectElement);
-    });
-
-    card.appendChild(effectsContainer);
-
-    // Add upgrade button
-    const button = document.createElement("button") as HTMLButtonElement;
-    button.className = "skill-upgrade-btn";
-    button.id = `${id}-upgrade`;
-    button.textContent = "Purchase (1 Skill Point)";
-    card.appendChild(button);
-    
-    // Append card to skill grid
-    this.skillGrid.appendChild(card);
-    
-    // Log for debugging
-    logger.debug(`Skill card '${id}' added to grid`);
-  }
+  // Removed createSkillCard method since it's no longer needed - refactored into createPassiveSkillCards
 
   /**
    * Update skill card levels and values
    */
   update(): void {
-    // Update available kill points
-    // Always refresh the reference to ensure we have the latest element
-    this.killPointsDisplay = document.getElementById('available-skill-points');
+    // Use our cached element getter to find the kill points display
+    this.killPointsDisplay = this.getElement('#available-skill-points');
     
     if (this.killPointsDisplay) {
       // Get the kill points from the level system or from the game's availableKillPoints
@@ -428,9 +539,13 @@ export class PassiveSkillMenu {
     const allSkills = passiveSkillModel.getAllSkills();
     
     allSkills.forEach(skill => {
-      const valueElement = document.getElementById(`${skill.id}-value`);
+      // Use cached element or get it once
+      const valueElement = this.getElement(`#${skill.id}-value`);
       if (valueElement) {
-        valueElement.textContent = skill.displayValue;
+        // Only update if the value has changed
+        if (valueElement.textContent !== skill.displayValue) {
+          valueElement.textContent = skill.displayValue;
+        }
       }
     });
   }
@@ -443,24 +558,28 @@ export class PassiveSkillMenu {
     const availablePoints = this.levelSystem?.kills || 0;
     logger.debug('Updating button states based on points:', availablePoints);
     
-    // Find buttons specifically within our menu
-    const buttons = this.menuOverlay?.querySelectorAll('.skill-upgrade-btn');
+    // Instead of querying all buttons every time, use our cached skills
+    const allSkills = passiveSkillModel.getAllSkills();
     
-    if (!buttons || buttons.length === 0) {
-      logger.error('No skill buttons found in the menu');
-      return;
-    }
+    // Set disabled state based on available points
+    const disabled = availablePoints <= 0;
     
-    logger.debug(`Found ${buttons.length} skill buttons`);
-    
-    buttons.forEach((button) => {
-      const buttonElement = button as HTMLButtonElement;
-      if (availablePoints <= 0) {
-        buttonElement.disabled = true;
-        buttonElement.classList.add('disabled');
-      } else {
-        buttonElement.disabled = false;
-        buttonElement.classList.remove('disabled');
+    // Update each button
+    allSkills.forEach(skill => {
+      const buttonId = `#${skill.id}-upgrade`;
+      const button = this.getElement(buttonId) as HTMLButtonElement;
+      
+      if (button) {
+        // Only update if state has changed
+        if (button.disabled !== disabled) {
+          button.disabled = disabled;
+          
+          if (disabled) {
+            button.classList.add('disabled');
+          } else {
+            button.classList.remove('disabled');
+          }
+        }
       }
     });
   }

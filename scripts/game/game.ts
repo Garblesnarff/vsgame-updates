@@ -248,7 +248,7 @@ export class Game {
 
       // Check if enemy is far out of bounds (cleanup)
       if (enemy.isOutOfBounds()) {
-        enemy.destroy();
+        enemy.destroy(this.player);
         this.enemies.splice(i, 1);
         continue;
       }
@@ -259,6 +259,9 @@ export class Game {
         !this.player.isInvulnerable &&
         enemy.collidesWithPlayer(this.player)
       ) {
+        // We don't need to explicitly register collision here as the
+        // enemy.collidesWithPlayer method already handles registration
+        
         // Calculate damage amount
         const damageAmount = enemy.damage;
 
@@ -277,15 +280,22 @@ export class Game {
           }
         }
 
-        // Push enemy back
+        // Push enemy back more aggressively to avoid stacking
         const dx =
           enemy.x + enemy.width / 2 - (this.player.x + this.player.width / 2);
         const dy =
           enemy.y + enemy.height / 2 - (this.player.y + this.player.height / 2);
         const dist = Math.sqrt(dx * dx + dy * dy);
-
-        enemy.x += (dx / dist) * 10;
-        enemy.y += (dy / dist) * 10;
+        
+        // Calculate a stronger push distance (20 pixels minimum)
+        const pushDistance = Math.max(20, enemy.width / 2 + this.player.width / 2);
+        
+        // Apply the push with a minimum distance to prevent stacking
+        const pushX = (dx / dist) * pushDistance;
+        const pushY = (dy / dist) * pushDistance;
+        
+        enemy.x += pushX;
+        enemy.y += pushY;
         enemy.updatePosition();
       }
     }
@@ -365,7 +375,7 @@ export class Game {
             
             if (enemyDied) {
               // Enemy died
-              enemy.destroy();
+              enemy.destroy(this.player);
               this.enemies.splice(j, 1);
 
               // Emit enemy death event

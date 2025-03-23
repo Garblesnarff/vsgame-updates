@@ -28,6 +28,9 @@ export class Enemy {
   maxHealth: number;
   damage: number;
 
+  // Collision tracking
+  isCollidingWithPlayer: boolean = false;
+
   // Unique identifier
   id: string;
 
@@ -169,12 +172,34 @@ export class Enemy {
    * @returns Whether collision occurred
    */
   collidesWithPlayer(player: any): boolean {
-    return (
+    const wasColliding = this.isCollidingWithPlayer;
+    
+    // Check collision
+    const isColliding = (
       this.x < player.x + player.width &&
       this.x + this.width > player.x &&
       this.y < player.y + player.height &&
       this.y + this.height > player.y
     );
+    
+    // If collision state changed, update tracking
+    if (!wasColliding && isColliding) {
+      // Newly colliding
+      this.isCollidingWithPlayer = true;
+      // Register collision with player if the player has this method
+      if (player.registerEnemyCollision) {
+        player.registerEnemyCollision(this);
+      }
+    } else if (wasColliding && !isColliding) {
+      // No longer colliding
+      this.isCollidingWithPlayer = false;
+      // Unregister collision with player if the player has this method
+      if (player.unregisterEnemyCollision) {
+        player.unregisterEnemyCollision(this);
+      }
+    }
+    
+    return isColliding;
   }
 
   /**
@@ -192,8 +217,14 @@ export class Enemy {
 
   /**
    * Clean up enemy resources
+   * @param player - Optional player reference to unregister collision
    */
-  destroy(): void {
+  destroy(player?: any): void {
+    // If this enemy was colliding with player, unregister the collision
+    if (this.isCollidingWithPlayer && player && player.unregisterEnemyCollision) {
+      player.unregisterEnemyCollision(this);
+    }
+    
     if (this.element && this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
     }

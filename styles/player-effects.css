@@ -1,0 +1,27 @@
+/* Player visual effects */
+
+/* Invulnerability effect - blink animation */
+@keyframes invulnerability-pulse {
+  0% {
+    opacity: 1;
+    filter: brightness(1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.7));
+  }
+  50% {
+    opacity: 0.6;
+    filter: brightness(1.5) drop-shadow(0 0 10px rgba(255, 255, 255, 0.9));
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.7));
+  }
+}
+
+.player.invulnerable {
+  animation: invulnerability-pulse 0.3s infinite;
+  pointer-events: none; /* Ensure no mouse events during invulnerability */
+}
+
+/* Make sure the player is always visible above other elements */
+.player {
+  z-index: 10;
+}
