@@ -48,7 +48,7 @@ export class PassiveSkillMenu {
     // Initialize timeouts array
     this.timeouts = [];
 
-    // Get menu elements
+    // Get menu elements - use the passive skill menu ID
     this.menuOverlay = document.getElementById("passive-skill-menu-overlay");
     this.killPointsDisplay = document.getElementById("available-skill-points");
     this.skillGrid = document.querySelector(".skill-grid");
@@ -157,10 +157,10 @@ export class PassiveSkillMenu {
       // Clear DOM cache when creating a new menu
       this.clearDomCache();
       
-      // Create menu overlay
+      // Important: Use a different ID from the main skill menu
       this.menuOverlay = this.createElement('div', {
         id: 'passive-skill-menu-overlay',
-        className: 'skill-menu-overlay passive-skill-menu-overlay'
+        className: 'skill-menu-overlay'
       }, this.gameContainer);
       
       // Set display style to ensure proper styling
@@ -176,7 +176,7 @@ export class PassiveSkillMenu {
         className: 'skill-menu-header'
       }, menuContainer);
       
-      // Add title
+      // Add title with appropriate name
       this.createElement('h2', {
         textContent: 'Passive Skills'
       }, header);
@@ -287,14 +287,14 @@ export class PassiveSkillMenu {
     if (this.menuOverlay) {
       logger.debug('Opening passive skill menu');
       
-      // Make sure the menu is displayed with flex
+      // Match the display style of the main skill menu
       this.menuOverlay.style.display = "flex";
       this.menuOverlay.style.justifyContent = "center";
       this.menuOverlay.style.alignItems = "center";
       this.player.showingSkillMenu = true;
       this.isOpen = true;
       
-      // Immediately update the kill points display when opening
+      // Update content
       this.update();
 
       // Force a check for empty skill grid and create cards if needed
@@ -312,9 +312,6 @@ export class PassiveSkillMenu {
       } else {
         logger.debug(`Skill grid already has content: ${this.skillGrid.children.length} children`);
       }
-      
-      // Update content
-      this.update();
     } else {
       logger.error('Menu overlay not found when trying to open');
     }
@@ -342,10 +339,13 @@ export class PassiveSkillMenu {
     // Remove all event listeners
     this.eventManager.removeAllListeners();
     
-    // Remove menu from DOM if it exists
+    // Remove menu from DOM if it exists - important to check for proper ID
     if (this.menuOverlay && this.menuOverlay.parentNode) {
       this.menuOverlay.parentNode.removeChild(this.menuOverlay);
       this.menuOverlay = null;
+      
+      // Remove from cached elements
+      this.domCache.delete('#passive-skill-menu-overlay');
     }
     
     // Clear DOM cache
@@ -422,73 +422,44 @@ export class PassiveSkillMenu {
 
     // Create a card for each skill from the model
     allSkills.forEach(skill => {
+      // Create card HTML directly to match the structure
+      const card = document.createElement('div');
+      card.className = 'skill-card';
+      card.id = `${skill.id}-card`;
+      
       const effectName = skill.id === 'increased-attack-damage' ? 'Damage' : 
                         skill.id === 'increased-attack-speed' ? 'Attack Speed' : 'Life Steal';
       
-      // Create card using our helper method
-      const card = this.createElement('div', {
-        className: 'skill-card',
-        id: `${skill.id}-card`
-      });
+      // Enhanced skill descriptions
+      const descriptions = {
+        'increased-attack-damage': 'Increases your damage output against all enemies.',
+        'increased-attack-speed': 'Reduces the cooldown between attacks, allowing you to attack more frequently.',
+        'life-steal': 'Heals you for a percentage of the damage you deal to enemies.'
+      };
       
-      // Create a card inner container for better styling
-      const cardInner = this.createElement('div', {
-        className: 'skill-card-inner'
-      }, card);
-      
-      // Create header
-      const header = this.createElement('div', {
-        className: 'skill-card-header'
-      }, cardInner);
-      
-      // Add title
-      this.createElement('h3', {
-        textContent: skill.name
-      }, header);
-      
-      // Add description
-      this.createElement('div', {
-        className: 'skill-description',
-        textContent: skill.description
-      }, cardInner);
-      
-      // Add effects container
-      const effectsContainer = this.createElement('div', {
-        className: 'skill-effects'
-      }, cardInner);
-      
-      // Add effect
-      const effectElement = this.createElement('div', {
-        className: 'skill-effect'
-      }, effectsContainer);
-      
-      // Add effect name and value in the correct format
-      this.createElement('span', {
-        className: 'skill-effect-name',
-        textContent: `${effectName}:`
-      }, effectElement);
-      
-      const valueElement = this.createElement('span', {
-        className: 'skill-effect-value',
-        id: `${skill.id}-value`,
-        textContent: skill.displayValue
-      }, effectElement);
-      
-      // Cache this element for faster updates
-      this.domCache.set(`#${skill.id}-value`, valueElement);
-      
-      // Add upgrade button
-      const button = this.createElement('button', {
-        className: 'skill-upgrade-btn',
-        id: `${skill.id}-upgrade`,
-        textContent: 'Purchase (1 Skill Point)'
-      }, cardInner);
-      
-      // Cache the button for faster access
-      this.domCache.set(`#${skill.id}-upgrade`, button);
-      
-      // Add card to fragment
+      // Set inner HTML with the same structure as the skill menu
+      card.innerHTML = `
+        <div class="skill-card-header">
+          <h3>${skill.name}</h3>
+        </div>
+        <div class="skill-description">
+          ${descriptions[skill.id as keyof typeof descriptions] || skill.description}
+        </div>
+        <div class="skill-effects">
+          <div class="skill-effect">
+            <span class="skill-effect-name">${effectName}:</span>
+            <span class="skill-effect-value" id="${skill.id}-value">${skill.displayValue}</span>
+          </div>
+        </div>
+        <button class="skill-upgrade-btn" id="${skill.id}-upgrade">Purchase (1 Point)</button>
+      `;
+
+      // Add to fragment
       fragment.appendChild(card);
+      
+      // Cache elements for faster access later
+      this.domCache.set(`#${skill.id}-value`, card.querySelector(`#${skill.id}-value`) as HTMLElement);
+      this.domCache.set(`#${skill.id}-upgrade`, card.querySelector(`#${skill.id}-upgrade`) as HTMLElement);
     });
     
     // Append all cards to the grid at once (single DOM operation)
@@ -496,8 +467,6 @@ export class PassiveSkillMenu {
     
     logger.debug('Passive skill cards created efficiently');
   }
-
-  // Removed createSkillCard method since it's no longer needed - refactored into createPassiveSkillCards
 
   /**
    * Update skill card levels and values

@@ -46,7 +46,7 @@ export class PassiveSkillModel {
     this.skills.set('increased-attack-damage', {
       id: 'increased-attack-damage',
       name: 'Increased Attack Damage',
-      description: 'Increases the player\'s attack damage.',
+      description: 'Increases your damage output against all enemies.',
       value: 0,
       displayValue: '+0%',
       incrementAmount: 10 // +10% per level
@@ -56,7 +56,7 @@ export class PassiveSkillModel {
     this.skills.set('increased-attack-speed', {
       id: 'increased-attack-speed',
       name: 'Increased Attack Speed',
-      description: 'Increases the player\'s attack speed.',
+      description: 'Reduces the cooldown between attacks, allowing you to attack more frequently.',
       value: 0,
       displayValue: '+0%',
       incrementAmount: 10 // +10% per level
@@ -66,7 +66,7 @@ export class PassiveSkillModel {
     this.skills.set('life-steal', {
       id: 'life-steal',
       name: 'Life Steal',
-      description: 'Grants the player life steal on hit.',
+      description: 'Heals you for a percentage of the damage you deal to enemies.',
       value: 0,
       displayValue: '+0%',
       incrementAmount: 5 // +5% per level
