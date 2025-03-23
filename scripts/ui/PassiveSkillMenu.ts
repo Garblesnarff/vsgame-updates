@@ -1,21 +1,34 @@
 import { Game } from "../game/game";
 import { GameStateManager } from "../game/state-manager";
-import { savePassiveSkills, loadPassiveSkills } from "../utils/persistence";
+import { createLogger } from "../utils/logger";
+import { IPlayer } from "../types/player-types";
+import { ILevelSystem } from "../types/player-types";
+import passiveSkillModel from "../models/passive-skill-model";
+import PassiveSkillMenuEventManager from "./PassiveSkillMenuEventManager";
+
+// Create a logger for the PassiveSkillMenu class
+const logger = createLogger('PassiveSkillMenu');
 
 /**
  * Skill Menu
  * Manages the skill upgrade/unlock menu UI
  */
 export class PassiveSkillMenu {
-  game: Game;
+  player: IPlayer;
   gameStateManager: GameStateManager;
-  player: any; // Using any temporarily to avoid circular dependencies
   gameContainer: HTMLElement;
   menuOverlay: HTMLElement | null;
   killPointsDisplay: HTMLElement | null;
   skillGrid: HTMLElement | null;
   isOpen: boolean;
-  levelSystem: any;
+  levelSystem: ILevelSystem | {
+    kills: number;
+  };
+  game: Game;
+  // Event manager to keep track of all event listeners
+  private eventManager: PassiveSkillMenuEventManager;
+  // Stored timeout IDs for cleanup
+  private timeouts: number[];
 
   /**
    * Create a new skill menu
@@ -27,6 +40,13 @@ export class PassiveSkillMenu {
     this.player = game.player;
     this.gameContainer = game.gameContainer;
     this.levelSystem = game.levelSystem;
+    // This is type-safe because LevelSystem implements ILevelSystem
+    
+    // Initialize event manager
+    this.eventManager = new PassiveSkillMenuEventManager();
+    
+    // Initialize timeouts array
+    this.timeouts = [];
 
     // Get menu elements
     this.menuOverlay = document.getElementById("passive-skill-menu-overlay");
@@ -109,12 +129,9 @@ export class PassiveSkillMenu {
     // Close button - add this listener directly to the element in our overlay
     const closeButton = this.menuOverlay?.querySelector("#skill-menu-close");
     if (closeButton) {
-      // Remove any existing listeners
-      closeButton.replaceWith(closeButton.cloneNode(true));
-      
-      // Add fresh listener
-      this.menuOverlay?.querySelector("#skill-menu-close")?.addEventListener("click", () => {
-        console.log('Close button clicked');
+      // Add listener through event manager
+      this.eventManager.addListener(closeButton as HTMLElement, "click", () => {
+        logger.debug('Close button clicked');
         this.close();
         
         // Restart the game
@@ -123,39 +140,27 @@ export class PassiveSkillMenu {
         }
       });
     } else {
-      console.error('Close button not found in menu');
+      logger.error('Close button not found in menu');
     }
     
     // Attack damage upgrade
     const damageUpgradeBtn = this.menuOverlay?.querySelector('#increased-attack-damage-upgrade');
     if (damageUpgradeBtn) {
-      // Remove any existing listeners
-      damageUpgradeBtn.replaceWith(damageUpgradeBtn.cloneNode(true));
-      
-      // Add fresh listener
-      this.menuOverlay?.querySelector('#increased-attack-damage-upgrade')?.addEventListener('click', 
+      this.eventManager.addListener(damageUpgradeBtn as HTMLElement, 'click', 
         () => this.upgradePassiveSkill('increased-attack-damage'));
     }
     
     // Attack speed upgrade
     const speedUpgradeBtn = this.menuOverlay?.querySelector('#increased-attack-speed-upgrade');
     if (speedUpgradeBtn) {
-      // Remove any existing listeners
-      speedUpgradeBtn.replaceWith(speedUpgradeBtn.cloneNode(true));
-      
-      // Add fresh listener
-      this.menuOverlay?.querySelector('#increased-attack-speed-upgrade')?.addEventListener('click', 
+      this.eventManager.addListener(speedUpgradeBtn as HTMLElement, 'click', 
         () => this.upgradePassiveSkill('increased-attack-speed'));
     }
     
     // Life steal upgrade
     const lifeStealUpgradeBtn = this.menuOverlay?.querySelector('#life-steal-upgrade');
     if (lifeStealUpgradeBtn) {
-      // Remove any existing listeners
-      lifeStealUpgradeBtn.replaceWith(lifeStealUpgradeBtn.cloneNode(true));
-      
-      // Add fresh listener
-      this.menuOverlay?.querySelector('#life-steal-upgrade')?.addEventListener('click', 
+      this.eventManager.addListener(lifeStealUpgradeBtn as HTMLElement, 'click', 
         () => this.upgradePassiveSkill('life-steal'));
     }
   }
@@ -179,7 +184,7 @@ export class PassiveSkillMenu {
     this.ensureMenuExists();
     
     if (this.menuOverlay) {
-      console.log('Opening passive skill menu');
+      logger.debug('Opening passive skill menu');
       
       // Make sure the menu is displayed with flex
       this.menuOverlay.style.display = "flex";
@@ -191,7 +196,7 @@ export class PassiveSkillMenu {
 
       // Force a check for empty skill grid and create cards if needed
       if (!this.skillGrid || !this.skillGrid.children.length) {
-        console.log('Skill grid is empty, recreating cards');
+        logger.debug('Skill grid is empty, recreating cards');
         this.skillGrid = this.menuOverlay.querySelector(".skill-grid");
         // Clear any existing content
         if (this.skillGrid) {
@@ -199,16 +204,16 @@ export class PassiveSkillMenu {
           this.createPassiveSkillCards();
           this.setupPassiveSkillEventListeners();
         } else {
-          console.error('Skill grid not found when opening menu');
+          logger.error('Skill grid not found when opening menu');
         }
       } else {
-        console.log('Skill grid already has content:', this.skillGrid.children.length, 'children');
+        logger.debug(`Skill grid already has content: ${this.skillGrid.children.length} children`);
       }
       
       // Update content
       this.update();
     } else {
-      console.error('Menu overlay not found when trying to open');
+      logger.error('Menu overlay not found when trying to open');
     }
   }
 
@@ -224,6 +229,26 @@ export class PassiveSkillMenu {
   }
 
   /**
+   * Clean up resources when the menu is destroyed
+   */
+  destroy(): void {
+    // Clear all timeouts
+    this.timeouts.forEach(timeoutId => window.clearTimeout(timeoutId));
+    this.timeouts = [];
+    
+    // Remove all event listeners
+    this.eventManager.removeAllListeners();
+    
+    // Remove menu from DOM if it exists
+    if (this.menuOverlay && this.menuOverlay.parentNode) {
+      this.menuOverlay.parentNode.removeChild(this.menuOverlay);
+      this.menuOverlay = null;
+    }
+    
+    logger.debug('PassiveSkillMenu destroyed and resources cleaned up');
+  }
+
+  /**
    * Reset the skill menu to initial state
    */
   reset(): void {
@@ -236,7 +261,14 @@ export class PassiveSkillMenu {
     this.player = this.game.player;
     this.levelSystem = this.game.levelSystem;
     
-    console.log('Reset called - about to load saved skills');
+    logger.debug('Reset called - about to load saved skills');
+    
+    // Clear all timeouts before creating new ones
+    this.timeouts.forEach(timeoutId => window.clearTimeout(timeoutId));
+    this.timeouts = [];
+    
+    // Remove all existing event listeners
+    this.eventManager.removeAllListeners();
     
     // Do NOT reset skill values, keep the existing ones
     // Load saved skills to restore upgrades without resetting values first
@@ -248,7 +280,7 @@ export class PassiveSkillMenu {
     // Update UI
     this.update();
     
-    console.log('Passive skill menu reset completed');
+    logger.debug('Passive skill menu reset completed');
   }
 
   /**
@@ -261,78 +293,34 @@ export class PassiveSkillMenu {
     }
     
     if (!this.skillGrid) {
-      console.error("Could not find skill grid in passive skill menu");
+      logger.error("Could not find skill grid in passive skill menu");
       return;
     }
     
-    console.log('Creating passive skill cards...');
+    logger.debug('Creating passive skill cards...');
     
-    // First try to load existing values from storage
-    const savedSkills = loadPassiveSkills();
-    console.log('Loaded saved skills for card creation:', savedSkills);
+    // Get all skills from the model
+    const allSkills = passiveSkillModel.getAllSkills();
+    logger.debug('Loaded skills from model for card creation:', allSkills);
 
-    // Increased Attack Damage - get saved value if exists
-    let damageValue = '+0%';
-    if (savedSkills['increased-attack-damage-value']) {
-      damageValue = savedSkills['increased-attack-damage-value'];
-    }
-    
-    this.createSkillCard(
-      "increased-attack-damage",
-      "Increased Attack Damage",
-      "Increases the player's attack damage.",
-      [
-        {
-          name: "Damage",
-          id: "increased-attack-damage-value",
-          value: damageValue,
-        },
-      ]
-    );
-
-    // Increased Attack Speed - get saved value if exists
-    let speedValue = '+0%';
-    if (savedSkills['increased-attack-speed-value']) {
-      speedValue = savedSkills['increased-attack-speed-value'];
-    }
-    
-    this.createSkillCard(
-      "increased-attack-speed",
-      "Increased Attack Speed",
-      "Increases the player's attack speed.",
-      [
-        {
-          name: "Attack Speed",
-          id: "increased-attack-speed-value",
-          value: speedValue,
-        },
-      ]
-    );
-
-    // Life Steal - get saved value if exists
-    let lifeStealValue = '+0%';
-    if (savedSkills['life-steal-value']) {
-      lifeStealValue = savedSkills['life-steal-value'];
-    }
-    
-    this.createSkillCard(
-      "life-steal",
-      "Life Steal",
-      "Grants the player life steal on hit.",
-      [
-        {
-          name: "Life Steal",
-          id: "life-steal-value",
-          value: lifeStealValue,
-        },
-      ]
-    );
-    
-    console.log('Passive skill cards created with values:', {
-      damage: damageValue,
-      speed: speedValue,
-      lifeSteal: lifeStealValue
+    // Create a card for each skill from the model
+    allSkills.forEach(skill => {
+      this.createSkillCard(
+        skill.id,
+        skill.name,
+        skill.description,
+        [
+          {
+            name: skill.id === 'increased-attack-damage' ? 'Damage' : 
+                  skill.id === 'increased-attack-speed' ? 'Attack Speed' : 'Life Steal',
+            id: `${skill.id}-value`,
+            value: skill.displayValue,
+          },
+        ]
+      );
     });
+    
+    logger.debug('Passive skill cards created');
   }
 
   /**
@@ -396,7 +384,7 @@ export class PassiveSkillMenu {
     this.skillGrid.appendChild(card);
     
     // Log for debugging
-    console.log(`Skill card '${id}' added to grid`, this.skillGrid);
+    logger.debug(`Skill card '${id}' added to grid`);
   }
 
   /**
@@ -419,14 +407,32 @@ export class PassiveSkillMenu {
         availablePoints = this.levelSystem.kills;
       }
       
-      console.log('Updating kill points display:', availablePoints);
+      logger.debug('Updating kill points display:', availablePoints);
       this.killPointsDisplay.textContent = availablePoints.toString();
     } else {
-      console.error('Kill points display element not found');  
+      logger.error('Kill points display element not found');  
     }
+    
+    // Update skill values in UI from the model
+    this.updateSkillValuesFromModel();
     
     // Update button states based on available kill points
     this.updateButtonStates();
+  }
+
+  /**
+   * Update UI values from the model to ensure they're in sync
+   */
+  updateSkillValuesFromModel(): void {
+    // Update UI elements with values from the model
+    const allSkills = passiveSkillModel.getAllSkills();
+    
+    allSkills.forEach(skill => {
+      const valueElement = document.getElementById(`${skill.id}-value`);
+      if (valueElement) {
+        valueElement.textContent = skill.displayValue;
+      }
+    });
   }
   
   /**
@@ -435,17 +441,17 @@ export class PassiveSkillMenu {
   updateButtonStates(): void {
     // Get available points safely
     const availablePoints = this.levelSystem?.kills || 0;
-    console.log('Updating button states based on points:', availablePoints);
+    logger.debug('Updating button states based on points:', availablePoints);
     
     // Find buttons specifically within our menu
     const buttons = this.menuOverlay?.querySelectorAll('.skill-upgrade-btn');
     
     if (!buttons || buttons.length === 0) {
-      console.error('No skill buttons found in the menu');
+      logger.error('No skill buttons found in the menu');
       return;
     }
     
-    console.log('Found', buttons.length, 'skill buttons');
+    logger.debug(`Found ${buttons.length} skill buttons`);
     
     buttons.forEach((button) => {
       const buttonElement = button as HTMLButtonElement;
@@ -464,7 +470,7 @@ export class PassiveSkillMenu {
    * @param skillId - ID of the skill to upgrade
    */
   upgradePassiveSkill(skillId: string): void {
-    console.log(`Attempting to upgrade skill: ${skillId}`);
+    logger.debug(`Attempting to upgrade skill: ${skillId}`);
     
     // Check if we have skill points available
     let availablePoints = 0;
@@ -474,13 +480,13 @@ export class PassiveSkillMenu {
       // We're in game over state
       availablePoints = this.game.availableKillPoints;
       if (availablePoints <= 0) {
-        console.log('No skill points available');
+        logger.debug('No skill points available');
         return;
       }
       
       // Decrease available kill points in the game
       this.game.availableKillPoints = availablePoints - 1;
-      console.log(`Reduced skill points from ${availablePoints} to ${this.game.availableKillPoints}`);
+      logger.debug(`Reduced skill points from ${availablePoints} to ${this.game.availableKillPoints}`);
       
       // Also update levelSystem if it exists for consistency
       if (this.levelSystem) {
@@ -490,62 +496,24 @@ export class PassiveSkillMenu {
       // Normal gameplay state
       availablePoints = this.levelSystem.kills || 0;
       if (availablePoints <= 0) {
-        console.log('No skill points available');
+        logger.debug('No skill points available');
         return;
       }
       
       // Decrease available kill points
       this.levelSystem.kills = availablePoints - 1;
-      console.log(`Reduced skill points from ${availablePoints} to ${this.levelSystem.kills}`);
+      logger.debug(`Reduced skill points from ${availablePoints} to ${this.levelSystem.kills}`);
     } else {
-      console.log('No source for skill points found');
+      logger.debug('No source for skill points found');
       return;
     }
     
-    // Update the skill value based on ID
-    let valueElement: HTMLElement | null = null;
-    let newValue = 0;
-    
-    switch (skillId) {
-      case 'increased-attack-damage':
-        valueElement = document.getElementById('increased-attack-damage-value');
-        // Get current value and increase by 10%
-        if (valueElement) {
-          const currentValueMatch = valueElement.textContent?.match(/\+(\d+)%/);
-          const currentValue = currentValueMatch ? parseInt(currentValueMatch[1], 10) : 0;
-          newValue = currentValue + 10; // +10% per upgrade
-          valueElement.textContent = `+${newValue}%`;
-        }
-        break;
-        
-      case 'increased-attack-speed':
-        valueElement = document.getElementById('increased-attack-speed-value');
-        // Get current value and increase by 10%
-        if (valueElement) {
-          const currentValueMatch = valueElement.textContent?.match(/\+(\d+)%/);
-          const currentValue = currentValueMatch ? parseInt(currentValueMatch[1], 10) : 0;
-          newValue = currentValue + 10; // +10% per upgrade
-          valueElement.textContent = `+${newValue}%`;
-        }
-        break;
-        
-      case 'life-steal':
-        valueElement = document.getElementById('life-steal-value');
-        // Get current value and increase by 5%
-        if (valueElement) {
-          const currentValueMatch = valueElement.textContent?.match(/\+(\d+)%/);
-          const currentValue = currentValueMatch ? parseInt(currentValueMatch[1], 10) : 0;
-          newValue = currentValue + 5; // +5% per upgrade
-          valueElement.textContent = `+${newValue}%`;
-        }
-        break;
-    }
+    // Upgrade the skill in the model
+    passiveSkillModel.upgradeSkill(skillId);
     
     // Update UI
+    this.updateSkillValuesFromModel();
     this.update();
-    
-    // Save skills to persist across sessions
-    this.saveSkills();
     
     // Apply the upgrades to the player immediately if game is active
     if (this.game.isRunning()) {
@@ -557,75 +525,36 @@ export class PassiveSkillMenu {
    * Load saved passive skills from storage
    */
   loadSavedSkills(): void {
-    const savedSkills = loadPassiveSkills();
-    console.log('Loading saved passive skills into UI elements');
+    logger.debug('Loading saved passive skills into model and UI');
     
-    // Apply saved values to the UI elements
-    if (savedSkills['increased-attack-damage-value']) {
-      const damageElement = document.getElementById('increased-attack-damage-value');
-      if (damageElement) {
-        damageElement.textContent = savedSkills['increased-attack-damage-value'];
-        console.log(`Set damage UI element to: ${savedSkills['increased-attack-damage-value']}`);
-      }
-    }
-    
-    if (savedSkills['increased-attack-speed-value']) {
-      const speedElement = document.getElementById('increased-attack-speed-value');
-      if (speedElement) {
-        speedElement.textContent = savedSkills['increased-attack-speed-value'];
-        console.log(`Set speed UI element to: ${savedSkills['increased-attack-speed-value']}`);
-      }
-    }
-    
-    if (savedSkills['life-steal-value']) {
-      const lifeStealElement = document.getElementById('life-steal-value');
-      if (lifeStealElement) {
-        lifeStealElement.textContent = savedSkills['life-steal-value'];
-        console.log(`Set life steal UI element to: ${savedSkills['life-steal-value']}`);
-      }
-    }
+    // Model handles loading from storage itself
+    // Just need to make sure UI is up to date
+    this.updateSkillValuesFromModel();
     
     // Apply the loaded skills to the player immediately
     if (this.game) {
       // Ensure the UI elements have been properly updated before applying the skills
-      setTimeout(() => {
-        console.log('About to apply loaded passive skills to player');
+      // Store timeout ID for later cleanup
+      const timeoutId = window.setTimeout(() => {
+        logger.debug('About to apply loaded passive skills to player');
         this.game.applyPurchasedPassiveSkills();
-        console.log('Successfully applied all passive skills from storage');
+        logger.debug('Successfully applied all passive skills from storage');
         
         // Force the player to log current stats
         if (this.game && this.game.logPlayerStats) {
           this.game.logPlayerStats();
         }
+        
+        // Remove timeout ID from array once executed
+        const index = this.timeouts.indexOf(timeoutId);
+        if (index !== -1) {
+          this.timeouts.splice(index, 1);
+        }
       }, 100); // Give the DOM a little time to update
+      
+      // Track timeout ID
+      this.timeouts.push(timeoutId);
     }
-  }
-  
-  /**
-   * Save all passive skills to storage
-   */
-  saveSkills(): void {
-    const skillData: Record<string, string> = {};
-    
-    // Collect all skill values
-    const damageElement = document.getElementById('increased-attack-damage-value');
-    const speedElement = document.getElementById('increased-attack-speed-value');
-    const lifeStealElement = document.getElementById('life-steal-value');
-    
-    if (damageElement && damageElement.textContent) {
-      skillData['increased-attack-damage-value'] = damageElement.textContent;
-    }
-    
-    if (speedElement && speedElement.textContent) {
-      skillData['increased-attack-speed-value'] = speedElement.textContent;
-    }
-    
-    if (lifeStealElement && lifeStealElement.textContent) {
-      skillData['life-steal-value'] = lifeStealElement.textContent;
-    }
-    
-    // Save to storage
-    savePassiveSkills(skillData);
   }
 }
 

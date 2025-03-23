@@ -1,18 +1,23 @@
 import { Game } from "./game/game";
 import { GameEvents, EVENTS } from "./utils/event-system";
+import { createLogger } from "./utils/logger";
+import "./utils/init"; // Initialize game settings
+
+// Create a logger for the main module
+const logger = createLogger('Main');
 
 /**
  * Main entry point for the Vampire Survival Game
  * Initializes the game and starts it
  */
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("Initializing Vampire Survival Game...");
+  logger.info("Initializing Vampire Survival Game...");
 
   // Get the game container
   const gameContainer = document.getElementById("game-container");
 
   if (!gameContainer) {
-    console.error("Game container not found!");
+    logger.error("Game container not found!");
     return;
   }
 
@@ -30,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
     (window as any).vampireGame = game;
   }
 
-  console.log("Vampire Survival Game initialized successfully!");
+  logger.info("Vampire Survival Game initialized successfully!");
 });
 
 /**
@@ -39,33 +44,28 @@ document.addEventListener("DOMContentLoaded", () => {
 function setupEventListeners(): void {
   // Game state events
   GameEvents.on(EVENTS.GAME_INIT, () => {
-    console.log("Game initialized");
+    logger.info("Game initialized");
   });
 
   GameEvents.on(EVENTS.GAME_START, () => {
-    console.log("Game started");
+    logger.info("Game started");
   });
 
   GameEvents.on(EVENTS.GAME_OVER, () => {
-    console.log("Game over");
+    logger.info("Game over");
   });
 
   // Player events
   GameEvents.on(EVENTS.PLAYER_LEVEL_UP, (level: number) => {
-    console.log(`Player leveled up to ${level}`);
+    logger.info(`Player leveled up to ${level}`);
   });
 
-  // In production, we would remove these console logs
-  if (process.env.NODE_ENV === "production") {
-    // Disable excessive logging in production
-    console.log = () => {};
-    console.debug = () => {};
-  }
+  // No need to manually disable logs - our logger utility handles this based on log level
 }
 
 // Handle unhandled errors
 window.addEventListener("error", function (event) {
-  console.error("Unhandled error:", event.error);
+  logger.error("Unhandled error:", event.error);
 
   // In a production app, we might want to report this to an error tracking service
   // like Sentry or LogRocket

@@ -1,6 +1,10 @@
 /**
  * Utility functions for saving and loading persistent game data
  */
+import { createLogger } from "./logger";
+
+// Create a logger for the persistence module
+const logger = createLogger('Persistence');
 
 /**
  * Save passive skill data to local storage
@@ -9,9 +13,9 @@
 export const savePassiveSkills = (skillData: Record<string, string>): void => {
   try {
     localStorage.setItem('vampireSurvival_passiveSkills', JSON.stringify(skillData));
-    console.log('Saved passive skills:', skillData);
+    logger.debug('Saved passive skills:', skillData);
   } catch (error) {
-    console.error('Failed to save passive skills:', error);
+    logger.error('Failed to save passive skills:', error);
   }
 };
 
@@ -24,11 +28,11 @@ export const loadPassiveSkills = (): Record<string, string> => {
     const savedData = localStorage.getItem('vampireSurvival_passiveSkills');
     if (savedData) {
       const parsedData = JSON.parse(savedData);
-      console.log('Loaded passive skills from storage:', parsedData);
+      logger.debug('Loaded passive skills from storage:', parsedData);
       return parsedData;
     }
   } catch (error) {
-    console.error('Failed to load passive skills:', error);
+    logger.error('Failed to load passive skills:', error);
   }
   return {};
 };
@@ -39,8 +43,8 @@ export const loadPassiveSkills = (): Record<string, string> => {
 export const clearPassiveSkills = (): void => {
   try {
     localStorage.removeItem('vampireSurvival_passiveSkills');
-    console.log('Cleared passive skills');
+    logger.debug('Cleared passive skills');
   } catch (error) {
-    console.error('Failed to clear passive skills:', error);
+    logger.error('Failed to clear passive skills:', error);
   }
 };

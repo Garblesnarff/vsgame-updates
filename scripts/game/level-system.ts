@@ -1,6 +1,10 @@
 import CONFIG from "../config";
-import { Player } from "../entities/player";
 import { GameEvents, EVENTS } from "../utils/event-system";
+import { createLogger } from "../utils/logger";
+import { IPlayer, ILevelSystem } from "../types/player-types";
+
+// Create a logger for the LevelSystem class
+const logger = createLogger('LevelSystem');
 
 /**
  * Type for level up callback function
@@ -8,19 +12,11 @@ import { GameEvents, EVENTS } from "../utils/event-system";
 type LevelUpCallback = (level: number) => void;
 
 /**
- * Type augmentation for Player to make TypeScript happy
- */
-interface ExtendedPlayer extends Omit<Player, 'levelSystem'> {
-  levelSystem?: any;
-  setLevelSystem: (levelSystem: LevelSystem) => void; // Make this required, not optional
-}
-
-/**
  * Level System
  * Manages player level progression, experience, and level-up events
  */
-export class LevelSystem {
-  player: ExtendedPlayer;
+export class LevelSystem implements ILevelSystem {
+  player: IPlayer;
   level: number;
   kills: number;
   killsToNextLevel: number;
@@ -30,8 +26,8 @@ export class LevelSystem {
  * Create a new level system
  * @param player - The player associated with this level system
  */
-constructor(player: Player) {
-  this.player = player as ExtendedPlayer;
+constructor(player: IPlayer) {
+  this.player = player;
   this.level = 1;
   this.kills = 0;
   this.killsToNextLevel = CONFIG.LEVEL.KILLS_FOR_LEVELS[1];
@@ -43,12 +39,12 @@ constructor(player: Player) {
   }
   
   // Set the level system reference on the player
-  if ((player as any).setLevelSystem) {
-    (player as any).setLevelSystem(this);
-  }
+  this.player.setLevelSystem(this);
   
   // Subscribe to kill events
   this.setupEventListeners();
+  
+  logger.debug(`LevelSystem initialized for player. Starting level: ${this.level}`);
 }
   
   /**

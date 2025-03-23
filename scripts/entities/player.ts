@@ -4,44 +4,17 @@ import { GameEvents, EVENTS } from "../utils/event-system";
 import { Game } from "../game/game";
 import { LevelSystem } from "../game/level-system";
 import { StatsComponent } from "../ecs/components/StatsComponent";
+import { createLogger } from "../utils/logger";
+import { IPlayer, AutoAttack, ProjectileOptions } from "../types/player-types";
 
-/**
- * Interface for auto attack configuration
- */
-interface AutoAttack {
-  enabled: boolean;
-  cooldown: number;
-  originalCooldown?: number; // Store original cooldown for attack speed calculations
-  lastFired: number;
-  damage: number;
-  range: number;
-  level: number;
-  maxLevel: number;
-}
-
-/**
- * Interface for projectile creation options
- */
-interface ProjectileOptions {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  damage: number;
-  isAutoAttack: boolean;
-  isBloodLance?: boolean;
-  pierce?: number;
-  pierceCount?: number;
-  healAmount?: number;
-  hitEnemies?: Set<string>;
-  className?: string;
-  angle?: number;
-}
+// Create a logger for the Player class
+const logger = createLogger('Player');
 
 /**
  * Player class representing the main character in the game
+ * Implements IPlayer interface for type safety
  */
-export class Player {
+export class Player implements IPlayer {
   level: number;
   kills: number;
   
@@ -80,7 +53,7 @@ export class Player {
 
   // DOM element
   element: HTMLElement | null;
-  levelSystem: any;
+  levelSystem: LevelSystem | null = null;
 
   /**
    * Create a new player
@@ -304,7 +277,7 @@ export class Player {
     const timeSinceLastFired = now - this.autoAttack.lastFired;
     const cooldown = this.autoAttack.cooldown;
     
-    console.log(`Attempting to fire auto-projectile. Time since last: ${timeSinceLastFired}ms, Cooldown: ${cooldown}ms`);
+    logger.debug(`Attempting to fire auto-projectile. Time since last: ${timeSinceLastFired}ms, Cooldown: ${cooldown}ms`);
     
     if (timeSinceLastFired < cooldown) {
       return false;
@@ -319,7 +292,7 @@ export class Player {
     );
 
     // Create projectile
-    console.log(`Firing auto-projectile at enemy`);
+    logger.debug(`Firing auto-projectile at enemy`);
     createProjectile({
       x: this.x + this.width / 2,
       y: this.y + this.height / 2,
