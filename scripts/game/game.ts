@@ -166,18 +166,23 @@ export class Game {
    * Update auto-attack logic
    */
   updateAutoAttack(): void {
+    // First check if auto-attack is enabled
     if (!this.player.autoAttack?.enabled) {
+      console.log('Auto-attack is disabled');
       return;
     }
 
     const now = Date.now();
     const timeSinceLastFired = now - (this.player.autoAttack?.lastFired ?? 0);
-    // Apply the attack speed multiplier to the cooldown
-    const baseAutoAttackCooldown = this.player.autoAttack?.cooldown ?? Infinity;
-    const attackSpeedMultiplier = this.player.stats.getAttackSpeedMultiplier();
-    const cooldown = attackSpeedMultiplier > 0 ? baseAutoAttackCooldown / attackSpeedMultiplier : baseAutoAttackCooldown;
+    
+    // Get the cooldown directly from the player's auto-attack, don't recalculate it here
+    // The attack speed modifiers are already applied to the cooldown value during skill application
+    const cooldown = this.player.autoAttack?.cooldown ?? 800; // Default to config value if undefined
+    
+    console.log(`Auto-attack check: Time since last fired: ${timeSinceLastFired}ms, Cooldown: ${cooldown}ms`);
 
     if (timeSinceLastFired < cooldown) {
+      // Not ready to fire yet
       return;
     }
 
@@ -203,11 +208,13 @@ export class Game {
 
     // If there's an enemy in range, fire at it
     if (closestEnemy) {
+      console.log(`Firing auto-attack at enemy at distance ${closestDistance}`);
       this.player.fireAutoProjectile(
         closestEnemy,
         this.createProjectile.bind(this)
       );
-      this.player.autoAttack.lastFired = now;
+    } else {
+      console.log(`No enemies in range for auto-attack`);
     }
   }
 
@@ -458,6 +465,12 @@ export class Game {
     this.passiveSkillMenu.levelSystem = {
       kills: this.availableKillPoints
     };
+    
+    // Force the killPointsDisplay to update even before the menu is reopened
+    const skillPointsElement = document.getElementById('available-skill-points');
+    if (skillPointsElement) {
+      skillPointsElement.textContent = this.availableKillPoints.toString();
+    }
 
     // Make sure the menu exists and force recreation
     if (this.passiveSkillMenu.menuOverlay) {
@@ -500,6 +513,8 @@ export class Game {
       this.player.destroy();
     }
     this.player = new Player(this.gameContainer, this);
+    console.log('New player created. Auto-attack enabled:', this.player.autoAttack.enabled);
+    console.log('Auto-attack cooldown:', this.player.autoAttack.cooldown);
 
     // Reset level system
     this.levelSystem = new LevelSystem(this.player);
@@ -511,8 +526,12 @@ export class Game {
     });
 
     // Apply purchased passive skills - make sure this is called after player is created
-    console.log('Applying passive skills during restart');
+    console.log('Forcefully applying passive skills during restart');
     this.applyPurchasedPassiveSkills();
+    this.logPlayerStats();
+    
+    // Also ensure that saved values are loaded and reapplied
+    this.passiveSkillMenu.loadSavedSkills();
 
     // Initialize player abilities
     this.player.abilityManager.initializeUI();
@@ -563,13 +582,16 @@ export class Game {
     const increasedSpeedElement = document.getElementById('increased-attack-speed-value');
     const lifeStealElement = document.getElementById('life-steal-value');
     
-    // Parse values from UI if they exist (extracting numbers from strings like '+20%')
+    console.log('Getting damage element:', increasedDamageElement?.textContent);
+    console.log('Getting speed element:', increasedSpeedElement?.textContent);
+    console.log('Getting life steal element:', lifeStealElement?.textContent);
     if (increasedDamageElement) {
       const damageMatch = increasedDamageElement.textContent?.match(/\+([\d.]+)%/);
       if (damageMatch && damageMatch[1]) {
         const damagePercent = parseFloat(damageMatch[1]) / 100;
         // Apply attack power bonus - default is 1, add percentage bonus
         this.player.stats.setAttackPower(1 + damagePercent);
+        console.log(`Applied attack power: ${1 + damagePercent} (${damageMatch[1]}% bonus)`);
       }
     }
     
@@ -580,19 +602,25 @@ export class Game {
         // Apply attack speed multiplier - default is 1, add percentage bonus
         const multiplier = 1 + speedPercent;
         this.player.stats.setAttackSpeedMultiplier(multiplier);
+        console.log(`Applied attack speed multiplier: ${multiplier} (${speedMatch[1]}% bonus)`);
         
         // Also adjust the auto attack cooldown directly
         if (this.player.autoAttack) {
           // Store the original cooldown if not already stored
-          const originalCooldown = CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
-          this.player.autoAttack.originalCooldown = originalCooldown;
+          if (!this.player.autoAttack.originalCooldown) {
+            this.player.autoAttack.originalCooldown = CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
+          }
+          const originalCooldown = this.player.autoAttack.originalCooldown;
           
           // Apply the speed multiplier to reduce cooldown
           // Use a minimum cooldown value to prevent it from becoming too fast
           const newCooldown = Math.max(100, originalCooldown / multiplier);
           this.player.autoAttack.cooldown = newCooldown;
           
-          console.log(`Applied speed boost: Original cooldown: ${originalCooldown}ms, New cooldown: ${newCooldown}ms`);
+          // Reset the lastFired timestamp to allow immediate firing
+          this.player.autoAttack.lastFired = 0;
+          
+          console.log(`Applied speed boost: Original cooldown: ${originalCooldown}ms, New cooldown: ${newCooldown}ms, Multiplier: ${multiplier}`);
         }
       }
     }
@@ -603,8 +631,12 @@ export class Game {
         const lifeStealPercent = parseFloat(lifeStealMatch[1]);
         // Set life steal percentage directly
         this.player.stats.setLifeStealPercentage(lifeStealPercent);
+        console.log(`Applied life steal percentage: ${lifeStealPercent}%`);
       }
     }
+    
+    // Log the final stats
+    this.logPlayerStats();
   }
 
   /**
@@ -726,6 +758,20 @@ export class Game {
    */
   getState(): GameState {
     return this.stateManager.getCurrentState();
+  }
+
+  /**
+   * Log player stats for debugging
+   */
+  logPlayerStats(): void {
+    console.log('CURRENT PLAYER STATS:');
+    console.log(`- Attack Power: ${this.player.stats.getAttackPower()}`);
+    console.log(`- Attack Speed Multiplier: ${this.player.stats.getAttackSpeedMultiplier()}`);
+    console.log(`- Life Steal Percentage: ${this.player.stats.getLifeStealPercentage()}%`);
+    if (this.player.autoAttack) {
+      console.log(`- Auto Attack Cooldown: ${this.player.autoAttack.cooldown}ms`);
+      console.log(`- Auto Attack Enabled: ${this.player.autoAttack.enabled}`);
+    }
   }
 
    /**

@@ -132,7 +132,7 @@ export class Player {
       enabled: CONFIG.ABILITIES.AUTO_ATTACK.ENABLED,
       cooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN,
       originalCooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN, // Store original value
-      lastFired: 0,
+      lastFired: 0, // Initialize to 0 to allow immediate firing
       damage: CONFIG.ABILITIES.AUTO_ATTACK.DAMAGE,
       range: CONFIG.ABILITIES.AUTO_ATTACK.RANGE,
       level: 1,
@@ -281,7 +281,7 @@ export class Player {
       y: this.y + this.height / 2,
       vx: Math.cos(angle) * this.projectileSpeed,
       vy: Math.sin(angle) * this.projectileSpeed,
-      damage: CONFIG.PLAYER.MANUAL_PROJECTILE_DAMAGE + this.stats.getAttackPower(), // Apply attack power
+      damage: CONFIG.PLAYER.MANUAL_PROJECTILE_DAMAGE * this.stats.getAttackPower(), // Apply attack power as a multiplier
       isAutoAttack: false,
     });
 
@@ -301,7 +301,12 @@ export class Player {
     const now = Date.now();
 
     // Check cooldown
-    if (now - this.autoAttack.lastFired < this.autoAttack.cooldown) {
+    const timeSinceLastFired = now - this.autoAttack.lastFired;
+    const cooldown = this.autoAttack.cooldown;
+    
+    console.log(`Attempting to fire auto-projectile. Time since last: ${timeSinceLastFired}ms, Cooldown: ${cooldown}ms`);
+    
+    if (timeSinceLastFired < cooldown) {
       return false;
     }
 
@@ -314,15 +319,17 @@ export class Player {
     );
 
     // Create projectile
+    console.log(`Firing auto-projectile at enemy`);
     createProjectile({
       x: this.x + this.width / 2,
       y: this.y + this.height / 2,
       vx: Math.cos(angle) * this.projectileSpeed,
       vy: Math.sin(angle) * this.projectileSpeed,
-      damage: this.autoAttack.damage + this.stats.getAttackPower(), // Apply attack power
+      damage: this.autoAttack.damage * this.stats.getAttackPower(), // Apply attack power as a multiplier
       isAutoAttack: true,
     });
 
+    // Update last fired timestamp
     this.autoAttack.lastFired = now;
     return true;
   }

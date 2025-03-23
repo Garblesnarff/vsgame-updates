@@ -24,7 +24,7 @@ export const loadPassiveSkills = (): Record<string, string> => {
     const savedData = localStorage.getItem('vampireSurvival_passiveSkills');
     if (savedData) {
       const parsedData = JSON.parse(savedData);
-      console.log('Loaded passive skills:', parsedData);
+      console.log('Loaded passive skills from storage:', parsedData);
       return parsedData;
     }
   } catch (error) {

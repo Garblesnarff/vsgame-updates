@@ -57,13 +57,21 @@ export class PassiveSkillMenu {
       this.menuOverlay = document.createElement("div");
       this.menuOverlay.id = "passive-skill-menu-overlay";
       this.menuOverlay.className = "skill-menu-overlay passive-skill-menu-overlay";
+      
+      // Get the correct initial points value
+      let initialPoints = 0;
+      if (this.game && this.game.availableKillPoints !== undefined) {
+        initialPoints = this.game.availableKillPoints;
+      } else if (this.levelSystem && this.levelSystem.kills !== undefined) {
+        initialPoints = this.levelSystem.kills;
+      }
 
       this.menuOverlay.innerHTML = `
                 <div class="skill-menu">
                     <div class="skill-menu-header">
                         <h2>Passive Skills</h2>
                         <div class="skill-points-display">
-                            Available Skill Points: <span id="available-skill-points">0</span>
+                            Available Skill Points: <span id="available-skill-points">${initialPoints}</span>
                         </div>
                         <button class="skill-menu-close" id="skill-menu-close">Close</button>
                     </div>
@@ -177,6 +185,9 @@ export class PassiveSkillMenu {
       this.menuOverlay.style.display = "flex";
       this.player.showingSkillMenu = true;
       this.isOpen = true;
+      
+      // Immediately update the kill points display when opening
+      this.update();
 
       // Force a check for empty skill grid and create cards if needed
       if (!this.skillGrid || !this.skillGrid.children.length) {
@@ -225,9 +236,10 @@ export class PassiveSkillMenu {
     this.player = this.game.player;
     this.levelSystem = this.game.levelSystem;
     
+    console.log('Reset called - about to load saved skills');
+    
     // Do NOT reset skill values, keep the existing ones
     // Load saved skills to restore upgrades without resetting values first
-    console.log('Loading saved skills during reset');
     this.loadSavedSkills();
     
     // Re-initialize event listeners
@@ -235,6 +247,8 @@ export class PassiveSkillMenu {
     
     // Update UI
     this.update();
+    
+    console.log('Passive skill menu reset completed');
   }
 
   /**
@@ -250,8 +264,19 @@ export class PassiveSkillMenu {
       console.error("Could not find skill grid in passive skill menu");
       return;
     }
+    
+    console.log('Creating passive skill cards...');
+    
+    // First try to load existing values from storage
+    const savedSkills = loadPassiveSkills();
+    console.log('Loaded saved skills for card creation:', savedSkills);
 
-    // Increased Attack Damage
+    // Increased Attack Damage - get saved value if exists
+    let damageValue = '+0%';
+    if (savedSkills['increased-attack-damage-value']) {
+      damageValue = savedSkills['increased-attack-damage-value'];
+    }
+    
     this.createSkillCard(
       "increased-attack-damage",
       "Increased Attack Damage",
@@ -260,12 +285,17 @@ export class PassiveSkillMenu {
         {
           name: "Damage",
           id: "increased-attack-damage-value",
-          value: "+0%",
+          value: damageValue,
         },
       ]
     );
 
-    // Increased Attack Speed
+    // Increased Attack Speed - get saved value if exists
+    let speedValue = '+0%';
+    if (savedSkills['increased-attack-speed-value']) {
+      speedValue = savedSkills['increased-attack-speed-value'];
+    }
+    
     this.createSkillCard(
       "increased-attack-speed",
       "Increased Attack Speed",
@@ -274,12 +304,17 @@ export class PassiveSkillMenu {
         {
           name: "Attack Speed",
           id: "increased-attack-speed-value",
-          value: "+0%",
+          value: speedValue,
         },
       ]
     );
 
-    // Life Steal
+    // Life Steal - get saved value if exists
+    let lifeStealValue = '+0%';
+    if (savedSkills['life-steal-value']) {
+      lifeStealValue = savedSkills['life-steal-value'];
+    }
+    
     this.createSkillCard(
       "life-steal",
       "Life Steal",
@@ -288,10 +323,16 @@ export class PassiveSkillMenu {
         {
           name: "Life Steal",
           id: "life-steal-value",
-          value: "+0%",
+          value: lifeStealValue,
         },
       ]
     );
+    
+    console.log('Passive skill cards created with values:', {
+      damage: damageValue,
+      speed: speedValue,
+      lifeSteal: lifeStealValue
+    });
   }
 
   /**
@@ -363,14 +404,25 @@ export class PassiveSkillMenu {
    */
   update(): void {
     // Update available kill points
+    // Always refresh the reference to ensure we have the latest element
+    this.killPointsDisplay = document.getElementById('available-skill-points');
+    
     if (this.killPointsDisplay) {
-      // Get the kill points from the level system
-      const availablePoints = this.levelSystem?.kills || 0;
+      // Get the kill points from the level system or from the game's availableKillPoints
+      let availablePoints = 0;
+      
+      // If we're in game over state, use the game's availableKillPoints
+      if (this.game && this.game.availableKillPoints !== undefined) {
+        availablePoints = this.game.availableKillPoints;
+      } else if (this.levelSystem && this.levelSystem.kills !== undefined) {
+        // Otherwise use the levelSystem kills
+        availablePoints = this.levelSystem.kills;
+      }
       
       console.log('Updating kill points display:', availablePoints);
       this.killPointsDisplay.textContent = availablePoints.toString();
     } else {
-      console.error('Kill points display element not found');
+      console.error('Kill points display element not found');  
     }
     
     // Update button states based on available kill points
@@ -414,17 +466,40 @@ export class PassiveSkillMenu {
   upgradePassiveSkill(skillId: string): void {
     console.log(`Attempting to upgrade skill: ${skillId}`);
     
-    // Check if we have kill points available (safely)
-    const availablePoints = this.levelSystem?.kills || 0;
-    if (availablePoints <= 0) {
-      console.log('No skill points available');
-      return;
-    }
+    // Check if we have skill points available
+    let availablePoints = 0;
     
-    // Decrease available kill points
-    if (this.levelSystem) {
+    // Determine where to get/update the points from
+    if (this.game && this.game.availableKillPoints !== undefined) {
+      // We're in game over state
+      availablePoints = this.game.availableKillPoints;
+      if (availablePoints <= 0) {
+        console.log('No skill points available');
+        return;
+      }
+      
+      // Decrease available kill points in the game
+      this.game.availableKillPoints = availablePoints - 1;
+      console.log(`Reduced skill points from ${availablePoints} to ${this.game.availableKillPoints}`);
+      
+      // Also update levelSystem if it exists for consistency
+      if (this.levelSystem) {
+        this.levelSystem.kills = this.game.availableKillPoints;
+      }
+    } else if (this.levelSystem) {
+      // Normal gameplay state
+      availablePoints = this.levelSystem.kills || 0;
+      if (availablePoints <= 0) {
+        console.log('No skill points available');
+        return;
+      }
+      
+      // Decrease available kill points
       this.levelSystem.kills = availablePoints - 1;
       console.log(`Reduced skill points from ${availablePoints} to ${this.levelSystem.kills}`);
+    } else {
+      console.log('No source for skill points found');
+      return;
     }
     
     // Update the skill value based on ID
@@ -483,13 +558,14 @@ export class PassiveSkillMenu {
    */
   loadSavedSkills(): void {
     const savedSkills = loadPassiveSkills();
-    console.log('Loading saved passive skills');
+    console.log('Loading saved passive skills into UI elements');
     
     // Apply saved values to the UI elements
     if (savedSkills['increased-attack-damage-value']) {
       const damageElement = document.getElementById('increased-attack-damage-value');
       if (damageElement) {
         damageElement.textContent = savedSkills['increased-attack-damage-value'];
+        console.log(`Set damage UI element to: ${savedSkills['increased-attack-damage-value']}`);
       }
     }
     
@@ -497,6 +573,7 @@ export class PassiveSkillMenu {
       const speedElement = document.getElementById('increased-attack-speed-value');
       if (speedElement) {
         speedElement.textContent = savedSkills['increased-attack-speed-value'];
+        console.log(`Set speed UI element to: ${savedSkills['increased-attack-speed-value']}`);
       }
     }
     
@@ -504,12 +581,23 @@ export class PassiveSkillMenu {
       const lifeStealElement = document.getElementById('life-steal-value');
       if (lifeStealElement) {
         lifeStealElement.textContent = savedSkills['life-steal-value'];
+        console.log(`Set life steal UI element to: ${savedSkills['life-steal-value']}`);
       }
     }
     
-    // Apply the loaded skills to the player
+    // Apply the loaded skills to the player immediately
     if (this.game) {
-      this.game.applyPurchasedPassiveSkills();
+      // Ensure the UI elements have been properly updated before applying the skills
+      setTimeout(() => {
+        console.log('About to apply loaded passive skills to player');
+        this.game.applyPurchasedPassiveSkills();
+        console.log('Successfully applied all passive skills from storage');
+        
+        // Force the player to log current stats
+        if (this.game && this.game.logPlayerStats) {
+          this.game.logPlayerStats();
+        }
+      }, 100); // Give the DOM a little time to update
     }
   }
   
