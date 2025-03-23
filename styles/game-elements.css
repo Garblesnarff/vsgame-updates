@@ -1,0 +1,174 @@
+/* Player */
+.player {
+    position: absolute;
+    width: 30px;
+    height: 40px;
+    background-color: #800080;
+    border-radius: 50% 50% 0 0;
+}
+
+/* Base Enemy */
+.enemy {
+    position: absolute;
+    width: 25px;
+    height: 25px;
+    background-color: #cc0000;
+    border-radius: 5px;
+}
+
+.enemy-health-container {
+    position: absolute;
+    width: 25px;
+    height: 3px;
+    background-color: #333;
+    top: -7px;
+    left: 0;
+}
+
+.enemy-health-bar {
+    height: 100%;
+    width: 100%;
+    background-color: #00cc00;
+}
+
+.basic-enemy {
+    position: absolute;
+    width: 25px;
+    height: 25px;
+    background-color: #cc0000;
+    border-radius: 5px;
+}
+
+/* Vampire Hunter Enemy */
+.vampire-hunter {
+    background-color: #a05000;
+    border-radius: 0;
+}
+
+.hunter-indicator {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    background-color: #ffcc00;
+    border-radius: 50%;
+}
+
+.hunter-aiming {
+    border: 2px solid #ffcc00;
+    box-sizing: border-box;
+}
+
+/* Fast Swarmer Enemy */
+.fast-swarmer {
+    background-color: #00cc00;
+    border-radius: 50%;
+    /* Smaller size set in JS */
+}
+
+.fast-swarmer-burst {
+    box-shadow: 0 0 10px #00ff00;
+}
+
+/* Tanky Brute Enemy */
+.tanky-brute {
+    background-color: #6a0dad;
+    border-radius: 5px;
+    /* Larger size set in JS */
+}
+
+.brute-crown {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50%;
+    height: 7px;
+    background-color: #ffcc00;
+}
+
+.brute-charging {
+    background-color: #8a2be2;
+    border: 3px solid red;
+    box-sizing: border-box;
+}
+
+.slam-effect {
+    position: absolute;
+    border-radius: 50%;
+    border: 3px solid #ff0000;
+    background-color: rgba(255, 0, 0, 0.2);
+    width: 10px;
+    height: 10px;
+    transition: all 0.3s ease-out;
+    z-index: 5;
+    pointer-events: none;
+}
+
+/* Enemy projectile */
+.enemy-projectile {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: #ffcc00;
+    border-radius: 50%;
+}
+
+/* Dodge effect indicator */
+.dodge-indicator {
+    position: absolute;
+    color: #ffff00;
+    font-size: 12px;
+    font-weight: bold;
+    pointer-events: none;
+    transition: all 0.5s ease-out;
+}
+
+.enemy-health-container {
+    position: absolute;
+    width: 25px;
+    height: 3px;
+    background-color: #333;
+    top: -7px;
+    left: 0;
+}
+
+/* Projectiles */
+.projectile {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: #660066;
+    border-radius: 50%;
+}
+
+/* Particle Effects */
+.blood-particle {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    background-color: #ff0000;
+    border-radius: 50%;
+    opacity: 0.8;
+}
+
+.shadow-trail {
+    position: absolute;
+    width: 20px;
+    height: 30px;
+    background-color: rgba(128, 0, 128, 0.3);
+    border-radius: 50% 50% 0 0;
+    pointer-events: none;
+}
+
+/* Bat ability */
+.bat {
+    position: absolute;
+    width: 10px;
+    height: 5px;
+    background-color: #800080;
+    border-radius: 5px;
+    transform-origin: center;
+}

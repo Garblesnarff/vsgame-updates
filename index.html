@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vampire Survival Game</title>
+    <!-- CSS imports -->
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/game-elements.css">
+    <link rel="stylesheet" href="styles/ui.css">
+    <link rel="stylesheet" href="styles/abilities.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="stats">
+            <div class="bar-container">
+                <div id="health-bar"></div>
+            </div>
+            <div class="bar-container">
+                <div id="energy-bar"></div>
+            </div>
+            <div>Time: <span id="time">0:00</span></div>
+            <div>Level: <span id="level">1</span></div>
+            <div>Kills: <span id="kills">0 / 10</span></div>
+        </div>
+        <div id="skill-points" class="skill-points">
+            Skill Points: <span id="skill-points-count">0</span>
+        </div>
+        <div id="abilities">
+            <!-- Ability icons will be dynamically generated -->
+        </div>
+        <div id="auto-attack-toggle" class="auto-attack-toggle active">
+            Auto-Attack: ON
+        </div>
+        <div id="game-over" class="game-over">
+            GAME OVER<br>
+            <span id="final-score"></span><br>
+            Press SPACE to restart
+        </div>
+        <div id="level-up" class="level-up">
+            LEVEL UP!<br>
+            You gained a skill point!<br>
+            Press 'S' to open Skills
+        </div>
+        
+        <!-- Skill Menu Overlay -->
+        <div id="skill-menu-overlay" class="skill-menu-overlay">
+            <div class="skill-menu">
+                <div class="skill-menu-header">
+                    <h2>Vampiric Powers</h2>
+                    <div class="skill-points-display">
+                        Available Skill Points: <span id="available-skill-points">0</span>
+                    </div>
+                    <button class="skill-menu-close" id="skill-menu-close">Close</button>
+                </div>
+                
+                <div class="skill-grid">
+                    <!-- Skill cards will be dynamically generated -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript modules -->
+    <script type="module" src="scripts/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+{
+    "tags": {
+      "allowUnknownTags": true,
+      "dictionaries": ["jsdoc", "closure"]
+    },
+    "source": {
+      "include": ["scripts"],
+      "includePattern": ".+\\.(js|ts)$",
+      "excludePattern": "(node_modules/|docs|__tests__)"
+    },
+    "plugins": [
+      "plugins/markdown",
+      "node_modules/jsdoc-tsimport-plugin"
+    ],
+    "templates": {
+      "cleverLinks": true,
+      "monospaceLinks": true,
+      "default": {
+        "outputSourceFiles": true,
+        "includeDate": false
+      }
+    },
+    "opts": {
+      "destination": "./docs/",
+      "encoding": "utf8",
+      "private": true,
+      "recurse": true,
+      "template": "node_modules/docdash",
+      "tutorials": "./tutorials"
+    },
+    "docdash": {
+      "static": true,
+      "sort": true,
+      "search": true,
+      "collapse": true,
+      "typedefs": true,
+      "removeQuotes": "none",
+      "scripts": [],
+      "menu": {
+        "Project Website": {
+          "href": "https://github.com/yourusername/vampire-survival-game",
+          "target": "_blank",
+          "class": "menu-item",
+          "id": "website_link"
+        }
+      }
+    }
+  }
