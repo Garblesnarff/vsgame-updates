@@ -2,6 +2,9 @@ import CONFIG from "../../config";
 import { GameEvents, EVENTS } from "../../utils/event-system";
 import { BaseEntity } from "../base-entity";
 import { createLogger } from "../../utils/logger";
+import { StateMachine } from "../../hsm/state-machine";
+import { IdleState, EnemyWithAI } from "./ai/enemy-states";
+import { EnemyGroup } from "./enemy-group";
 
 const logger = createLogger('Enemy');
 
@@ -13,7 +16,7 @@ export type ParticleCreationFunction = (x: number, y: number, count: number) => 
 /**
  * Base Enemy class representing monsters that attack the player
  */
-export class Enemy extends BaseEntity {
+export class Enemy extends BaseEntity implements EnemyWithAI {
   // DOM elements (element is inherited from BaseEntity)
   healthBarContainer: HTMLElement;
   healthBar: HTMLElement;
@@ -29,6 +32,27 @@ export class Enemy extends BaseEntity {
   health: number;
   maxHealth: number;
   damage: number;
+  
+  // AI properties
+  stateMachine?: StateMachine<EnemyWithAI>;
+  group?: EnemyGroup;
+  isLeader?: boolean;
+  targetPlayer?: any;
+  lastStateChange?: number;
+  lowHealthThreshold?: number;
+  fleeTime?: number;
+  isRetreating?: boolean;
+  retreatStartTime?: number;
+  retreatDuration?: number;
+  formationPosition?: { x: number, y: number };
+  role?: string;
+  attackCooldown?: number;
+  lastAttackTime?: number;
+  specialAttackCooldown?: number;
+  lastSpecialAttackTime?: number;
+  dodgeChance?: number;
+  lastDodgeTime?: number;
+  dodgeCooldown?: number;
 
   // Collision tracking
   isCollidingWithPlayer: boolean = false;
@@ -86,6 +110,17 @@ export class Enemy extends BaseEntity {
    */
   initialize(): void {
     super.initialize();
+    
+    // Initialize AI state machine
+    this.stateMachine = new StateMachine<EnemyWithAI>(this, new IdleState());
+    
+    // Set default AI properties
+    this.lowHealthThreshold = 0.2; // 20% health
+    this.retreatDuration = 3000; // 3 seconds
+    this.attackCooldown = 1000; // 1 second
+    this.dodgeChance = 0.1; // 10% chance to dodge
+    this.dodgeCooldown = 5000; // 5 seconds between dodges
+    
     logger.debug(`Enemy ${this.id} initialized: health=${this.health}, speed=${this.speed}`);
   }
   
@@ -98,8 +133,35 @@ export class Enemy extends BaseEntity {
   update(deltaTime: number, player?: any, _enemies?: Enemy[]): void {
     super.update(deltaTime);
     
+    // Update target player reference
     if (player) {
-      this.moveTowardsPlayer(player);
+      this.targetPlayer = player;
+    }
+    
+    // Update AI state machine
+    if (this.stateMachine) {
+      this.stateMachine.update(deltaTime);
+    } else {
+      // Fallback to basic behavior if no state machine
+      if (player) {
+        this.moveTowardsPlayer(player);
+      }
+    }
+    
+    // Update formation position if in a group
+    if (this.group && this.formationPosition) {
+      // Move toward formation position with a weight factor
+      const formationWeight = 0.5; // 50% influence from formation
+      
+      const dx = this.formationPosition.x - this.x;
+      const dy = this.formationPosition.y - this.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > 5) { // Only adjust if not already at position
+        this.x += (dx / dist) * this.speed * formationWeight * (deltaTime / 16);
+        this.y += (dy / dist) * this.speed * formationWeight * (deltaTime / 16);
+        this.updatePosition();
+      }
     }
   }
 
@@ -174,8 +236,48 @@ export class Enemy extends BaseEntity {
     createParticles?: ParticleCreationFunction,
     _projectileType?: string
   ): boolean {
+    // Check for dodge chance
+    if (this.dodgeChance && Math.random() < this.dodgeChance) {
+      const now = Date.now();
+      
+      // Only dodge if cooldown has elapsed
+      if (!this.lastDodgeTime || now - this.lastDodgeTime >= (this.dodgeCooldown || 5000)) {
+        this.lastDodgeTime = now;
+        
+        // Create dodge indicator
+        const dodgeText = document.createElement('div');
+        dodgeText.className = 'dodge-indicator';
+        dodgeText.textContent = 'DODGE!';
+        dodgeText.style.left = (this.x + this.width / 2) + 'px';
+        dodgeText.style.top = (this.y - 20) + 'px';
+        this.gameContainer.appendChild(dodgeText);
+        
+        // Remove dodge indicator after animation
+        setTimeout(() => {
+          if (dodgeText.parentNode) {
+            dodgeText.parentNode.removeChild(dodgeText);
+          }
+        }, 1000);
+        
+        return false;
+      }
+    }
+    
+    // Apply damage reduction if in a formation that provides it
+    let actualAmount = amount;
+    
+    // Phalanx formation damage reduction
+    if (this.element.classList.contains('phalanx-defender')) {
+      actualAmount *= 0.7; // 30% damage reduction
+    }
+    
+    // Swarm formation damage reduction
+    if (this.element.classList.contains('swarm-protection')) {
+      actualAmount *= 0.6; // 40% damage reduction
+    }
+    
     // Default implementation - subclasses can override for special damage handling
-    this.health -= amount;
+    this.health -= actualAmount;
     this.updateHealthBar();
 
     // Create blood particles at position
@@ -184,7 +286,7 @@ export class Enemy extends BaseEntity {
     }
 
     // Emit damage event
-    GameEvents.emit(EVENTS.ENEMY_DAMAGE, this, amount);
+    GameEvents.emit(EVENTS.ENEMY_DAMAGE, this, actualAmount);
 
     // Return whether the enemy died - use a small threshold to account for floating point errors
     return this.health <= 0.001;

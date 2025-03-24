@@ -9,6 +9,7 @@ import { UIManager } from "../ui/ui-manager";
 import { ParticleSystem } from "./particle-system";
 import { LevelSystem } from "./level-system";
 import { GameStateManager, defaultStateHandlers } from "./state-manager";
+import { EnemyGroupManager } from "../entities/enemies/enemy-group-manager";
 import { GameEvents, EVENTS } from "../utils/event-system";
 import CONFIG from "../config";
 import { GameState } from "../types/game-types";
@@ -43,6 +44,7 @@ export class Game {
   stateManager: GameStateManager;
   levelSystem: LevelSystem;
   passiveSkillMenu: PassiveSkillMenu;
+  enemyGroupManager: EnemyGroupManager;
 
   // Player
   player: Player;
@@ -193,9 +195,13 @@ export class Game {
     // Create level system
     this.levelSystem = new LevelSystem(this.player);
     this.player.setLevelSystem(this.levelSystem);
+    
     // Create state manager
     this.stateManager = new GameStateManager(this);
     this.stateManager.registerStates(defaultStateHandlers);
+    
+    // Create enemy group manager
+    this.enemyGroupManager = new EnemyGroupManager(this.gameContainer, this.player);
 
     // Register level up handler
     this.levelSystem.onLevelUp((_level) => {
@@ -278,6 +284,9 @@ export class Game {
     // Auto-attack
     this.updateAutoAttack();
 
+    // Update enemy groups
+    this.enemyGroupManager.update(deltaTime);
+    
     // Update enemies using lifecycle
     this.updateEnemiesLifecycle(deltaTime);
 
@@ -704,6 +713,9 @@ export class Game {
     this.gameTime = 0;
     this.spawnSystem.reset();
     this.particleSystem.reset();
+    
+    // Create a new enemy group manager
+    this.enemyGroupManager = new EnemyGroupManager(this.gameContainer, this.player);
 
     // Update UI manager with new player reference
     if (this.uiManager) {
@@ -961,6 +973,11 @@ export class Game {
    */
   cleanupEntities(): void {
     logger.info('Cleaning up all game entities');
+    
+    // Clean up enemy groups
+    if (this.enemyGroupManager) {
+      this.enemyGroupManager.cleanup();
+    }
     
     // Clean up enemies
     for (const enemy of this.enemies) {

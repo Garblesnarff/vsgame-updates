@@ -1,0 +1,322 @@
+/**
+ * Enemy Formations and Group Styles
+ */
+
+/* Group member base styles */
+.group-member {
+  position: relative;
+}
+
+.group-member::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  top: 0;
+  right: 0;
+  z-index: 10;
+}
+
+/* Group leader indicator */
+.role-leader::after {
+  background-color: gold;
+  width: 6px;
+  height: 6px;
+  box-shadow: 0 0 4px gold;
+}
+
+/* Group link styles */
+.enemy-group-link {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform-origin: left center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Formation-specific styles */
+
+/* Phalanx Formation */
+.phalanx-member {
+  border: 1px solid rgba(0, 100, 255, 0.5);
+}
+
+.phalanx-defender {
+  box-shadow: 0 0 8px rgba(0, 100, 255, 0.5);
+}
+
+/* Pincer Formation */
+.pincer-member {
+  border: 1px solid rgba(255, 100, 0, 0.5);
+}
+
+.pincer-attacking {
+  box-shadow: 0 0 8px rgba(255, 100, 0, 0.7);
+  filter: brightness(1.2);
+}
+
+/* Orbital Formation */
+.orbital-member {
+  border: 1px solid rgba(100, 255, 100, 0.5);
+}
+
+.orbital-dodge {
+  box-shadow: 0 0 8px rgba(100, 255, 100, 0.5);
+}
+
+/* Swarm Formation */
+.swarm-member {
+  border: 1px solid rgba(255, 0, 255, 0.5);
+}
+
+.swarm-protection {
+  box-shadow: 0 0 8px rgba(255, 0, 255, 0.5);
+}
+
+/* Group type styles */
+
+/* Surrounding enemies */
+.surrounding {
+  border: 1px dashed rgba(255, 255, 0, 0.5);
+}
+
+/* Protected units */
+.protected-unit {
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+}
+
+/* Bodyguard units */
+.bodyguard {
+  border: 2px solid rgba(0, 255, 255, 0.5);
+}
+
+/* Distractor units */
+.distractor {
+  border: 1px dashed rgba(255, 100, 100, 0.7);
+  animation: pulse 1s infinite alternate;
+}
+
+/* Striker units */
+.striker {
+  border: 1px solid rgba(255, 0, 0, 0.7);
+  box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+
+/* Resource drainer units */
+.resource-drainer {
+  border: 1px solid rgba(100, 100, 255, 0.7);
+  animation: drain-pulse 2s infinite;
+}
+
+/* State-specific styles */
+
+/* Idle state */
+.state-idle {
+  opacity: 0.8;
+}
+
+/* Pursue state */
+.state-pursue {
+  filter: brightness(1.1);
+}
+
+/* Attack state */
+.state-attack {
+  filter: brightness(1.2);
+}
+
+.attacking {
+  animation: attack-flash 0.3s;
+}
+
+.special-attacking {
+  animation: special-attack-flash 0.5s;
+}
+
+/* Flee state */
+.state-flee {
+  opacity: 0.7;
+  filter: brightness(0.9);
+  animation: flee-shake 0.5s infinite;
+}
+
+/* Support state */
+.state-support {
+  filter: brightness(1.1);
+  box-shadow: 0 0 8px rgba(100, 255, 100, 0.5);
+}
+
+/* Dodge state */
+.state-dodge {
+  filter: brightness(1.3);
+  animation: dodge-blur 0.5s;
+}
+
+/* Sacrifice state */
+.state-sacrifice {
+  animation: sacrifice-pulse 2s infinite;
+  filter: brightness(1.5);
+}
+
+.receiving-sacrifice {
+  filter: brightness(1.3);
+  animation: receive-sacrifice 2s infinite;
+}
+
+.sacrifice-buffed {
+  box-shadow: 0 0 12px rgba(255, 100, 0, 0.8);
+  filter: brightness(1.2);
+}
+
+.sacrifice-explosion {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,100,0,0.8) 0%, rgba(255,0,0,0.5) 50%, transparent 100%);
+  animation: explosion 1s forwards;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Dodge indicator */
+.dodge-indicator {
+  position: absolute;
+  color: #00ffff;
+  font-weight: bold;
+  font-size: 14px;
+  text-shadow: 0 0 3px #000;
+  z-index: 100;
+  pointer-events: none;
+  animation: float-up 1s forwards;
+}
+
+@keyframes float-up {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+}
+
+/* Animations */
+
+@keyframes pulse {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.3);
+  }
+}
+
+@keyframes drain-pulse {
+  0% {
+    box-shadow: 0 0 5px rgba(100, 100, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(100, 100, 255, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(100, 100, 255, 0.5);
+  }
+}
+
+@keyframes attack-flash {
+  0% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.5);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+@keyframes special-attack-flash {
+  0% {
+    filter: brightness(1);
+    box-shadow: 0 0 0px transparent;
+  }
+  50% {
+    filter: brightness(1.8);
+    box-shadow: 0 0 15px rgba(255, 100, 0, 0.8);
+  }
+  100% {
+    filter: brightness(1);
+    box-shadow: 0 0 0px transparent;
+  }
+}
+
+@keyframes flee-shake {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  50% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes dodge-blur {
+  0% {
+    filter: blur(0);
+  }
+  50% {
+    filter: blur(2px);
+  }
+  100% {
+    filter: blur(0);
+  }
+}
+
+@keyframes sacrifice-pulse {
+  0% {
+    box-shadow: 0 0 5px rgba(255, 100, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 100, 0, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(255, 100, 0, 0.5);
+  }
+}
+
+@keyframes receive-sacrifice {
+  0% {
+    box-shadow: 0 0 5px rgba(255, 200, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(255, 200, 0, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(255, 200, 0, 0.5);
+  }
+}
+
+@keyframes explosion {
+  0% {
+    transform: scale(0.1);
+    opacity: 0.8;
+  }
+  70% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}

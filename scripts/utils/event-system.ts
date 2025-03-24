@@ -389,6 +389,7 @@ export const EVENTS = {
   ENEMY_BUFF: "enemy:buff",
   ENEMY_BUFF_END: "enemy:buffEnd",
   SPAWN_SPECIAL: "spawn:special",
+  PLAYER_MARKED: "player:marked", // When player is marked by Vampire Scout
 
   // Ability events
   ABILITY_USE: "ability:use",

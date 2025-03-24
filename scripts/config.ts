@@ -25,6 +25,7 @@ interface BaseEnemyConfig {
   HEIGHT: number;
   BASE_HEALTH: number;
   BASE_DAMAGE: number;
+  BASE_SPEED: number;
 }
 
 /**
@@ -56,6 +57,24 @@ interface FastSwarmerConfig {
   DAMAGE_MULTIPLIER: number;
   DODGE_CHANCE: number;
   BURST_SPEED_MULTIPLIER: number;
+}
+
+/**
+ * Vampire Scout configuration
+ */
+interface VampireScoutConfig {
+  WIDTH: number;
+  HEIGHT: number;
+  BASE_HEALTH: number;
+  BASE_DAMAGE: number;
+  SPEED_MULTIPLIER: number;
+  DODGE_CHANCE: number;
+  MARK_RANGE: number;
+  MARK_COOLDOWN: number;
+  MARK_DURATION: number;
+  MARK_CHANNEL_TIME: number;
+  DAMAGE_BONUS: number;
+  SPEED_BONUS: number;
 }
 
 /**
@@ -94,6 +113,7 @@ interface EnemyConfig {
   VAMPIRE_HUNTER: VampireHunterConfig;
   FAST_SWARMER: FastSwarmerConfig;
   TANKY_BRUTE: TankyBruteConfig;
+  VAMPIRE_SCOUT: VampireScoutConfig;
   SPAWN_RATES: SpawnRatesConfig;
 }
 
@@ -256,6 +276,7 @@ export const CONFIG: GameConfig = {
       HEIGHT: 25,
       BASE_HEALTH: 50,
       BASE_DAMAGE: 5,
+      BASE_SPEED: 2,
     },
     // Vampire Hunter settings
     VAMPIRE_HUNTER: {
@@ -299,6 +320,21 @@ export const CONFIG: GameConfig = {
       BLOOD_LANCE_VULNERABILITY_MULTIPLIER: 1.5, // Takes extra damage from Blood Lance
     },
     // Spawn rate settings
+    // Vampire Scout settings
+    VAMPIRE_SCOUT: {
+      WIDTH: 30,
+      HEIGHT: 40,
+      BASE_HEALTH: 40,
+      BASE_DAMAGE: 3,
+      SPEED_MULTIPLIER: 2.5,
+      DODGE_CHANCE: 0.4,
+      MARK_RANGE: 300,
+      MARK_COOLDOWN: 10000,
+      MARK_DURATION: 8000,
+      MARK_CHANNEL_TIME: 1000,
+      DAMAGE_BONUS: 0.2,
+      SPEED_BONUS: 0.3
+    },
     SPAWN_RATES: {
       HUNTER_SPAWN_RATE: 7000, // 7 seconds between hunter spawns
       SWARM_SPAWN_RATE: 12000, // 12 seconds between swarm spawns
