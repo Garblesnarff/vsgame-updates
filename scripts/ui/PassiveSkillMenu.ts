@@ -5,6 +5,8 @@ import { IPlayer } from "../types/player-types";
 import { ILevelSystem } from "../types/player-types";
 import passiveSkillModel from "../models/passive-skill-model";
 import PassiveSkillMenuEventManager from "./PassiveSkillMenuEventManager";
+import stateStore from "../game/state-store";
+import { GameState } from "../types/game-types";
 
 // Create a logger for the PassiveSkillMenu class
 const logger = createLogger('PassiveSkillMenu');
@@ -150,8 +152,12 @@ export class PassiveSkillMenu {
       let initialPoints = 0;
       if (this.game && this.game.availableKillPoints !== undefined) {
         initialPoints = this.game.availableKillPoints;
+        // Update state store
+        stateStore.game.availableKillPoints.set(initialPoints);
       } else if (this.levelSystem && this.levelSystem.kills !== undefined) {
         initialPoints = this.levelSystem.kills;
+        // If using level system kills value, ensure it's in state store
+        stateStore.levelSystem.kills.set(initialPoints);
       }
 
       // Clear DOM cache when creating a new menu
@@ -275,6 +281,9 @@ export class PassiveSkillMenu {
     } else {
       this.open();
     }
+    
+    // Update state store
+    stateStore.ui.showingPassiveSkillMenu.set(this.isOpen);
   }
 
   /**
@@ -293,6 +302,9 @@ export class PassiveSkillMenu {
       this.menuOverlay.style.alignItems = "center";
       this.player.showingSkillMenu = true;
       this.isOpen = true;
+      
+      // Update state store
+      stateStore.ui.showingPassiveSkillMenu.set(true);
       
       // Update content
       this.update();
@@ -325,6 +337,9 @@ export class PassiveSkillMenu {
       this.menuOverlay.style.display = "none";
       this.player.showingSkillMenu = false;
       this.isOpen = false;
+      
+      // Update state store
+      stateStore.ui.showingPassiveSkillMenu.set(false);
     }
   }
 
@@ -476,15 +491,15 @@ export class PassiveSkillMenu {
     this.killPointsDisplay = this.getElement('#available-skill-points');
     
     if (this.killPointsDisplay) {
-      // Get the kill points from the level system or from the game's availableKillPoints
+      // Get the kill points from the state store
       let availablePoints = 0;
       
       // If we're in game over state, use the game's availableKillPoints
-      if (this.game && this.game.availableKillPoints !== undefined) {
-        availablePoints = this.game.availableKillPoints;
-      } else if (this.levelSystem && this.levelSystem.kills !== undefined) {
+      if (this.game.getState() === GameState.GAME_OVER) {
+        availablePoints = stateStore.game.availableKillPoints.get();
+      } else {
         // Otherwise use the levelSystem kills
-        availablePoints = this.levelSystem.kills;
+        availablePoints = stateStore.levelSystem.kills.get();
       }
       
       logger.debug('Updating kill points display:', availablePoints);
@@ -523,8 +538,8 @@ export class PassiveSkillMenu {
    * Update button states based on available kill points
    */
   updateButtonStates(): void {
-    // Get available points safely
-    const availablePoints = this.levelSystem?.kills || 0;
+    // Get available points from state store
+    const availablePoints = stateStore.levelSystem.kills.get();
     logger.debug('Updating button states based on points:', availablePoints);
     
     // Instead of querying all buttons every time, use our cached skills
@@ -560,40 +575,47 @@ export class PassiveSkillMenu {
   upgradePassiveSkill(skillId: string): void {
     logger.debug(`Attempting to upgrade skill: ${skillId}`);
     
-    // Check if we have skill points available
+    // Check if we have skill points available from state store
     let availablePoints = 0;
     
     // Determine where to get/update the points from
-    if (this.game && this.game.availableKillPoints !== undefined) {
+    if (this.game.getState() === GameState.GAME_OVER) {
       // We're in game over state
-      availablePoints = this.game.availableKillPoints;
+      availablePoints = stateStore.game.availableKillPoints.get();
       if (availablePoints <= 0) {
         logger.debug('No skill points available');
         return;
       }
       
-      // Decrease available kill points in the game
-      this.game.availableKillPoints = availablePoints - 1;
-      logger.debug(`Reduced skill points from ${availablePoints} to ${this.game.availableKillPoints}`);
+      // Decrease available kill points in the game and state store
+      const newPoints = availablePoints - 1;
+      this.game.availableKillPoints = newPoints;
+      stateStore.game.availableKillPoints.set(newPoints);
+      logger.debug(`Reduced skill points from ${availablePoints} to ${newPoints}`);
       
       // Also update levelSystem if it exists for consistency
       if (this.levelSystem) {
-        this.levelSystem.kills = this.game.availableKillPoints;
+        this.levelSystem.kills = newPoints;
+        stateStore.levelSystem.kills.set(newPoints);
       }
-    } else if (this.levelSystem) {
+    } else {
       // Normal gameplay state
-      availablePoints = this.levelSystem.kills || 0;
+      availablePoints = stateStore.levelSystem.kills.get();
       if (availablePoints <= 0) {
         logger.debug('No skill points available');
         return;
       }
       
-      // Decrease available kill points
-      this.levelSystem.kills = availablePoints - 1;
-      logger.debug(`Reduced skill points from ${availablePoints} to ${this.levelSystem.kills}`);
-    } else {
-      logger.debug('No source for skill points found');
-      return;
+      // Decrease available kill points in state store
+      const newPoints = availablePoints - 1;
+      stateStore.levelSystem.kills.set(newPoints);
+      
+      // Update levelSystem for backwards compatibility
+      if (this.levelSystem) {
+        this.levelSystem.kills = newPoints;
+      }
+      
+      logger.debug(`Reduced skill points from ${availablePoints} to ${newPoints}`);
     }
     
     // Upgrade the skill in the model

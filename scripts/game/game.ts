@@ -16,6 +16,7 @@ import PassiveSkillMenu from "../ui/PassiveSkillMenu";
 import { createLogger } from "../utils/logger";
 import { ILevelSystem } from "../types/player-types";
 import passiveSkillModel from "../models/passive-skill-model";
+import stateStore from "./state-store";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
@@ -28,9 +29,9 @@ export class Game {
   gameContainer: HTMLElement;
 
   // Game state
-  gameTime: number;
-  enemies: Enemy[];
-  projectiles: Projectile[];
+  gameTime: number = 0;
+  enemies: Enemy[] = [];
+  projectiles: Projectile[] = [];
 
   // Game systems
   gameLoop: GameLoop;
@@ -44,7 +45,11 @@ export class Game {
 
   // Player
   player: Player;
-  availableKillPoints: number = 0;
+  
+  // Kill points that are available for the passive skill tree
+  // This is now backed by the state store
+  get availableKillPoints(): number { return stateStore.game.availableKillPoints.get(); }
+  set availableKillPoints(value: number) { stateStore.game.availableKillPoints.set(value); }
 
   /**
    * Create a new game
@@ -53,10 +58,8 @@ export class Game {
   constructor(gameContainer: HTMLElement) {
     this.gameContainer = gameContainer;
 
-    // Initialize game state
-    this.gameTime = 0;
-    this.enemies = [];
-    this.projectiles = [];
+    // Update state store with game state
+    stateStore.game.state.set(GameState.LOADING);
 
     // Create game systems
     this.gameLoop = new GameLoop();
@@ -115,6 +118,10 @@ export class Game {
     // Start in the playing state
     this.stateManager.changeState(GameState.PLAYING);
 
+    // Update state store
+    stateStore.game.isRunning.set(true);
+    stateStore.game.state.set(GameState.PLAYING);
+    
     // Start the game loop
     this.gameLoop.start(this.update.bind(this));
 
@@ -469,17 +476,20 @@ export class Game {
     logger.info('Game over - showing passive skill menu');
     this.gameLoop.stop();
 
-    // Store levels as passive skill points instead of kills
-    this.availableKillPoints = this.player.level;
-    logger.info(`Available passive skill points: ${this.availableKillPoints}`);
+    // Store level as passive skill points in state store
+    const playerLevel = stateStore.player.level.get();
+    stateStore.game.availableKillPoints.set(playerLevel);
+    logger.info(`Available passive skill points: ${playerLevel}`);
 
     // Change to game over state
     this.stateManager.changeState(GameState.GAME_OVER);
+    stateStore.game.state.set(GameState.GAME_OVER);
+    stateStore.game.isRunning.set(false);
 
     // Make sure we have the current player and level system with correct kill points
     this.passiveSkillMenu.player = this.player;
     this.passiveSkillMenu.levelSystem = {
-      kills: this.availableKillPoints
+      kills: stateStore.game.availableKillPoints.get()
     } as ILevelSystem;
     
     // Force the killPointsDisplay to update even before the menu is reopened
@@ -506,6 +516,12 @@ export class Game {
    */
   restart(): void {
     logger.info('Restarting game...');
+    
+    // Reset game state in store
+    stateStore.game.time.set(0);
+    stateStore.game.isRunning.set(true);
+    stateStore.game.isPaused.set(false);
+    stateStore.game.state.set(GameState.PLAYING);
     
     // First, clean up all existing event listeners
     this.cleanupEventListeners();
@@ -537,6 +553,12 @@ export class Game {
 
     // Reset level system
     this.levelSystem = new LevelSystem(this.player);
+    
+    // Reset state store
+    stateStore.player.level.set(1);
+    stateStore.player.skillPoints.set(0);
+    stateStore.levelSystem.level.set(1);
+    stateStore.levelSystem.kills.set(0);
 
     // Register level up handler for the new level system
     this.levelSystem.onLevelUp((_level) => {
@@ -600,61 +622,59 @@ export class Game {
     
     // Apply damage skill
     const damageValue = passiveSkillModel.getSkillValue('increased-attack-damage');
-    if (damageValue > 0) {
-      const damagePercent = damageValue / 100;
-      // Apply attack power bonus - default is 1, add percentage bonus
-      this.player.stats.setAttackPower(1 + damagePercent);
-      logger.debug(`Applied attack power: ${1 + damagePercent} (${damageValue}% bonus)`);
-    } else {
-      // Reset to default if no bonus
-      this.player.stats.setAttackPower(1);
-    }
+    // Make sure damage percentage cannot be negative
+    const damagePercent = Math.max(0, damageValue / 100);
+    // Apply attack power bonus - default is 1, add percentage bonus
+    const attackPower = 1 + damagePercent;
+    
+    this.player.stats.setAttackPower(attackPower);
+    logger.debug(`Applied attack power: ${attackPower} (${damageValue}% bonus)`);
+    
+    // Update state store
+    stateStore.player.attackPower.set(attackPower);
     
     // Apply speed skill
     const speedValue = passiveSkillModel.getSkillValue('increased-attack-speed');
-    if (speedValue > 0) {
-      const speedPercent = speedValue / 100;
-      // Apply attack speed multiplier - default is 1, add percentage bonus
-      const multiplier = 1 + speedPercent;
-      this.player.stats.setAttackSpeedMultiplier(multiplier);
-      logger.debug(`Applied attack speed multiplier: ${multiplier} (${speedValue}% bonus)`);
+    // Make sure speed percentage cannot be negative
+    const speedPercent = Math.max(0, speedValue / 100);
+    // Apply attack speed multiplier - default is 1, add percentage bonus
+    const multiplier = 1 + speedPercent;
+    
+    this.player.stats.setAttackSpeedMultiplier(multiplier);
+    logger.debug(`Applied attack speed multiplier: ${multiplier} (${speedValue}% bonus)`);
+    
+    // Update state store
+    stateStore.player.attackSpeed.set(multiplier);
+    
+    // Also adjust the auto attack cooldown directly
+    if (this.player.autoAttack) {
+      // Store the original cooldown if not already stored
+      if (!this.player.autoAttack.originalCooldown) {
+        this.player.autoAttack.originalCooldown = CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
+      }
+      const originalCooldown = this.player.autoAttack.originalCooldown;
       
-      // Also adjust the auto attack cooldown directly
-      if (this.player.autoAttack) {
-        // Store the original cooldown if not already stored
-        if (!this.player.autoAttack.originalCooldown) {
-          this.player.autoAttack.originalCooldown = CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
-        }
-        const originalCooldown = this.player.autoAttack.originalCooldown;
-        
-        // Apply the speed multiplier to reduce cooldown
-        // Use a minimum cooldown value to prevent it from becoming too fast
-        const newCooldown = Math.max(100, originalCooldown / multiplier);
-        this.player.autoAttack.cooldown = newCooldown;
-        
-        // Reset the lastFired timestamp to allow immediate firing
-        this.player.autoAttack.lastFired = 0;
-        
-        logger.debug(`Applied speed boost: Original cooldown: ${originalCooldown}ms, New cooldown: ${newCooldown}ms, Multiplier: ${multiplier}`);
-      }
-    } else {
-      // Reset to default if no bonus
-      this.player.stats.setAttackSpeedMultiplier(1);
-      if (this.player.autoAttack && this.player.autoAttack.originalCooldown) {
-        this.player.autoAttack.cooldown = this.player.autoAttack.originalCooldown;
-      }
+      // Apply the speed multiplier to reduce cooldown - DIVIDE by multiplier
+      // Use a minimum cooldown value to prevent it from becoming too fast
+      const newCooldown = Math.max(100, originalCooldown / multiplier);
+      this.player.autoAttack.cooldown = newCooldown;
+      
+      // Reset the lastFired timestamp to allow immediate firing
+      this.player.autoAttack.lastFired = 0;
+      
+      logger.debug(`Applied speed boost: Original cooldown: ${originalCooldown}ms, New cooldown: ${newCooldown}ms, Multiplier: ${multiplier}`);
     }
     
     // Apply life steal skill
     const lifeStealValue = passiveSkillModel.getSkillValue('life-steal');
-    if (lifeStealValue > 0) {
-      // Set life steal percentage directly
-      this.player.stats.setLifeStealPercentage(lifeStealValue);
-      logger.debug(`Applied life steal percentage: ${lifeStealValue}%`);
-    } else {
-      // Reset to default if no bonus
-      this.player.stats.setLifeStealPercentage(0);
-    }
+    // Make sure life steal percentage cannot be negative
+    const lifeStealPercentage = Math.max(0, lifeStealValue);
+    
+    this.player.stats.setLifeStealPercentage(lifeStealPercentage);
+    logger.debug(`Applied life steal percentage: ${lifeStealPercentage}%`);
+    
+    // Update state store
+    stateStore.player.lifeSteal.set(lifeStealPercentage);
     
     // Log the final stats
     this.logPlayerStats();
@@ -770,7 +790,7 @@ export class Game {
    * @returns Whether the game is running
    */
   isRunning(): boolean {
-    return this.gameLoop.gameRunning;
+    return stateStore.game.isRunning.get();
   }
 
   /**

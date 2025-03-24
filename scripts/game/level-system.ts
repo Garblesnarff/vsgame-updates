@@ -2,6 +2,7 @@ import CONFIG from "../config";
 import { GameEvents, EVENTS } from "../utils/event-system";
 import { createLogger } from "../utils/logger";
 import { IPlayer, ILevelSystem } from "../types/player-types";
+import stateStore from "./state-store";
 
 // Create a logger for the LevelSystem class
 const logger = createLogger('LevelSystem');
@@ -17,9 +18,16 @@ type LevelUpCallback = (level: number) => void;
  */
 export class LevelSystem implements ILevelSystem {
   player: IPlayer;
-  level: number;
-  kills: number;
-  killsToNextLevel: number;
+  // These properties are backed by the state store
+  get level(): number { return stateStore.levelSystem.level.get(); }
+  set level(value: number) { stateStore.levelSystem.level.set(value); }
+  
+  get kills(): number { return stateStore.levelSystem.kills.get(); }
+  set kills(value: number) { stateStore.levelSystem.kills.set(value); }
+  
+  get killsToNextLevel(): number { return stateStore.levelSystem.killsToNextLevel.get(); }
+  set killsToNextLevel(value: number) { stateStore.levelSystem.killsToNextLevel.set(value); }
+  
   levelUpCallbacks: LevelUpCallback[];
 
   /**
@@ -28,15 +36,33 @@ export class LevelSystem implements ILevelSystem {
  */
 constructor(player: IPlayer) {
   this.player = player;
-  this.level = 1;
-  this.kills = 0;
-  this.killsToNextLevel = CONFIG.LEVEL.KILLS_FOR_LEVELS[1];
   this.levelUpCallbacks = [];
   
-  // Initialize player level
-  if (this.player && typeof this.player.level !== 'undefined') {
-    this.player.level = this.level;
+  // Initialize state with consistent values
+  const initialLevel = 1;
+  const initialKills = 0;
+  let initialKillsToNextLevel = 0;
+  
+  // Get the correct initial killsToNextLevel value
+  if (initialLevel < CONFIG.LEVEL.KILLS_FOR_LEVELS.length) {
+    initialKillsToNextLevel = CONFIG.LEVEL.KILLS_FOR_LEVELS[initialLevel];
+  } else {
+    // This is a safety check even though we typically start at level 1
+    const lastDefinedLevel = CONFIG.LEVEL.KILLS_FOR_LEVELS.length - 1;
+    const levelsPastArray = initialLevel - lastDefinedLevel;
+    const baseKills = CONFIG.LEVEL.KILLS_FOR_LEVELS[lastDefinedLevel];
+    const increment = CONFIG.LEVEL.KILLS_INCREASE_PER_LEVEL;
+    
+    initialKillsToNextLevel = baseKills + (increment * levelsPastArray * levelsPastArray);
   }
+  
+  // Set state store values
+  stateStore.levelSystem.level.set(initialLevel);
+  stateStore.levelSystem.kills.set(initialKills);
+  stateStore.levelSystem.killsToNextLevel.set(initialKillsToNextLevel);
+  
+  // Ensure player level is in sync
+  stateStore.player.level.set(initialLevel);
   
   // Set the level system reference on the player
   this.player.setLevelSystem(this);
@@ -44,7 +70,7 @@ constructor(player: IPlayer) {
   // Subscribe to kill events
   this.setupEventListeners();
   
-  logger.debug(`LevelSystem initialized for player. Starting level: ${this.level}`);
+  logger.debug(`LevelSystem initialized. Level: ${initialLevel}, Kills: ${initialKills}, KillsToNextLevel: ${initialKillsToNextLevel}`);
 }
   
   /**
@@ -63,12 +89,33 @@ constructor(player: IPlayer) {
    * @returns Whether the player leveled up
    */
   addKill(): boolean {
-    this.kills++;
+    // Increment kills in state store
+    const currentKills = this.kills;
+    this.kills = currentKills + 1;
 
-    if (
-      this.level < CONFIG.LEVEL.KILLS_FOR_LEVELS.length - 1 &&
-      this.kills >= CONFIG.LEVEL.KILLS_FOR_LEVELS[this.level]
-    ) {
+    // Calculate kills needed for next level
+    const currentLevel = this.level;
+    let killsNeeded;
+    
+    if (currentLevel < CONFIG.LEVEL.KILLS_FOR_LEVELS.length) {
+      // Use predefined level thresholds for early levels
+      killsNeeded = CONFIG.LEVEL.KILLS_FOR_LEVELS[currentLevel];
+    } else {
+      // For levels beyond our predefined array, use a formula
+      // Last predefined threshold + (increment per level * levels past the array)
+      const lastDefinedLevel = CONFIG.LEVEL.KILLS_FOR_LEVELS.length - 1;
+      const levelsPastArray = currentLevel - lastDefinedLevel;
+      const baseKills = CONFIG.LEVEL.KILLS_FOR_LEVELS[lastDefinedLevel];
+      const increment = CONFIG.LEVEL.KILLS_INCREASE_PER_LEVEL;
+      
+      killsNeeded = baseKills + (increment * levelsPastArray * levelsPastArray);
+      
+      // Update the killsToNextLevel in state store
+      this.killsToNextLevel = killsNeeded;
+    }
+
+    // Check if we've reached the kills needed for level up
+    if (this.kills >= killsNeeded) {
       this.levelUp();
       return true;
     }
@@ -80,34 +127,33 @@ constructor(player: IPlayer) {
  * Level up the player
  */
 levelUp(): void {
-  this.level++;
+  // Increment level in state store
+  const newLevel = this.level + 1;
+  this.level = newLevel;
 
   // Update next level threshold
-  if (this.level < CONFIG.LEVEL.KILLS_FOR_LEVELS.length - 1) {
-    this.killsToNextLevel = CONFIG.LEVEL.KILLS_FOR_LEVELS[this.level];
+  if (newLevel < CONFIG.LEVEL.KILLS_FOR_LEVELS.length) {
+    // Use predefined thresholds for early levels
+    this.killsToNextLevel = CONFIG.LEVEL.KILLS_FOR_LEVELS[newLevel];
   } else {
-    // For levels beyond our predefined thresholds, use a formula
-    this.killsToNextLevel =
-      this.kills +
-      (CONFIG.LEVEL.KILLS_FOR_LEVELS[
-        CONFIG.LEVEL.KILLS_FOR_LEVELS.length - 1
-      ] -
-        CONFIG.LEVEL.KILLS_FOR_LEVELS[
-          CONFIG.LEVEL.KILLS_FOR_LEVELS.length - 2
-        ]) +
-      CONFIG.LEVEL.KILLS_INCREASE_PER_LEVEL;
+    // For levels beyond our predefined array, use a quadratic formula
+    // This creates an increasing curve of required kills per level
+    const lastDefinedLevel = CONFIG.LEVEL.KILLS_FOR_LEVELS.length - 1;
+    const levelsPastArray = newLevel - lastDefinedLevel;
+    const baseKills = CONFIG.LEVEL.KILLS_FOR_LEVELS[lastDefinedLevel];
+    const increment = CONFIG.LEVEL.KILLS_INCREASE_PER_LEVEL;
+    
+    // Quadratic growth: base + (increment * levelsPastArray²)
+    this.killsToNextLevel = baseKills + (increment * levelsPastArray * levelsPastArray);
   }
   
-  // Directly update player's level property for immediate access
-  if (this.player && typeof this.player.level !== 'undefined') {
-    this.player.level = this.level;
-  }
+  logger.debug(`Leveled up to ${newLevel}. Kills needed for next level: ${this.killsToNextLevel}`);
 
   // Notify all registered callbacks of the level up event
-  this.levelUpCallbacks.forEach((callback) => callback(this.level));
+  this.levelUpCallbacks.forEach((callback) => callback(newLevel));
   
   // Emit level up event
-  GameEvents.emit(EVENTS.PLAYER_LEVEL_UP, this.level, this.player);
+  GameEvents.emit(EVENTS.PLAYER_LEVEL_UP, newLevel, this.player);
 }
 
   /**
@@ -123,7 +169,7 @@ levelUp(): void {
    * @returns Current level
    */
   getLevel(): number {
-    return this.level;
+    return stateStore.levelSystem.level.get();
   }
 
   /**
@@ -131,7 +177,7 @@ levelUp(): void {
    * @returns Current kills
    */
   getKills(): number {
-    return this.kills;
+    return stateStore.levelSystem.kills.get();
   }
 
   /**
@@ -139,15 +185,15 @@ levelUp(): void {
    * @returns Kills required for next level
    */
   getKillsToNextLevel(): number {
-    return this.killsToNextLevel;
+    return stateStore.levelSystem.killsToNextLevel.get();
   }
 
   /**
    * Reset the level system
    */
   reset(): void {
-    this.level = 1;
-    this.kills = 0;
-    this.killsToNextLevel = CONFIG.LEVEL.KILLS_FOR_LEVELS[1];
+    stateStore.levelSystem.level.set(1);
+    stateStore.levelSystem.kills.set(0);
+    stateStore.levelSystem.killsToNextLevel.set(CONFIG.LEVEL.KILLS_FOR_LEVELS[1]);
   }
 }

@@ -6,6 +6,7 @@ import { LevelSystem } from "../game/level-system";
 import { StatsComponent } from "../ecs/components/StatsComponent";
 import { createLogger } from "../utils/logger";
 import { IPlayer, AutoAttack, ProjectileOptions } from "../types/player-types";
+import stateStore from "../game/state-store";
 
 // Create a logger for the Player class
 const logger = createLogger('Player');
@@ -15,8 +16,10 @@ const logger = createLogger('Player');
  * Implements IPlayer interface for type safety
  */
 export class Player implements IPlayer {
-  level: number;
-  kills: number;
+  // These properties can be computed from the state store but we keep them
+  // to maintain interface compatibility and avoid breaking existing code
+  get level(): number { return stateStore.player.level.get(); }
+  get kills(): number { return stateStore.levelSystem.kills.get(); }
   
   // Container and game references
   gameContainer: HTMLElement;
@@ -32,13 +35,19 @@ export class Player implements IPlayer {
   // Stats
   stats: StatsComponent;
 
-  // Progression
-  skillPoints: number;
+  // Progression - linked to state store
+  get skillPoints(): number { return stateStore.player.skillPoints.get(); }
+  set skillPoints(value: number) { stateStore.player.skillPoints.set(value); }
 
-  // States
-  isAlive: boolean;
-  isInvulnerable: boolean;
-  showingSkillMenu: boolean;
+  // States - linked to state store
+  get isAlive(): boolean { return stateStore.player.isAlive.get(); }
+  set isAlive(value: boolean) { stateStore.player.isAlive.set(value); }
+  
+  get isInvulnerable(): boolean { return stateStore.player.isInvulnerable.get(); }
+  set isInvulnerable(value: boolean) { stateStore.player.isInvulnerable.set(value); }
+  
+  get showingSkillMenu(): boolean { return stateStore.ui.showingSkillMenu.get(); }
+  set showingSkillMenu(value: boolean) { stateStore.ui.showingSkillMenu.set(value); }
   lastDamageTime: number; // Track last damage time for collision cooldown
   invulnerabilityTimeoutId: number | null = null; // Track invulnerability timeout
   
@@ -77,6 +86,7 @@ export class Player implements IPlayer {
     this.speed = CONFIG.PLAYER.SPEED;
 
     // Stats
+    // Initialize the stats component
     this.stats = new StatsComponent({
       health: CONFIG.PLAYER.MAX_HEALTH,
       maxHealth: CONFIG.PLAYER.MAX_HEALTH,
@@ -89,16 +99,23 @@ export class Player implements IPlayer {
       attackSpeedMultiplier: 1, // Default attack speed multiplier
       lifeStealPercentage: 0,   // Default life steal percentage
     });
+    
+    // Update state store with initial stats
+    stateStore.player.health.set(this.stats.getHealth());
+    stateStore.player.maxHealth.set(this.stats.getMaxHealth());
+    stateStore.player.energy.set(this.stats.getEnergy());
+    stateStore.player.maxEnergy.set(this.stats.getMaxEnergy());
+    stateStore.player.attackPower.set(this.stats.getAttackPower());
+    stateStore.player.attackSpeed.set(this.stats.getAttackSpeedMultiplier());
+    stateStore.player.lifeSteal.set(this.stats.getLifeStealPercentage());
 
-    // Progression
-    this.level = 1;
-    this.kills = 0;
-    this.skillPoints = 0;
-
+    // Set initial player state in store
+    stateStore.player.level.set(1);
+    stateStore.player.isAlive.set(true);
+    stateStore.player.isInvulnerable.set(false);
+    stateStore.player.skillPoints.set(0);
+    
     // States
-    this.isAlive = true;
-    this.isInvulnerable = false;
-    this.showingSkillMenu = false;
     this.lastDamageTime = 0; // Initialize last damage time
 
     // Attack properties
@@ -126,6 +143,9 @@ export class Player implements IPlayer {
     this.element.className = "player";
     this.gameContainer.appendChild(this.element);
     this.updatePosition();
+    
+    // Set up state change handlers
+    this.setupStateChangeHandlers();
   }
 
   /**
@@ -219,10 +239,15 @@ export class Player implements IPlayer {
    * Regenerates energy over time
    */
   regenerateEnergy(deltaTime: number): void {
-    this.stats.setEnergy(Math.min(
+    const newEnergy = Math.min(
       this.stats.getMaxEnergy(),
       this.stats.getEnergy() + this.stats.getEnergyRegen() * (deltaTime / 1000)
-    ));
+    );
+    
+    this.stats.setEnergy(newEnergy);
+    
+    // Update state store
+    stateStore.player.energy.set(newEnergy);
   }
 
   /**
@@ -262,14 +287,22 @@ export class Player implements IPlayer {
       return nightShield.absorbDamage(damageTaken);
     }
 
-    this.stats.setHealth(this.stats.getHealth() - damageTaken);
+    // Calculate new health
+    const newHealth = Math.max(0, this.stats.getHealth() - damageTaken);
+    
+    // Update stats component
+    this.stats.setHealth(newHealth);
+    
+    // Update state store
+    stateStore.player.health.set(newHealth);
 
     // Emit damage event
     GameEvents.emit(EVENTS.PLAYER_DAMAGE, damageTaken, this);
 
-    if (this.stats.getHealth() <= 0) {
-      this.stats.setHealth(0);
+    // Check if player died
+    if (newHealth <= 0) {
       this.isAlive = false;
+      // State store updates isAlive via the setter
 
       // Emit death event
       GameEvents.emit(EVENTS.PLAYER_DEATH, this);
@@ -284,10 +317,16 @@ export class Player implements IPlayer {
    */
   heal(amount: number): void {
     const oldHealth = this.stats.getHealth();
-    this.stats.setHealth(Math.min(this.stats.getMaxHealth(), this.stats.getHealth() + amount));
+    const newHealth = Math.min(this.stats.getMaxHealth(), oldHealth + amount);
+    
+    // Update stats component
+    this.stats.setHealth(newHealth);
+    
+    // Update state store
+    stateStore.player.health.set(newHealth);
 
     // Only emit heal event if actually healed
-    if (this.stats.getHealth() > oldHealth) {
+    if (newHealth > oldHealth) {
       GameEvents.emit(EVENTS.PLAYER_HEAL, amount, this);
     }
   }
@@ -311,8 +350,15 @@ export class Player implements IPlayer {
       return false;
     }
 
-    // Use energy
-    this.stats.setEnergy(this.stats.getEnergy() - 10);
+    // Calculate new energy
+    const newEnergy = this.stats.getEnergy() - 10;
+    
+    // Update stats component
+    this.stats.setEnergy(newEnergy);
+    
+    // Update state store
+    stateStore.player.energy.set(newEnergy);
+    
     this.lastAttack = now;
 
     // Calculate direction
@@ -384,6 +430,29 @@ export class Player implements IPlayer {
    * Make the player temporarily invulnerable
    * @param duration - Duration in milliseconds
    */
+  /**
+   * Set up handlers for state changes
+   */
+  private setupStateChangeHandlers(): void {
+    // When player health is updated in the state store, update the UI
+    stateStore.player.health.subscribe('player-health-ui', (newHealth) => {
+      // This would be called when health changes in the state store
+      // We don't need to update stats component here since that's the source of truth
+      // But we can trigger UI updates or other side effects
+      logger.debug(`Player health updated to ${newHealth}`);
+    });
+    
+    // When player level changes, update abilities or other mechanics
+    stateStore.player.level.subscribe('player-level-abilities', (newLevel) => {
+      logger.debug(`Player level updated to ${newLevel}`);
+      
+      // Check for unlockable abilities
+      if (this.abilityManager) {
+        this.abilityManager.checkUnlockableAbilities();
+      }
+    });
+  }
+
   setInvulnerable(duration: number): void {
     // Clear any existing invulnerability timeout
     if (this.invulnerabilityTimeoutId !== null) {
@@ -426,28 +495,31 @@ export class Player implements IPlayer {
       return this.levelSystem.addKill();
     }
     
-    // Otherwise, just count kills directly
-    if (!this.kills) {
-      this.kills = 0;
-    }
-    this.kills++;
+    // Otherwise, use the state store to update kills
+    const currentKills = stateStore.levelSystem.kills.get();
+    stateStore.levelSystem.kills.set(currentKills + 1);
     
     return false; // No level-up without a level system
   }
 
   /**
-   * Set the level system reference and ensure level property is kept in sync
+   * Set the level system reference and ensure state store is kept in sync
    * @param levelSystem - The level system instance
    */
   setLevelSystem(levelSystem: LevelSystem): void {
     this.levelSystem = levelSystem;
     
-    // Initialize with current level from the level system
-    this.level = levelSystem.getLevel();
+    // Initialize state store with current level from the level system
+    stateStore.player.level.set(levelSystem.getLevel());
+    stateStore.levelSystem.level.set(levelSystem.getLevel());
+    stateStore.levelSystem.kills.set(levelSystem.getKills());
+    stateStore.levelSystem.killsToNextLevel.set(levelSystem.getKillsToNextLevel());
     
     // Listen for level changes
     levelSystem.onLevelUp((newLevel: number) => {
-      this.level = newLevel;
+      // Update state store - the getter for this.level will use this
+      stateStore.player.level.set(newLevel);
+      stateStore.levelSystem.level.set(newLevel);
     });
   }
 

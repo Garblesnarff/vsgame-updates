@@ -1,6 +1,7 @@
 import { GameEvents, EVENTS } from "../utils/event-system";
 import { GameState, StateHandlers } from "../types/game-types";
 import { Game } from "./game";
+import stateStore from "./state-store";
 
 /**
  * GameStateManager - Manages the different states of the game
@@ -89,6 +90,9 @@ export class GameStateManager {
 
     // Update current state
     this.currentState = newState;
+    
+    // Update state store
+    stateStore.game.state.set(newState);
 
     // Emit state change event
     GameEvents.emit("state:change", {
