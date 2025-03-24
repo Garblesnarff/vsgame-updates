@@ -22,8 +22,8 @@ export class Player implements IPlayer {
   get kills(): number { return stateStore.levelSystem.kills.get(); }
   
   // Container and game references
-  gameContainer: HTMLElement;
-  game: Game | null;
+  readonly gameContainer: HTMLElement;
+  readonly game: Game | null;
 
   // Position and dimensions
   x: number;
@@ -49,10 +49,10 @@ export class Player implements IPlayer {
   get showingSkillMenu(): boolean { return stateStore.ui.showingSkillMenu.get(); }
   set showingSkillMenu(value: boolean) { stateStore.ui.showingSkillMenu.set(value); }
   lastDamageTime: number; // Track last damage time for collision cooldown
-  invulnerabilityTimeoutId: number | null = null; // Track invulnerability timeout
+  private invulnerabilityTimeoutId = 0; // Track invulnerability timeout, default to 0 (invalid ID)
   
   // Damage handling and collision tracking
-  collidingEnemies: Set<string> = new Set(); // Track enemies colliding by ID
+  readonly collidingEnemies = new Set<string>(); // Track enemies colliding by ID
   
   // Attack properties
   lastAttack: number;
@@ -86,7 +86,6 @@ export class Player implements IPlayer {
     this.speed = CONFIG.PLAYER.SPEED;
 
     // Stats
-    // Initialize the stats component
     this.stats = new StatsComponent({
       health: CONFIG.PLAYER.MAX_HEALTH,
       maxHealth: CONFIG.PLAYER.MAX_HEALTH,
@@ -100,20 +99,8 @@ export class Player implements IPlayer {
       lifeStealPercentage: 0,   // Default life steal percentage
     });
     
-    // Update state store with initial stats
-    stateStore.player.health.set(this.stats.getHealth());
-    stateStore.player.maxHealth.set(this.stats.getMaxHealth());
-    stateStore.player.energy.set(this.stats.getEnergy());
-    stateStore.player.maxEnergy.set(this.stats.getMaxEnergy());
-    stateStore.player.attackPower.set(this.stats.getAttackPower());
-    stateStore.player.attackSpeed.set(this.stats.getAttackSpeedMultiplier());
-    stateStore.player.lifeSteal.set(this.stats.getLifeStealPercentage());
-
-    // Set initial player state in store
-    stateStore.player.level.set(1);
-    stateStore.player.isAlive.set(true);
-    stateStore.player.isInvulnerable.set(false);
-    stateStore.player.skillPoints.set(0);
+    // Initialize state store with initial values
+    this.initializeStateStore();
     
     // States
     this.lastDamageTime = 0; // Initialize last damage time
@@ -124,28 +111,66 @@ export class Player implements IPlayer {
     this.projectileSpeed = CONFIG.PLAYER.PROJECTILE_SPEED;
 
     // Auto attack settings
-    this.autoAttack = {
-      enabled: CONFIG.ABILITIES.AUTO_ATTACK.ENABLED,
-      cooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN,
-      originalCooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN, // Store original value
-      lastFired: 0, // Initialize to 0 to allow immediate firing
-      damage: CONFIG.ABILITIES.AUTO_ATTACK.DAMAGE,
-      range: CONFIG.ABILITIES.AUTO_ATTACK.RANGE,
-      level: 1,
-      maxLevel: CONFIG.ABILITIES.AUTO_ATTACK.MAX_LEVEL,
-    };
+    this.autoAttack = this.createInitialAutoAttack();
 
     // Initialize abilities
     this.abilityManager = new AbilityManager(this);
 
     // Create DOM element
-    this.element = document.createElement("div");
-    this.element.className = "player";
-    this.gameContainer.appendChild(this.element);
+    this.element = this.createPlayerElement();
     this.updatePosition();
     
     // Set up state change handlers
     this.setupStateChangeHandlers();
+  }
+
+  /**
+   * Initialize the state store with player initial values
+   * Extracted method to avoid duplicated state updates
+   */
+  private initializeStateStore(): void {
+    // Update state store with initial stats
+    stateStore.player.health.set(this.stats.getHealth());
+    stateStore.player.maxHealth.set(this.stats.getMaxHealth());
+    stateStore.player.energy.set(this.stats.getEnergy());
+    stateStore.player.maxEnergy.set(this.stats.getMaxEnergy());
+    stateStore.player.attackPower.set(this.stats.getAttackPower());
+    stateStore.player.attackSpeed.set(this.stats.getAttackSpeedMultiplier());
+    stateStore.player.lifeSteal.set(this.stats.getLifeStealPercentage());
+
+    // Set initial player state
+    stateStore.player.level.set(1);
+    stateStore.player.isAlive.set(true);
+    stateStore.player.isInvulnerable.set(false);
+    stateStore.player.skillPoints.set(0);
+  }
+
+  /**
+   * Create initial auto attack configuration
+   * Extracted method for better organization
+   */
+  private createInitialAutoAttack(): AutoAttack {
+    return {
+      enabled: CONFIG.ABILITIES.AUTO_ATTACK.ENABLED,
+      cooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN,
+      originalCooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN,
+      lastFired: 0,
+      damage: CONFIG.ABILITIES.AUTO_ATTACK.DAMAGE,
+      range: CONFIG.ABILITIES.AUTO_ATTACK.RANGE,
+      level: 1,
+      maxLevel: CONFIG.ABILITIES.AUTO_ATTACK.MAX_LEVEL,
+    };
+  }
+
+  /**
+   * Create player DOM element
+   * Extracted method for better organization
+   */
+  private createPlayerElement(): HTMLElement {
+    const element = document.createElement("div");
+    element.className = "player";
+    this.gameContainer.appendChild(element);
+    return element;
   }
 
   /**
@@ -227,6 +252,7 @@ export class Player implements IPlayer {
 
   /**
    * Updates the DOM element position
+   * No need for null check - element is only null after destroy()
    */
   updatePosition(): void {
     if (this.element) {
@@ -432,13 +458,11 @@ export class Player implements IPlayer {
    */
   /**
    * Set up handlers for state changes
+   * No conditionals needed - state store is always available
    */
   private setupStateChangeHandlers(): void {
     // When player health is updated in the state store, update the UI
     stateStore.player.health.subscribe('player-health-ui', (newHealth) => {
-      // This would be called when health changes in the state store
-      // We don't need to update stats component here since that's the source of truth
-      // But we can trigger UI updates or other side effects
       logger.debug(`Player health updated to ${newHealth}`);
     });
     
@@ -446,19 +470,18 @@ export class Player implements IPlayer {
     stateStore.player.level.subscribe('player-level-abilities', (newLevel) => {
       logger.debug(`Player level updated to ${newLevel}`);
       
-      // Check for unlockable abilities
-      if (this.abilityManager) {
-        this.abilityManager.checkUnlockableAbilities();
-      }
+      // Check for unlockable abilities - no need for conditional
+      this.abilityManager.checkUnlockableAbilities();
     });
   }
 
+  /**
+   * Make the player temporarily invulnerable
+   * @param duration - Duration in milliseconds
+   */
   setInvulnerable(duration: number): void {
     // Clear any existing invulnerability timeout
-    if (this.invulnerabilityTimeoutId !== null) {
-      window.clearTimeout(this.invulnerabilityTimeoutId);
-      this.invulnerabilityTimeoutId = null;
-    }
+    this.clearInvulnerabilityTimeout();
     
     // Set invulnerable state
     this.isInvulnerable = true;
@@ -477,12 +500,22 @@ export class Player implements IPlayer {
         this.element.classList.remove('invulnerable');
       }
       
-      this.invulnerabilityTimeoutId = null;
+      this.invulnerabilityTimeoutId = 0;
       
       logger.debug('Invulnerability ended');
     }, duration);
     
     logger.debug(`Player invulnerable for ${duration}ms`);
+  }
+  
+  /**
+   * Clear the invulnerability timeout if it exists
+   */
+  private clearInvulnerabilityTimeout(): void {
+    if (this.invulnerabilityTimeoutId !== 0) {
+      window.clearTimeout(this.invulnerabilityTimeoutId);
+      this.invulnerabilityTimeoutId = 0;
+    }
   }
 
   /**
@@ -491,7 +524,7 @@ export class Player implements IPlayer {
    */
   addKill(): boolean {
     // If the player has a level system, use that
-    if (this.levelSystem && typeof this.levelSystem.addKill === 'function') {
+    if (this.levelSystem) {
       return this.levelSystem.addKill();
     }
     
@@ -528,10 +561,7 @@ export class Player implements IPlayer {
    */
   destroy(): void {
     // Clear any invulnerability timeout
-    if (this.invulnerabilityTimeoutId !== null) {
-      window.clearTimeout(this.invulnerabilityTimeoutId);
-      this.invulnerabilityTimeoutId = null;
-    }
+    this.clearInvulnerabilityTimeout();
     
     // Remove DOM element
     if (this.element && this.element.parentNode) {

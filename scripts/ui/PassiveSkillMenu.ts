@@ -7,6 +7,7 @@ import passiveSkillModel from "../models/passive-skill-model";
 import PassiveSkillMenuEventManager from "./PassiveSkillMenuEventManager";
 import stateStore from "../game/state-store";
 import { GameState } from "../types/game-types";
+import { DOM_IDS, CSS_CLASSES, SELECTORS } from "../constants/dom-elements";
 
 // Create a logger for the PassiveSkillMenu class
 const logger = createLogger('PassiveSkillMenu');
@@ -16,44 +17,43 @@ const logger = createLogger('PassiveSkillMenu');
  * Manages the skill upgrade/unlock menu UI
  */
 export class PassiveSkillMenu {
-  player: IPlayer;
-  gameStateManager: GameStateManager;
-  gameContainer: HTMLElement;
-  menuOverlay: HTMLElement | null;
-  killPointsDisplay: HTMLElement | null;
-  skillGrid: HTMLElement | null;
-  isOpen: boolean;
-  levelSystem: ILevelSystem | {
+  player: IPlayer; // Not readonly to allow reassignment in Game.reset
+  readonly gameStateManager: GameStateManager;
+  readonly gameContainer: HTMLElement;
+  private menuOverlay: HTMLElement | null = null;
+  private killPointsDisplay: HTMLElement | null = null;
+  private skillGrid: HTMLElement | null = null;
+  isOpen: boolean = false;
+  levelSystem: ILevelSystem | { // Not readonly to allow reassignment in Game.reset
     kills: number;
   };
-  game: Game;
+  readonly game: Game;
   // Event manager to keep track of all event listeners
-  private eventManager: PassiveSkillMenuEventManager;
+  private readonly eventManager: PassiveSkillMenuEventManager;
   // Stored timeout IDs for cleanup
-  private timeouts: number[];
+  private readonly timeouts: number[] = [];
+  // Cache of DOM elements by id to avoid repeated querySelector calls
+  private domCache: Map<string, HTMLElement> = new Map();
 
   /**
    * Create a new skill menu
    * @param game - Game instance
    */
   constructor(game: Game) {
+    // Initialize readonly properties
     this.game = game;
     this.gameStateManager = game.stateManager;
     this.player = game.player;
     this.gameContainer = game.gameContainer;
     this.levelSystem = game.levelSystem;
-    // This is type-safe because LevelSystem implements ILevelSystem
     
     // Initialize event manager
     this.eventManager = new PassiveSkillMenuEventManager();
     
-    // Initialize timeouts array
-    this.timeouts = [];
-
-    // Get menu elements - use the passive skill menu ID
-    this.menuOverlay = document.getElementById("passive-skill-menu-overlay");
-    this.killPointsDisplay = document.getElementById("available-skill-points");
-    this.skillGrid = document.querySelector(".skill-grid");
+    // Try to get existing menu elements
+    this.menuOverlay = document.getElementById(DOM_IDS.PASSIVE_SKILL_MENU.OVERLAY);
+    this.killPointsDisplay = document.getElementById(DOM_IDS.PASSIVE_SKILL_MENU.POINTS_DISPLAY);
+    this.skillGrid = document.querySelector(SELECTORS.class(CSS_CLASSES.SKILL.GRID));
 
     // Create menu if it doesn't exist
     this.ensureMenuExists();
@@ -63,18 +63,25 @@ export class PassiveSkillMenu {
     
     // Initialize skill cards
     this.createPassiveSkillCards();
-
-    // Track state
-    this.isOpen = false;
     
     // Load saved passive skills
     this.loadSavedSkills();
   }
 
   /**
-   * Cache of DOM elements by id to avoid repeated querySelector calls
+   * Get the menu overlay element - accessor for Game.ts
+   * @returns The menu overlay element or null if not created
    */
-  private domCache: Map<string, HTMLElement> = new Map();
+  getMenuOverlay(): HTMLElement | null {
+    return this.menuOverlay;
+  }
+  
+  /**
+   * Reset the menu overlay to force recreation
+   */
+  resetMenuOverlay(): void {
+    this.menuOverlay = null;
+  }
 
   /**
    * Get cached DOM element or find it once and cache
@@ -144,29 +151,39 @@ export class PassiveSkillMenu {
   }
 
   /**
+   * Get initial points value for the skill menu
+   */
+  private getInitialPoints(): number {
+    let initialPoints = 0;
+    
+    if (typeof this.game.availableKillPoints !== 'undefined') {
+      initialPoints = this.game.availableKillPoints;
+      // Update state store
+      stateStore.game.availableKillPoints.set(initialPoints);
+    } else if (typeof this.levelSystem.kills !== 'undefined') {
+      initialPoints = this.levelSystem.kills;
+      // If using level system kills value, ensure it's in state store
+      stateStore.levelSystem.kills.set(initialPoints);
+    }
+    
+    return initialPoints;
+  }
+
+  /**
    * Ensure the skill menu elements exist
    */
   ensureMenuExists(): void {
     if (!this.menuOverlay) {
       // Get the correct initial points value
-      let initialPoints = 0;
-      if (this.game && this.game.availableKillPoints !== undefined) {
-        initialPoints = this.game.availableKillPoints;
-        // Update state store
-        stateStore.game.availableKillPoints.set(initialPoints);
-      } else if (this.levelSystem && this.levelSystem.kills !== undefined) {
-        initialPoints = this.levelSystem.kills;
-        // If using level system kills value, ensure it's in state store
-        stateStore.levelSystem.kills.set(initialPoints);
-      }
+      const initialPoints = this.getInitialPoints();
 
       // Clear DOM cache when creating a new menu
       this.clearDomCache();
       
       // Important: Use a different ID from the main skill menu
       this.menuOverlay = this.createElement('div', {
-        id: 'passive-skill-menu-overlay',
-        className: 'skill-menu-overlay'
+        id: DOM_IDS.PASSIVE_SKILL_MENU.OVERLAY,
+        className: CSS_CLASSES.PASSIVE_SKILL_MENU.OVERLAY
       }, this.gameContainer);
       
       // Set display style to ensure proper styling
@@ -174,12 +191,12 @@ export class PassiveSkillMenu {
       
       // Create menu container
       const menuContainer = this.createElement('div', {
-        className: 'skill-menu'
+        className: CSS_CLASSES.PASSIVE_SKILL_MENU.CONTAINER
       }, this.menuOverlay);
       
       // Create header
       const header = this.createElement('div', {
-        className: 'skill-menu-header'
+        className: CSS_CLASSES.PASSIVE_SKILL_MENU.HEADER
       }, menuContainer);
       
       // Add title with appropriate name
@@ -189,31 +206,31 @@ export class PassiveSkillMenu {
       
       // Add points display
       const pointsDisplay = this.createElement('div', {
-        className: 'skill-points-display'
+        className: CSS_CLASSES.PASSIVE_SKILL_MENU.POINTS_DISPLAY
       }, header);
       pointsDisplay.textContent = 'Available Skill Points: ';
       
       this.killPointsDisplay = this.createElement('span', {
-        id: 'available-skill-points',
+        id: DOM_IDS.PASSIVE_SKILL_MENU.POINTS_DISPLAY,
         textContent: initialPoints.toString()
       }, pointsDisplay);
       
       // Add close button
       this.createElement('button', {
-        id: 'skill-menu-close',
-        className: 'skill-menu-close',
+        id: DOM_IDS.PASSIVE_SKILL_MENU.CLOSE_BUTTON,
+        className: CSS_CLASSES.PASSIVE_SKILL_MENU.CLOSE_BUTTON,
         textContent: 'Close'
       }, header);
       
       // Add skill grid
       this.skillGrid = this.createElement('div', {
-        className: 'skill-grid'
+        className: CSS_CLASSES.SKILL.GRID
       }, menuContainer);
       
       // Cache elements for faster access
-      this.domCache.set('#passive-skill-menu-overlay', this.menuOverlay);
-      this.domCache.set('#available-skill-points', this.killPointsDisplay);
-      this.domCache.set('.skill-grid', this.skillGrid);
+      this.domCache.set(SELECTORS.id(DOM_IDS.PASSIVE_SKILL_MENU.OVERLAY), this.menuOverlay);
+      this.domCache.set(SELECTORS.id(DOM_IDS.PASSIVE_SKILL_MENU.POINTS_DISPLAY), this.killPointsDisplay);
+      this.domCache.set(SELECTORS.class(CSS_CLASSES.SKILL.GRID), this.skillGrid);
       
       // Create the skill cards after the menu is added to the DOM
       this.createPassiveSkillCards();
@@ -239,27 +256,26 @@ export class PassiveSkillMenu {
     this.eventManager.removeAllListeners();
     
     // Close button - use our cached element getter
-    const closeButton = this.getElement('#skill-menu-close', this.menuOverlay || document);
-    if (closeButton) {
-      this.eventManager.addListener(closeButton, "click", () => {
-        logger.debug('Close button clicked');
-        this.close();
-        
-        // Restart the game
-        if (this.game) {
-          this.game.restart();
-        }
-      });
-    } else {
+    const closeButton = this.getElement(SELECTORS.id(DOM_IDS.PASSIVE_SKILL_MENU.CLOSE_BUTTON), this.menuOverlay || document);
+    if (!closeButton) {
       logger.error('Close button not found in menu');
+      return;
     }
+    
+    this.eventManager.addListener(closeButton, "click", () => {
+      logger.debug('Close button clicked');
+      this.close();
+      
+      // Restart the game
+      this.game.restart();
+    });
     
     // Add event listeners to all upgrade buttons in one loop
     // This avoids repeating similar code for each skill type
     const allSkills = passiveSkillModel.getAllSkills();
     
     allSkills.forEach(skill => {
-      const buttonSelector = `#${skill.id}-upgrade`;
+      const buttonSelector = SELECTORS.skill.upgrade(skill.id);
       const upgradeBtn = this.getElement(buttonSelector, this.menuOverlay || document);
       
       if (upgradeBtn) {
@@ -282,8 +298,7 @@ export class PassiveSkillMenu {
       this.open();
     }
     
-    // Update state store
-    stateStore.ui.showingPassiveSkillMenu.set(this.isOpen);
+    // State is already updated in open/close methods
   }
 
   /**
@@ -293,26 +308,31 @@ export class PassiveSkillMenu {
     // Make sure the menu exists and has cards
     this.ensureMenuExists();
     
-    if (this.menuOverlay) {
-      logger.debug('Opening passive skill menu');
-      
-      // Match the display style of the main skill menu
-      this.menuOverlay.style.display = "flex";
-      this.menuOverlay.style.justifyContent = "center";
-      this.menuOverlay.style.alignItems = "center";
-      this.player.showingSkillMenu = true;
-      this.isOpen = true;
-      
-      // Update state store
-      stateStore.ui.showingPassiveSkillMenu.set(true);
-      
-      // Update content
-      this.update();
+    if (!this.menuOverlay) {
+      logger.error('Menu overlay not found when trying to open');
+      return;
+    }
+    
+    logger.debug('Opening passive skill menu');
+    
+    // Match the display style of the main skill menu
+    this.menuOverlay.style.display = "flex";
+    this.menuOverlay.style.justifyContent = "center";
+    this.menuOverlay.style.alignItems = "center";
+    this.player.showingSkillMenu = true;
+    this.isOpen = true;
+    
+    // Update state store
+    stateStore.ui.showingPassiveSkillMenu.set(true);
+    
+    // Update content
+    this.update();
 
-      // Force a check for empty skill grid and create cards if needed
-      if (!this.skillGrid || !this.skillGrid.children.length) {
-        logger.debug('Skill grid is empty, recreating cards');
-        this.skillGrid = this.menuOverlay.querySelector(".skill-grid");
+    // Force a check for empty skill grid and create cards if needed
+    if (!this.skillGrid || !this.skillGrid.children.length) {
+      logger.debug('Skill grid is empty, recreating cards');
+      if (this.menuOverlay) {
+        this.skillGrid = this.menuOverlay.querySelector(SELECTORS.class(CSS_CLASSES.SKILL.GRID));
         // Clear any existing content
         if (this.skillGrid) {
           this.skillGrid.innerHTML = '';
@@ -321,11 +341,9 @@ export class PassiveSkillMenu {
         } else {
           logger.error('Skill grid not found when opening menu');
         }
-      } else {
-        logger.debug(`Skill grid already has content: ${this.skillGrid.children.length} children`);
       }
     } else {
-      logger.error('Menu overlay not found when trying to open');
+      logger.debug(`Skill grid already has content: ${this.skillGrid.children.length} children`);
     }
   }
 
@@ -333,14 +351,39 @@ export class PassiveSkillMenu {
    * Close the skill menu
    */
   close(): void {
-    if (this.menuOverlay) {
-      this.menuOverlay.style.display = "none";
-      this.player.showingSkillMenu = false;
-      this.isOpen = false;
-      
-      // Update state store
-      stateStore.ui.showingPassiveSkillMenu.set(false);
+    if (!this.menuOverlay) {
+      return;
     }
+    
+    this.menuOverlay.style.display = "none";
+    this.player.showingSkillMenu = false;
+    this.isOpen = false;
+    
+    // Update state store
+    stateStore.ui.showingPassiveSkillMenu.set(false);
+  }
+
+  /**
+   * Clear all tracked timeouts
+   */
+  private clearAllTimeouts(): void {
+    this.timeouts.forEach(timeoutId => window.clearTimeout(timeoutId));
+    this.timeouts.length = 0; // Clear array while maintaining reference
+  }
+  
+  /**
+   * Remove menu from DOM if it exists
+   */
+  private removeMenuFromDOM(): void {
+    if (!this.menuOverlay || !this.menuOverlay.parentNode) {
+      return;
+    }
+    
+    this.menuOverlay.parentNode.removeChild(this.menuOverlay);
+    this.menuOverlay = null;
+    
+    // Remove from cached elements
+    this.domCache.delete(SELECTORS.id(DOM_IDS.PASSIVE_SKILL_MENU.OVERLAY));
   }
 
   /**
@@ -348,20 +391,13 @@ export class PassiveSkillMenu {
    */
   destroy(): void {
     // Clear all timeouts
-    this.timeouts.forEach(timeoutId => window.clearTimeout(timeoutId));
-    this.timeouts = [];
+    this.clearAllTimeouts();
     
     // Remove all event listeners
     this.eventManager.removeAllListeners();
     
     // Remove menu from DOM if it exists - important to check for proper ID
-    if (this.menuOverlay && this.menuOverlay.parentNode) {
-      this.menuOverlay.parentNode.removeChild(this.menuOverlay);
-      this.menuOverlay = null;
-      
-      // Remove from cached elements
-      this.domCache.delete('#passive-skill-menu-overlay');
-    }
+    this.removeMenuFromDOM();
     
     // Clear DOM cache
     this.clearDomCache();
@@ -378,15 +414,10 @@ export class PassiveSkillMenu {
       this.close();
     }
     
-    // Update the player and level system references
-    this.player = this.game.player;
-    this.levelSystem = this.game.levelSystem;
-    
     logger.debug('Reset called - about to load saved skills');
     
     // Clear all timeouts before creating new ones
-    this.timeouts.forEach(timeoutId => window.clearTimeout(timeoutId));
-    this.timeouts = [];
+    this.clearAllTimeouts();
     
     // Remove all existing event listeners
     this.eventManager.removeAllListeners();
@@ -410,7 +441,7 @@ export class PassiveSkillMenu {
   createPassiveSkillCards(): void {
     // Get the skill grid using our cached element getter
     if (!this.skillGrid && this.menuOverlay) {
-      this.skillGrid = this.getElement('.skill-grid', this.menuOverlay);
+      this.skillGrid = this.getElement(SELECTORS.class(CSS_CLASSES.SKILL.GRID), this.menuOverlay);
     }
     
     if (!this.skillGrid) {
@@ -439,14 +470,14 @@ export class PassiveSkillMenu {
     allSkills.forEach(skill => {
       // Create card HTML directly to match the structure
       const card = document.createElement('div');
-      card.className = 'skill-card';
-      card.id = `${skill.id}-card`;
+      card.className = CSS_CLASSES.SKILL.CARD;
+      card.id = DOM_IDS.SKILL.CARD(skill.id);
       
       const effectName = skill.id === 'increased-attack-damage' ? 'Damage' : 
                         skill.id === 'increased-attack-speed' ? 'Attack Speed' : 'Life Steal';
       
       // Enhanced skill descriptions
-      const descriptions = {
+      const descriptions: Record<string, string> = {
         'increased-attack-damage': 'Increases your damage output against all enemies.',
         'increased-attack-speed': 'Reduces the cooldown between attacks, allowing you to attack more frequently.',
         'life-steal': 'Heals you for a percentage of the damage you deal to enemies.'
@@ -454,27 +485,35 @@ export class PassiveSkillMenu {
       
       // Set inner HTML with the same structure as the skill menu
       card.innerHTML = `
-        <div class="skill-card-header">
+        <div class="${CSS_CLASSES.SKILL.CARD_HEADER}">
           <h3>${skill.name}</h3>
         </div>
-        <div class="skill-description">
-          ${descriptions[skill.id as keyof typeof descriptions] || skill.description}
+        <div class="${CSS_CLASSES.SKILL.DESCRIPTION}">
+          ${descriptions[skill.id] || skill.description}
         </div>
-        <div class="skill-effects">
-          <div class="skill-effect">
-            <span class="skill-effect-name">${effectName}:</span>
-            <span class="skill-effect-value" id="${skill.id}-value">${skill.displayValue}</span>
+        <div class="${CSS_CLASSES.SKILL.EFFECTS}">
+          <div class="${CSS_CLASSES.SKILL.EFFECT}">
+            <span class="${CSS_CLASSES.SKILL.EFFECT_NAME}">${effectName}:</span>
+            <span class="${CSS_CLASSES.SKILL.EFFECT_VALUE}" id="${DOM_IDS.SKILL.VALUE(skill.id)}">${skill.displayValue}</span>
           </div>
         </div>
-        <button class="skill-upgrade-btn" id="${skill.id}-upgrade">Purchase (1 Point)</button>
+        <button class="${CSS_CLASSES.SKILL.UPGRADE_BUTTON}" id="${DOM_IDS.SKILL.UPGRADE(skill.id)}">Purchase (1 Point)</button>
       `;
 
       // Add to fragment
       fragment.appendChild(card);
       
       // Cache elements for faster access later
-      this.domCache.set(`#${skill.id}-value`, card.querySelector(`#${skill.id}-value`) as HTMLElement);
-      this.domCache.set(`#${skill.id}-upgrade`, card.querySelector(`#${skill.id}-upgrade`) as HTMLElement);
+      const valueElement = card.querySelector(SELECTORS.id(DOM_IDS.SKILL.VALUE(skill.id))) as HTMLElement;
+      const upgradeBtn = card.querySelector(SELECTORS.id(DOM_IDS.SKILL.UPGRADE(skill.id))) as HTMLElement;
+      
+      if (valueElement) {
+        this.domCache.set(SELECTORS.id(DOM_IDS.SKILL.VALUE(skill.id)), valueElement);
+      }
+      
+      if (upgradeBtn) {
+        this.domCache.set(SELECTORS.id(DOM_IDS.SKILL.UPGRADE(skill.id)), upgradeBtn);
+      }
     });
     
     // Append all cards to the grid at once (single DOM operation)
@@ -484,34 +523,37 @@ export class PassiveSkillMenu {
   }
 
   /**
+   * Get available points based on game state
+   */
+  private getAvailablePoints(): number {
+    // If we're in game over state, use the game's availableKillPoints
+    if (this.game.getState() === GameState.GAME_OVER) {
+      return stateStore.game.availableKillPoints.get();
+    }
+    // Otherwise use the levelSystem kills
+    return stateStore.levelSystem.kills.get();
+  }
+
+  /**
    * Update skill card levels and values
    */
   update(): void {
     // Use our cached element getter to find the kill points display
-    this.killPointsDisplay = this.getElement('#available-skill-points');
+    this.killPointsDisplay = this.getElement(SELECTORS.id(DOM_IDS.PASSIVE_SKILL_MENU.POINTS_DISPLAY));
     
-    if (this.killPointsDisplay) {
-      // Get the kill points from the state store
-      let availablePoints = 0;
-      
-      // If we're in game over state, use the game's availableKillPoints
-      if (this.game.getState() === GameState.GAME_OVER) {
-        availablePoints = stateStore.game.availableKillPoints.get();
-      } else {
-        // Otherwise use the levelSystem kills
-        availablePoints = stateStore.levelSystem.kills.get();
-      }
-      
-      logger.debug('Updating kill points display:', availablePoints);
-      this.killPointsDisplay.textContent = availablePoints.toString();
-    } else {
+    if (!this.killPointsDisplay) {
       logger.error('Kill points display element not found');  
+      return;
     }
     
-    // Update skill values in UI from the model
-    this.updateSkillValuesFromModel();
+    // Get the kill points from the state store
+    const availablePoints = this.getAvailablePoints();
     
-    // Update button states based on available kill points
+    logger.debug('Updating kill points display:', availablePoints);
+    this.killPointsDisplay.textContent = availablePoints.toString();
+    
+    // Update skill values and button states
+    this.updateSkillValuesFromModel();
     this.updateButtonStates();
   }
 
@@ -524,7 +566,7 @@ export class PassiveSkillMenu {
     
     allSkills.forEach(skill => {
       // Use cached element or get it once
-      const valueElement = this.getElement(`#${skill.id}-value`);
+      const valueElement = this.getElement(SELECTORS.id(DOM_IDS.SKILL.VALUE(skill.id)));
       if (valueElement) {
         // Only update if the value has changed
         if (valueElement.textContent !== skill.displayValue) {
@@ -550,7 +592,7 @@ export class PassiveSkillMenu {
     
     // Update each button
     allSkills.forEach(skill => {
-      const buttonId = `#${skill.id}-upgrade`;
+      const buttonId = SELECTORS.id(DOM_IDS.SKILL.UPGRADE(skill.id));
       const button = this.getElement(buttonId) as HTMLButtonElement;
       
       if (button) {
@@ -559,15 +601,40 @@ export class PassiveSkillMenu {
           button.disabled = disabled;
           
           if (disabled) {
-            button.classList.add('disabled');
+            button.classList.add(CSS_CLASSES.PASSIVE_SKILL_MENU.DISABLED);
           } else {
-            button.classList.remove('disabled');
+            button.classList.remove(CSS_CLASSES.PASSIVE_SKILL_MENU.DISABLED);
           }
         }
       }
     });
   }
   
+  /**
+   * Decrease skill points based on game state
+   * @param availablePoints - Current available points
+   */
+  private decreaseSkillPoints(availablePoints: number): void {
+    const newPoints = availablePoints - 1;
+    
+    // Determine where to update the points based on game state
+    if (this.game.getState() === GameState.GAME_OVER) {
+      // Update game available kill points
+      this.game.availableKillPoints = newPoints;
+      stateStore.game.availableKillPoints.set(newPoints);
+      
+      // Update level system for consistency
+      this.levelSystem.kills = newPoints;
+      stateStore.levelSystem.kills.set(newPoints);
+    } else {
+      // Update level system kills
+      stateStore.levelSystem.kills.set(newPoints);
+      this.levelSystem.kills = newPoints;
+    }
+    
+    logger.debug(`Reduced skill points from ${availablePoints} to ${newPoints}`);
+  }
+
   /**
    * Upgrade a passive skill
    * @param skillId - ID of the skill to upgrade
@@ -576,47 +643,14 @@ export class PassiveSkillMenu {
     logger.debug(`Attempting to upgrade skill: ${skillId}`);
     
     // Check if we have skill points available from state store
-    let availablePoints = 0;
-    
-    // Determine where to get/update the points from
-    if (this.game.getState() === GameState.GAME_OVER) {
-      // We're in game over state
-      availablePoints = stateStore.game.availableKillPoints.get();
-      if (availablePoints <= 0) {
-        logger.debug('No skill points available');
-        return;
-      }
-      
-      // Decrease available kill points in the game and state store
-      const newPoints = availablePoints - 1;
-      this.game.availableKillPoints = newPoints;
-      stateStore.game.availableKillPoints.set(newPoints);
-      logger.debug(`Reduced skill points from ${availablePoints} to ${newPoints}`);
-      
-      // Also update levelSystem if it exists for consistency
-      if (this.levelSystem) {
-        this.levelSystem.kills = newPoints;
-        stateStore.levelSystem.kills.set(newPoints);
-      }
-    } else {
-      // Normal gameplay state
-      availablePoints = stateStore.levelSystem.kills.get();
-      if (availablePoints <= 0) {
-        logger.debug('No skill points available');
-        return;
-      }
-      
-      // Decrease available kill points in state store
-      const newPoints = availablePoints - 1;
-      stateStore.levelSystem.kills.set(newPoints);
-      
-      // Update levelSystem for backwards compatibility
-      if (this.levelSystem) {
-        this.levelSystem.kills = newPoints;
-      }
-      
-      logger.debug(`Reduced skill points from ${availablePoints} to ${newPoints}`);
+    const availablePoints = this.getAvailablePoints();
+    if (availablePoints <= 0) {
+      logger.debug('No skill points available');
+      return;
     }
+    
+    // Decrease available points based on game state
+    this.decreaseSkillPoints(availablePoints);
     
     // Upgrade the skill in the model
     passiveSkillModel.upgradeSkill(skillId);
@@ -642,29 +676,25 @@ export class PassiveSkillMenu {
     this.updateSkillValuesFromModel();
     
     // Apply the loaded skills to the player immediately
-    if (this.game) {
-      // Ensure the UI elements have been properly updated before applying the skills
-      // Store timeout ID for later cleanup
-      const timeoutId = window.setTimeout(() => {
-        logger.debug('About to apply loaded passive skills to player');
-        this.game.applyPurchasedPassiveSkills();
-        logger.debug('Successfully applied all passive skills from storage');
-        
-        // Force the player to log current stats
-        if (this.game && this.game.logPlayerStats) {
-          this.game.logPlayerStats();
-        }
-        
-        // Remove timeout ID from array once executed
-        const index = this.timeouts.indexOf(timeoutId);
-        if (index !== -1) {
-          this.timeouts.splice(index, 1);
-        }
-      }, 100); // Give the DOM a little time to update
+    const timeoutId = window.setTimeout(() => {
+      logger.debug('About to apply loaded passive skills to player');
+      this.game.applyPurchasedPassiveSkills();
+      logger.debug('Successfully applied all passive skills from storage');
       
-      // Track timeout ID
-      this.timeouts.push(timeoutId);
-    }
+      // Force the player to log current stats
+      if (this.game.logPlayerStats) {
+        this.game.logPlayerStats();
+      }
+      
+      // Remove timeout ID from array once executed
+      const index = this.timeouts.indexOf(timeoutId);
+      if (index !== -1) {
+        this.timeouts.splice(index, 1);
+      }
+    }, 100); // Give the DOM a little time to update
+    
+    // Track timeout ID
+    this.timeouts.push(timeoutId);
   }
 }
 

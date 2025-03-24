@@ -17,6 +17,7 @@ import { createLogger } from "../utils/logger";
 import { ILevelSystem } from "../types/player-types";
 import passiveSkillModel from "../models/passive-skill-model";
 import stateStore from "./state-store";
+import { DOM_IDS, CSS_CLASSES, SELECTORS } from "../constants/dom-elements";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
@@ -493,15 +494,17 @@ export class Game {
     } as ILevelSystem;
     
     // Force the killPointsDisplay to update even before the menu is reopened
-    const skillPointsElement = document.getElementById('available-skill-points');
+    const skillPointsElement = document.getElementById(DOM_IDS.PASSIVE_SKILL_MENU.POINTS_DISPLAY);
     if (skillPointsElement) {
       skillPointsElement.textContent = this.availableKillPoints.toString();
     }
 
     // Make sure the menu exists and force recreation
-    if (this.passiveSkillMenu.menuOverlay) {
-      this.passiveSkillMenu.menuOverlay.remove();
-      this.passiveSkillMenu.menuOverlay = null;
+    const menuOverlay = this.passiveSkillMenu.getMenuOverlay();
+    if (menuOverlay) {
+      menuOverlay.remove();
+      // Null the overlay to force recreation
+      this.passiveSkillMenu.resetMenuOverlay();
     }
 
     // Open passive skill menu
@@ -858,35 +861,35 @@ export class Game {
     }
 
     // Clean up any DOM elements that might have been missed
-    const bloodNovas = document.querySelectorAll('.blood-nova');
+    const bloodNovas = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BLOOD_NOVA));
     bloodNovas.forEach(element => {
       if (element.parentNode) {
         element.parentNode.removeChild(element);
       }
     });
 
-    const bloodDrainAOEs = document.querySelectorAll('.blood-drain-aoe');
+    const bloodDrainAOEs = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BLOOD_DRAIN_AOE));
     bloodDrainAOEs.forEach(element => {
       if (element.parentNode) {
         element.parentNode.removeChild(element);
       }
     });
 
-    const bats = document.querySelectorAll('.bat');
+    const bats = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BAT));
     bats.forEach(element => {
       if (element.parentNode) {
         element.parentNode.removeChild(element);
       }
     });
 
-    const shadowTrails = document.querySelectorAll('.shadow-trail');
+    const shadowTrails = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.SHADOW_TRAIL));
     shadowTrails.forEach(element => {
       if (element.parentNode) {
         element.parentNode.removeChild(element);
       }
     });
 
-    const bloodParticles = document.querySelectorAll('.blood-particle');
+    const bloodParticles = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BLOOD_PARTICLE));
     bloodParticles.forEach(element => {
       if (element.parentNode) {
         element.parentNode.removeChild(element);
