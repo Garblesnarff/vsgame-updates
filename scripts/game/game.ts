@@ -363,7 +363,8 @@ export class Game {
       if (enemy instanceof VampireHunter) {
         enemy.update(deltaTime, this.player, this.createProjectile.bind(this));
       } else {
-        enemy.update(deltaTime, this.player);
+        // Pass the current enemies array to all enemy types for coordination
+        enemy.update(deltaTime, this.player, this.enemies);
       }
 
       // Check for Blood Drain ability affecting this enemy

@@ -3,7 +3,9 @@ import {
   BasicEnemy,
   VampireHunter, 
   FastSwarmer, 
-  TankyBrute 
+  TankyBrute,
+  SilverMage,
+  HolyPriest
 } from "../entities/enemies";
 import CONFIG from "../config";
 import { GameEvents, EVENTS } from "../utils/event-system";
@@ -17,10 +19,14 @@ export class SpawnSystem {
   lastSpawnTime: number;
   lastSwarmSpawnTime: number;
   lastHunterSpawnTime: number;
+  lastSilverMageSpawnTime: number;
+  lastHolyPriestSpawnTime: number;
   baseSpawnRate: number;
   currentSpawnRate: number;
   hunterSpawnRate: number;
   swarmSpawnRate: number;
+  silverMageSpawnRate: number;
+  holyPriestSpawnRate: number;
   swarmSize: number;
   bruteSpawnLevels: number[];
   bruteSpawnCount: Map<number, number>;
@@ -38,12 +44,18 @@ export class SpawnSystem {
     this.lastSpawnTime = 0;
     this.lastSwarmSpawnTime = 0;
     this.lastHunterSpawnTime = 0;
+    this.lastSilverMageSpawnTime = 0;
+    this.lastHolyPriestSpawnTime = 0;
     this.baseSpawnRate = CONFIG.SPAWN_RATE;
     this.currentSpawnRate = this.baseSpawnRate;
     
     // Special enemy spawn timers
     this.hunterSpawnRate = CONFIG.ENEMY.SPAWN_RATES.HUNTER_SPAWN_RATE;
     this.swarmSpawnRate = CONFIG.ENEMY.SPAWN_RATES.SWARM_SPAWN_RATE;
+    // Define a spawn rate for Silver Mages - every 15 seconds initially, can be adjusted in config later
+    this.silverMageSpawnRate = 15000; 
+    // Define a spawn rate for Holy Priests - every 20 seconds initially, can be adjusted in config later
+    this.holyPriestSpawnRate = 20000;
     this.swarmSize = CONFIG.ENEMY.SPAWN_RATES.BASE_SWARM_SIZE;
 
     // Brute spawn levels (every 5 levels starting at 5)
@@ -95,6 +107,18 @@ export class SpawnSystem {
       this.lastSwarmSpawnTime = gameTime;
       // Return the first swarmer, the rest will be added in spawnSwarm
       return this.spawnSwarm(playerLevel);
+    }
+    
+    // Check if it's time to spawn a Silver Mage (if player level is high enough)
+    if (playerLevel >= 3 && gameTime - this.lastSilverMageSpawnTime > this.silverMageSpawnRate) {
+      this.lastSilverMageSpawnTime = gameTime;
+      return this.spawnSilverMage(playerLevel);
+    }
+    
+    // Check if it's time to spawn a Holy Priest (if player level is high enough)
+    if (playerLevel >= 5 && gameTime - this.lastHolyPriestSpawnTime > this.holyPriestSpawnRate) {
+      this.lastHolyPriestSpawnTime = gameTime;
+      return this.spawnHolyPriest(playerLevel);
     }
     
     // Check if we need to spawn brutes for the current level
@@ -203,6 +227,28 @@ export class SpawnSystem {
   }
   
   /**
+   * Spawn a Silver Mage enemy
+   * @param playerLevel - Current player level
+   * @returns Silver Mage enemy
+   */
+  spawnSilverMage(playerLevel: number): SilverMage {
+    const silverMage = new SilverMage(this.gameContainer, playerLevel);
+    GameEvents.emit(EVENTS.ENEMY_SPAWN, silverMage, 'silverMage');
+    return silverMage;
+  }
+  
+  /**
+   * Spawn a Holy Priest enemy
+   * @param playerLevel - Current player level
+   * @returns Holy Priest enemy
+   */
+  spawnHolyPriest(playerLevel: number): HolyPriest {
+    const holyPriest = new HolyPriest(this.gameContainer, playerLevel);
+    GameEvents.emit(EVENTS.ENEMY_SPAWN, holyPriest, 'holyPriest');
+    return holyPriest;
+  }
+  
+  /**
    * Check if we should spawn a brute at the current level
    * @param playerLevel - Current player level
    * @returns Whether a brute should be spawned
@@ -263,6 +309,8 @@ export class SpawnSystem {
     this.lastSpawnTime = 0;
     this.lastSwarmSpawnTime = 0;
     this.lastHunterSpawnTime = 0;
+    this.lastSilverMageSpawnTime = 0;
+    this.lastHolyPriestSpawnTime = 0;
     this.currentSpawnRate = this.baseSpawnRate;
     this.spawnedBrutesCount = 0;
   }

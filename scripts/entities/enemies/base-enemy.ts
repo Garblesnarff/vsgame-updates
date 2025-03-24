@@ -93,8 +93,9 @@ export class Enemy extends BaseEntity {
    * Update enemy state
    * @param deltaTime - Time since last update in ms
    * @param player - Reference to the player
+   * @param enemies - Array of all enemies (for coordination)
    */
-  update(deltaTime: number, player?: any): void {
+  update(deltaTime: number, player?: any, _enemies?: Enemy[]): void {
     super.update(deltaTime);
     
     if (player) {
@@ -132,8 +133,9 @@ export class Enemy extends BaseEntity {
    * Updates the enemy's position to follow the player
    * @param player - Player object to follow
    * @param _createProjectile - Optional function for enemies that can shoot
+   * @param _enemies - Optional array of all enemies (for coordination)
    */
-  moveTowardsPlayer(player: any, _createProjectile?: any): void {
+  moveTowardsPlayer(player: any, _createProjectile?: any, _enemies?: Enemy[]): void {
     const dx = player.x + player.width / 2 - (this.x + this.width / 2);
     const dy = player.y + player.height / 2 - (this.y + this.height / 2);
     const dist = Math.sqrt(dx * dx + dy * dy);

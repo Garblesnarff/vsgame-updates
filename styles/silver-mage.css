@@ -1,0 +1,84 @@
+/* Silver Mage styles and animations */
+
+/* Silver Mage appearance */
+.silver-mage {
+  background-color: #87CEFA;
+  border: 2px solid white;
+  border-radius: 40%;
+}
+
+/* Silver mage charging animation */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 5px 2px rgba(255, 255, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 10px 5px rgba(255, 255, 255, 0.7);
+  }
+}
+
+.mage-charging {
+  animation: pulse 0.5s infinite alternate;
+}
+
+/* Silver zone pulse animation */
+@keyframes zonePulse {
+  0% {
+    box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.4);
+    background-color: rgba(173, 216, 230, 0.3);
+  }
+  100% {
+    box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.7);
+    background-color: rgba(173, 216, 230, 0.5);
+  }
+}
+
+.silver-zone {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(173, 216, 230, 0.3);
+  border: 2px solid rgba(192, 192, 192, 0.7);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.7);
+  z-index: 5;
+  animation: zonePulse 2s infinite alternate;
+}
+
+/* Teleport flash animation */
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.teleport-flash {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 10;
+  animation: fadeOut 0.5s forwards;
+}
+
+/* Zone damage pulse animation */
+@keyframes pulseFadeOut {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.zone-damage-pulse {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(192, 192, 192, 0.2);
+  z-index: 15;
+  animation: pulseFadeOut 0.3s forwards;
+}
