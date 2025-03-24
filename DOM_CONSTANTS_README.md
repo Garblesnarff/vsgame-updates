@@ -92,3 +92,38 @@ const container = this.createElement('div', {
 This approach makes our code more resilient to UI changes and refactoring. If we decide to change the naming convention for an entire feature, we only need to update the constants in one place rather than search through the entire codebase.
 
 It also ensures consistency across different files and components, reducing bugs caused by typos or inconsistent naming.
+
+## Using DOM Templates
+
+In addition to using DOM constants, we also provide a templating system for creating complex UI elements:
+
+```typescript
+// Import Templates
+import { Templates } from "./utils/dom-templates";
+
+// Create a skill card using a template
+const card = Templates.skillCard({
+  id: "blood-lance",
+  name: "Blood Lance",
+  description: "Launch a piercing lance of blood that damages enemies",
+  effects: [
+    { name: "Damage", id: "blood-lance-damage", value: "35" },
+    { name: "Pierce", id: "blood-lance-pierce", value: "3" }
+  ],
+  level: 2,
+  locked: false
+});
+
+// Add it to the DOM
+container.appendChild(card);
+```
+
+This declarative approach is preferred over manual DOM creation for complex UI elements as it:
+
+1. Makes code more readable and maintainable
+2. Centralizes DOM structure in templates
+3. Ensures consistent structure for similar elements
+4. Reduces duplication of DOM creation code
+5. Makes it easier to change UI structure across the application
+
+See `scripts/utils/dom-templates.ts` for available templates and `scripts/utils/README.md` for detailed documentation on using the template system.

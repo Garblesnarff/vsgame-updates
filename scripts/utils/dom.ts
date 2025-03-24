@@ -1,7 +1,12 @@
 /**
  * DOM utilities
  * Helper functions for DOM manipulation
+ * 
+ * This module provides both imperative and declarative approaches to DOM manipulation.
+ * For more complex UI elements, prefer the template-based approach from dom-templates.ts.
  */
+
+// Constants are dynamically loaded to avoid circular dependencies
 
 /**
  * Attributes object for createElement function
@@ -142,40 +147,23 @@ export function createProgressBar(
   value: number = 100,
   options: ProgressBarOptions = {}
 ): ProgressBar {
-  const width = options.width || 100;
-  const height = options.height || 10;
-  const backgroundColor = options.backgroundColor || "#333";
-  const fillColor = options.fillColor || "#4b0082";
-
-  // Create container
-  const container = createElement("div", {
+  // Import the template engine on-demand to avoid circular dependencies
+  const { Templates } = require('./dom-templates');
+  
+  // Create progress bar using template
+  const container = Templates.progressBar({
+    width: options.width || 100,
+    height: options.height || 10,
+    backgroundColor: options.backgroundColor || "#333",
+    fillColor: options.fillColor || "#4b0082",
     className: options.containerClass || "progress-bar-container",
-    style: {
-      width: `${width}px`,
-      height: `${height}px`,
-      backgroundColor,
-      position: "relative",
-      overflow: "hidden",
-      borderRadius: "3px",
-    },
+    fillClassName: options.fillClass || "progress-bar-fill",
+    value
   });
-
-  // Create fill element
-  const fill = createElement("div", {
-    className: options.fillClass || "progress-bar-fill",
-    style: {
-      width: `${value}%`,
-      height: "100%",
-      backgroundColor: fillColor,
-      position: "absolute",
-      left: 0,
-      top: 0,
-      transition: "width 0.3s ease",
-    },
-  });
-
-  container.appendChild(fill);
-
+  
+  // Get the fill element
+  const fill = container.querySelector(".progress-bar-fill") as HTMLElement;
+  
   // Return components and setValue function
   return {
     container,
@@ -196,25 +184,16 @@ export function createTooltip(
   text: string,
   options: TooltipOptions = {}
 ): HTMLElement {
-  return createElement(
-    "div",
-    {
-      className: options.className || "tooltip",
-      style: {
-        position: "absolute",
-        backgroundColor: options.backgroundColor || "rgba(0, 0, 0, 0.8)",
-        color: options.textColor || "white",
-        padding: "5px 10px",
-        borderRadius: "3px",
-        fontSize: "12px",
-        pointerEvents: "none",
-        zIndex: "1000",
-        opacity: "0",
-        transition: "opacity 0.3s ease",
-      },
-    },
-    text
-  );
+  // Import the template engine on-demand to avoid circular dependencies
+  const { Templates } = require('./dom-templates');
+  
+  // Create tooltip using template
+  return Templates.tooltip({
+    text,
+    className: options.className || "tooltip",
+    backgroundColor: options.backgroundColor || "rgba(0, 0, 0, 0.8)",
+    textColor: options.textColor || "white"
+  });
 }
 
 /**

@@ -65,18 +65,17 @@ export class AbilityBar {
       return null;
     }
 
-    // Create ability element
-    const element = document.createElement("div");
-    element.className = "ability";
-    element.id = abilityId.replace(/([A-Z])/g, "-$1").toLowerCase(); // camelCase to kebab-case
+    // Import templates and CSS classes
+    const { Templates } = require('../utils/dom-templates');
+    const { CSS_CLASSES } = require('../constants/dom-elements');
 
-    // Add inner content
-    element.innerHTML = `
-            <div class="ability-icon">${icon}</div>
-            <div class="ability-key">${key}</div>
-            <div class="ability-level">Lv${ability.level}</div>
-            <div class="ability-cooldown"></div>
-        `;
+    // Create ability element using template
+    const element = Templates.ability({
+      id: abilityId,
+      icon,
+      key,
+      level: ability.level
+    });
 
     // Add event listener
     element.addEventListener("click", () => ability.use());
@@ -87,8 +86,8 @@ export class AbilityBar {
     // Store reference to element
     this.abilityElements.set(abilityId, {
       element: element,
-      cooldownElement: element.querySelector(".ability-cooldown"),
-      levelElement: element.querySelector(".ability-level"),
+      cooldownElement: element.querySelector(`.${CSS_CLASSES.ABILITY.COOLDOWN}`),
+      levelElement: element.querySelector(`.${CSS_CLASSES.ABILITY.LEVEL}`),
     });
 
     return element;

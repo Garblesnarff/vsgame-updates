@@ -48,42 +48,30 @@ export class StatsDisplay {
    * Ensure all required UI elements exist
    */
   ensureElementsExist(): void {
+    // Import templates and DOM constants
+    const { Templates } = require('../utils/dom-templates');
+    const { DOM_IDS } = require('../constants/dom-elements');
+    
     // Check for stats container
-    if (!document.getElementById("stats")) {
-      const statsContainer = document.createElement("div");
-      statsContainer.id = "stats";
-
-      statsContainer.innerHTML = `
-                <div class="bar-container">
-                    <div id="health-bar"></div>
-                </div>
-                <div class="bar-container">
-                    <div id="energy-bar"></div>
-                </div>
-                <div>Time: <span id="time">0:00</span></div>
-                <div>Level: <span id="level">1</span></div>
-                <div>Kills: <span id="kills">0 / 10</span></div>
-            `;
-
+    if (!document.getElementById(DOM_IDS.UI.STATS_CONTAINER)) {
+      // Create container using template
+      const statsContainer = Templates.statsContainer();
       this.gameContainer.appendChild(statsContainer);
 
       // Update references
-      this.healthBar = document.getElementById("health-bar");
-      this.energyBar = document.getElementById("energy-bar");
-      this.timeElement = document.getElementById("time");
-      this.levelElement = document.getElementById("level");
-      this.killsElement = document.getElementById("kills");
+      this.healthBar = document.getElementById(DOM_IDS.PLAYER.HEALTH_BAR);
+      this.energyBar = document.getElementById(DOM_IDS.PLAYER.ENERGY_BAR);
+      this.timeElement = document.getElementById(DOM_IDS.UI.TIME);
+      this.levelElement = document.getElementById(DOM_IDS.UI.LEVEL);
+      this.killsElement = document.getElementById(DOM_IDS.UI.KILLS);
     }
 
     // Check for skill points display
-    if (!document.getElementById("skill-points")) {
-      const skillPointsElement = document.createElement("div");
-      skillPointsElement.id = "skill-points";
-      skillPointsElement.className = "skill-points";
-      skillPointsElement.innerHTML = `Skill Points: <span id="skill-points-count">0</span>`;
-
+    if (!document.getElementById(DOM_IDS.UI.SKILL_POINTS)) {
+      // Create skill points using template
+      const skillPointsElement = Templates.skillPoints();
       this.gameContainer.appendChild(skillPointsElement);
-      this.skillPointsCount = document.getElementById("skill-points-count");
+      this.skillPointsCount = document.getElementById(DOM_IDS.UI.SKILL_POINTS_COUNT);
     }
   }
 

@@ -28,7 +28,8 @@ export const DOM_IDS = {
 
   // Player elements
   PLAYER: {
-    // Add player-specific DOM IDs here
+    HEALTH_BAR: 'health-bar',
+    ENERGY_BAR: 'energy-bar'
   },
 
   // Enemy elements
@@ -38,12 +39,21 @@ export const DOM_IDS = {
 
   // Ability elements
   ABILITY: {
-    // Add ability-specific DOM IDs here
+    CONTAINER: 'abilities'
   },
 
   // UI elements
   UI: {
-    // Add UI-specific DOM IDs here
+    STATS_CONTAINER: 'stats',
+    TIME: 'time',
+    LEVEL: 'level',
+    KILLS: 'kills',
+    GAME_OVER: 'game-over',
+    LEVEL_UP: 'level-up',
+    FINAL_SCORE: 'final-score',
+    SKILL_POINTS: 'skill-points',
+    SKILL_POINTS_COUNT: 'skill-points-count',
+    AUTO_ATTACK_TOGGLE: 'auto-attack-toggle'
   }
 };
 
@@ -79,6 +89,7 @@ export const CSS_CLASSES = {
     BAT: 'bat',
     SHADOW_TRAIL: 'shadow-trail',
     BLOOD_PARTICLE: 'blood-particle',
+    NIGHT_SHIELD: 'night-shield',
   },
 
   // Player classes
@@ -93,12 +104,21 @@ export const CSS_CLASSES = {
 
   // Ability classes
   ABILITY: {
-    // Add ability-specific CSS classes here
+    CONTAINER: 'abilities',
+    ITEM: 'ability',
+    ICON: 'ability-icon',
+    KEY: 'ability-key',
+    LEVEL: 'ability-level',
+    COOLDOWN: 'ability-cooldown'
   },
 
   // UI classes
   UI: {
-    // Add UI-specific CSS classes here
+    BAR_CONTAINER: 'bar-container',
+    SKILL_POINTS: 'skill-points',
+    GAME_OVER: 'game-over',
+    LEVEL_UP: 'level-up',
+    AUTO_ATTACK_TOGGLE: 'auto-attack-toggle'
   }
 };
 

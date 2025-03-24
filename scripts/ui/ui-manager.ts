@@ -53,13 +53,15 @@ export class UIManager {
    * Ensure auto-attack toggle element exists
    */
   ensureAutoAttackToggleExists(): void {
+    // Import templates
+    const { Templates } = require('../utils/dom-templates');
+    
     if (!this.autoAttackToggle) {
-      this.autoAttackToggle = document.createElement("div");
-      this.autoAttackToggle.id = "auto-attack-toggle";
-      this.autoAttackToggle.className = "auto-attack-toggle active";
-      this.autoAttackToggle.textContent = "Auto-Attack: ON";
-
-      this.gameContainer.appendChild(this.autoAttackToggle);
+      // Create auto attack toggle using template
+      this.autoAttackToggle = Templates.autoAttackToggle({ enabled: true });
+      if (this.autoAttackToggle) {
+        this.gameContainer.appendChild(this.autoAttackToggle);
+      }
     }
   }
 
@@ -171,36 +173,32 @@ export class UIManager {
    * @param range - Explosion range
    */
   createShieldExplosion(x: number, y: number, range: number): void {
-    // Create explosion visual effect
-    const explosion = document.createElement("div");
-    explosion.className = "night-shield";
-    explosion.style.width = "0px";
-    explosion.style.height = "0px";
-    explosion.style.left = x + "px";
-    explosion.style.top = y + "px";
-    explosion.style.border = "5px solid #8a2be2";
-    explosion.style.backgroundColor = "rgba(138, 43, 226, 0.3)";
-    explosion.style.transition = "all 0.3s ease-out";
+    // Import templates
+    const { Templates } = require('../utils/dom-templates');
+    
+    // Create explosion visual effect using template
+    const explosion = Templates.shieldExplosion({ x, y, range });
+    if (explosion) {
+      this.gameContainer.appendChild(explosion);
 
-    this.gameContainer.appendChild(explosion);
-
-    // Animate explosion
-    setTimeout(() => {
-      explosion.style.width = range * 2 + "px";
-      explosion.style.height = range * 2 + "px";
-      explosion.style.left = x - range + "px";
-      explosion.style.top = y - range + "px";
-      explosion.style.opacity = "0.7";
-    }, 10);
-
-    setTimeout(() => {
-      explosion.style.opacity = "0";
+      // Animate explosion
       setTimeout(() => {
-        if (explosion.parentNode) {
-          explosion.parentNode.removeChild(explosion);
-        }
+        explosion.style.width = range * 2 + "px";
+        explosion.style.height = range * 2 + "px";
+        explosion.style.left = x - range + "px";
+        explosion.style.top = y - range + "px";
+        explosion.style.opacity = "0.7";
+      }, 10);
+
+      setTimeout(() => {
+        explosion.style.opacity = "0";
+        setTimeout(() => {
+          if (explosion.parentNode) {
+            explosion.parentNode.removeChild(explosion);
+          }
+        }, 300);
       }, 300);
-    }, 300);
+    }
   }
 
   /**

@@ -45,30 +45,20 @@ export class SkillMenu {
    * Ensure the skill menu elements exist
    */
   ensureMenuExists(): void {
+    // Import templates and DOM constants
+    const { Templates } = require('../utils/dom-templates');
+    const { DOM_IDS, CSS_CLASSES } = require('../constants/dom-elements');
+    
     if (!this.menuOverlay) {
-      this.menuOverlay = document.createElement("div");
-      this.menuOverlay.id = "skill-menu-overlay";
-      this.menuOverlay.className = "skill-menu-overlay";
-
-      this.menuOverlay.innerHTML = `
-                <div class="skill-menu">
-                    <div class="skill-menu-header">
-                        <h2>Vampiric Powers</h2>
-                        <div class="skill-points-display">
-                            Available Skill Points: <span id="available-skill-points">0</span>
-                        </div>
-                        <button class="skill-menu-close" id="skill-menu-close">Close</button>
-                    </div>
-                    
-                    <div class="skill-grid"></div>
-                </div>
-            `;
-
-      this.gameContainer.appendChild(this.menuOverlay);
-      this.skillPointsDisplay = document.getElementById(
-        "available-skill-points"
-      );
-      this.skillGrid = this.menuOverlay.querySelector(".skill-grid");
+      // Create menu overlay using template
+      this.menuOverlay = Templates.skillMenuOverlay();
+      if (this.menuOverlay) {
+        this.gameContainer.appendChild(this.menuOverlay);
+        
+        // Get references to important elements
+        this.skillPointsDisplay = document.getElementById(DOM_IDS.PASSIVE_SKILL_MENU.POINTS_DISPLAY);
+        this.skillGrid = this.menuOverlay.querySelector(`.${CSS_CLASSES.SKILL.GRID}`);
+      }
     }
   }
 
@@ -289,77 +279,19 @@ export class SkillMenu {
       return;
     }
 
-    // Create card element
-    const card = document.createElement("div");
-    card.className = "skill-card";
-    card.id = `${id}-card`;
-
-    // Add "New!" badge for unlockable abilities
-    if (locked) {
-      const badge = document.createElement("div");
-      badge.className = "new-ability-badge";
-      badge.textContent = "New!";
-      card.appendChild(badge);
-    }
-
-    // Add header
-    const header = document.createElement("div");
-    header.className = "skill-card-header";
-    header.innerHTML = `<h3>${name}</h3>`;
-    card.appendChild(header);
-
-    // Add level pips
-    const levelContainer = document.createElement("div");
-    levelContainer.className = "skill-level";
-
-    for (let i = 0; i < 5; i++) {
-      const pip = document.createElement("div");
-      pip.className = "level-pip";
-      if (i < level) {
-        pip.classList.add("filled");
-      }
-      levelContainer.appendChild(pip);
-    }
-
-    card.appendChild(levelContainer);
-
-    // Add description
-    const desc = document.createElement("div");
-    desc.className = "skill-description";
-    desc.textContent = description;
-    card.appendChild(desc);
-
-    // Add effects
-    const effectsContainer = document.createElement("div");
-    effectsContainer.className = "skill-effects";
-
-    effects.forEach((effect) => {
-      const effectElement = document.createElement("div");
-      effectElement.className = "skill-effect";
-      effectElement.innerHTML = `
-                <span class="skill-effect-name">${effect.name}:</span>
-                <span class="skill-effect-value" id="${effect.id}">${effect.value}</span>
-            `;
-      effectsContainer.appendChild(effectElement);
+    // Import templates
+    const { Templates } = require('../utils/dom-templates');
+    
+    // Create card using template
+    const card = Templates.skillCard({
+      id,
+      name,
+      description,
+      effects,
+      level,
+      locked,
+      unlockLevel
     });
-
-    card.appendChild(effectsContainer);
-
-    // Add upgrade button
-    const button = document.createElement("button") as HTMLButtonElement;
-    button.className = "skill-upgrade-btn";
-    button.id = `${id}-upgrade`;
-    button.textContent = locked ? "Unlock (3 Points)" : "Upgrade (1 Point)";
-    card.appendChild(button);
-
-    // Add locked overlay if needed
-    if (locked) {
-      const lockedOverlay = document.createElement("div");
-      lockedOverlay.className = "skill-locked";
-      lockedOverlay.id = `${id}-locked`;
-      lockedOverlay.innerHTML = `<div class="skill-locked-message">Unlocks at Level ${unlockLevel}</div>`;
-      card.appendChild(lockedOverlay);
-    }
 
     // Add to skill grid
     this.skillGrid.appendChild(card);

@@ -28,29 +28,25 @@ export class ScreensManager {
    * Ensure all screen elements exist
    */
   ensureScreensExist(): void {
+    // Import templates
+    const { Templates } = require('../utils/dom-templates');
+    const { DOM_IDS } = require('../constants/dom-elements');
+    
+    // Create game over screen if it doesn't exist
     if (!this.gameOverScreen) {
-      this.gameOverScreen = document.createElement("div");
-      this.gameOverScreen.id = "game-over";
-      this.gameOverScreen.className = "game-over";
-      this.gameOverScreen.innerHTML = `
-                GAME OVER<br>
-                <span id="final-score"></span><br>
-                Press SPACE to restart
-            `;
+    this.gameOverScreen = Templates.gameOverScreen({ kills: 0, time: '0:00' });
+    if (this.gameOverScreen) {
       this.gameContainer.appendChild(this.gameOverScreen);
-      this.finalScoreElement = document.getElementById("final-score");
+        this.finalScoreElement = document.getElementById(DOM_IDS.UI.FINAL_SCORE);
+      }
     }
 
+    // Create level up screen if it doesn't exist
     if (!this.levelUpScreen) {
-      this.levelUpScreen = document.createElement("div");
-      this.levelUpScreen.id = "level-up";
-      this.levelUpScreen.className = "level-up";
-      this.levelUpScreen.innerHTML = `
-                LEVEL UP!<br>
-                You gained a skill point!<br>
-                Press 'S' to open Skills
-            `;
-      this.gameContainer.appendChild(this.levelUpScreen);
+      this.levelUpScreen = Templates.levelUpScreen();
+      if (this.levelUpScreen) {
+        this.gameContainer.appendChild(this.levelUpScreen);
+      }
     }
   }
 
@@ -114,18 +110,15 @@ export class ScreensManager {
     className: string = "message",
     duration: number = 3000
   ): HTMLElement {
-    const messageScreen = document.createElement("div");
-    messageScreen.className = className;
-    messageScreen.style.position = "absolute";
-    messageScreen.style.top = "50%";
-    messageScreen.style.left = "50%";
-    messageScreen.style.transform = "translate(-50%, -50%)";
-    messageScreen.style.fontSize = "36px";
-    messageScreen.style.color = "#ffffff";
-    messageScreen.style.textAlign = "center";
-    messageScreen.style.zIndex = "1000";
-    messageScreen.innerHTML = message;
-
+    // Import templates
+    const { Templates } = require('../utils/dom-templates');
+    
+    // Create message using template
+    const messageScreen = Templates.message({
+      message,
+      className
+    });
+    
     this.gameContainer.appendChild(messageScreen);
 
     if (duration > 0) {
