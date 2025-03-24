@@ -4,6 +4,7 @@
  */
 import { createLogger } from "../utils/logger";
 import { savePassiveSkills, loadPassiveSkills } from "../utils/persistence";
+import { tryCatch, ErrorCategory, ErrorSeverity } from "../utils/error-handler";
 
 // Create a logger for the model
 const logger = createLogger('PassiveSkillModel');
@@ -42,35 +43,68 @@ export class PassiveSkillModel {
    * Setup default skills
    */
   private initializeDefaultSkills(): void {
-    // Attack Damage
-    this.skills.set('increased-attack-damage', {
-      id: 'increased-attack-damage',
-      name: 'Increased Attack Damage',
-      description: 'Increases your damage output against all enemies.',
-      value: 0,
-      displayValue: '+0%',
-      incrementAmount: 10 // +10% per level
-    });
-
-    // Attack Speed
-    this.skills.set('increased-attack-speed', {
-      id: 'increased-attack-speed',
-      name: 'Increased Attack Speed',
-      description: 'Reduces the cooldown between attacks, allowing you to attack more frequently.',
-      value: 0,
-      displayValue: '+0%',
-      incrementAmount: 10 // +10% per level
-    });
-
-    // Life Steal
-    this.skills.set('life-steal', {
-      id: 'life-steal',
-      name: 'Life Steal',
-      description: 'Heals you for a percentage of the damage you deal to enemies.',
-      value: 0,
-      displayValue: '+0%',
-      incrementAmount: 5 // +5% per level
-    });
+    tryCatch(
+      () => {
+        // Attack Damage
+        this.skills.set('increased-attack-damage', {
+          id: 'increased-attack-damage',
+          name: 'Increased Attack Damage',
+          description: 'Increases your damage output against all enemies.',
+          value: 0,
+          displayValue: '+0%',
+          incrementAmount: 10 // +10% per level
+        });
+    
+        // Attack Speed
+        this.skills.set('increased-attack-speed', {
+          id: 'increased-attack-speed',
+          name: 'Increased Attack Speed',
+          description: 'Reduces the cooldown between attacks, allowing you to attack more frequently.',
+          value: 0,
+          displayValue: '+0%',
+          incrementAmount: 10 // +10% per level
+        });
+    
+        // Life Steal
+        this.skills.set('life-steal', {
+          id: 'life-steal',
+          name: 'Life Steal',
+          description: 'Heals you for a percentage of the damage you deal to enemies.',
+          value: 0,
+          displayValue: '+0%',
+          incrementAmount: 5 // +5% per level
+        });
+        
+        logger.debug('Default skills initialized successfully');
+      },
+      {
+        message: 'Failed to initialize default skills',
+        severity: ErrorSeverity.HIGH,
+        category: ErrorCategory.INITIALIZATION,
+        module: 'PassiveSkillModel',
+        recoverable: true,
+        context: {
+          action: 'initializeDefaultSkills'
+        }
+      },
+      // Recovery function
+      () => {
+        // Create bare minimum skills if initialization fails
+        logger.warn('Using fallback skills initialization');
+        
+        if (this.skills.size === 0) {
+          // Only set up fallback skills if we don't have any
+          this.skills.set('increased-attack-damage', {
+            id: 'increased-attack-damage',
+            name: 'Damage',
+            description: 'Increases damage',
+            value: 0,
+            displayValue: '+0%',
+            incrementAmount: 10
+          });
+        }
+      }
+    );
   }
 
   /**
@@ -78,7 +112,19 @@ export class PassiveSkillModel {
    * @returns Array of all passive skills
    */
   getAllSkills(): PassiveSkill[] {
-    return Array.from(this.skills.values());
+    return tryCatch(
+      () => Array.from(this.skills.values()),
+      {
+        message: 'Failed to get all skills',
+        severity: ErrorSeverity.MEDIUM,
+        category: ErrorCategory.GAME_STATE,
+        module: 'PassiveSkillModel',
+        recoverable: true
+      },
+      () => {
+        logger.warn('Returning empty skills array due to error');
+      }
+    ) ?? [];
   }
 
   /**
@@ -87,7 +133,22 @@ export class PassiveSkillModel {
    * @returns Skill data or undefined if not found
    */
   getSkill(skillId: string): PassiveSkill | undefined {
-    return this.skills.get(skillId);
+    return tryCatch(
+      () => {
+        if (!skillId) {
+          throw new Error('Invalid skill ID');
+        }
+        return this.skills.get(skillId);
+      },
+      {
+        message: `Failed to get skill: ${skillId}`,
+        severity: ErrorSeverity.LOW,
+        category: ErrorCategory.GAME_STATE,
+        module: 'PassiveSkillModel',
+        recoverable: true,
+        context: { skillId }
+      }
+    );
   }
 
   /**
@@ -96,7 +157,26 @@ export class PassiveSkillModel {
    * @returns Value of the skill or 0 if not found
    */
   getSkillValue(skillId: string): number {
-    return this.skills.get(skillId)?.value || 0;
+    return tryCatch(
+      () => {
+        if (!skillId) {
+          throw new Error('Invalid skill ID');
+        }
+        return this.skills.get(skillId)?.value ?? 0;
+      },
+      {
+        message: `Failed to get skill value: ${skillId}`,
+        severity: ErrorSeverity.LOW,
+        category: ErrorCategory.GAME_STATE,
+        module: 'PassiveSkillModel',
+        recoverable: true,
+        context: { skillId }
+      },
+      // Recovery function - return default value
+      () => {
+        logger.warn(`Returning default value 0 for skill: ${skillId}`);
+      }
+    ) ?? 0;
   }
 
   /**
@@ -105,7 +185,26 @@ export class PassiveSkillModel {
    * @returns Display value of the skill or '+0%' if not found
    */
   getSkillDisplayValue(skillId: string): string {
-    return this.skills.get(skillId)?.displayValue || '+0%';
+    return tryCatch(
+      () => {
+        if (!skillId) {
+          throw new Error('Invalid skill ID');
+        }
+        return this.skills.get(skillId)?.displayValue ?? '+0%';
+      },
+      {
+        message: `Failed to get skill display value: ${skillId}`,
+        severity: ErrorSeverity.LOW,
+        category: ErrorCategory.GAME_STATE,
+        module: 'PassiveSkillModel',
+        recoverable: true,
+        context: { skillId }
+      },
+      // Recovery function - return default value
+      () => {
+        logger.warn(`Returning default display value '+0%' for skill: ${skillId}`);
+      }
+    ) ?? '+0%';
   }
 
   /**
@@ -114,104 +213,190 @@ export class PassiveSkillModel {
    * @returns Whether the upgrade was successful
    */
   upgradeSkill(skillId: string): boolean {
-    const skill = this.skills.get(skillId);
-    if (skill) {
-      skill.value += skill.incrementAmount;
-      skill.displayValue = `+${skill.value}%`;
-      logger.debug(`Upgraded skill ${skillId} to value ${skill.value}`);
-      
-      // Save skills to persist across sessions
-      this.saveSkills();
-      return true;
-    }
-    return false;
+    return tryCatch(
+      () => {
+        if (!skillId) {
+          throw new Error('Invalid skill ID');
+        }
+        
+        const skill = this.skills.get(skillId);
+        if (!skill) {
+          logger.warn(`Attempted to upgrade non-existent skill: ${skillId}`);
+          return false;
+        }
+        
+        skill.value += skill.incrementAmount;
+        skill.displayValue = `+${skill.value}%`;
+        logger.debug(`Upgraded skill ${skillId} to value ${skill.value}`);
+        
+        // Save skills to persist across sessions
+        this.saveSkills();
+        return true;
+      },
+      {
+        message: `Failed to upgrade skill: ${skillId}`,
+        severity: ErrorSeverity.MEDIUM,
+        category: ErrorCategory.GAME_STATE,
+        module: 'PassiveSkillModel',
+        recoverable: true,
+        context: { skillId }
+      }
+    ) ?? false;
   }
 
   /**
    * Set a skill's value directly (useful for testing or admin functions)
    * @param skillId - ID of the skill
    * @param value - New value
+   * @returns Whether the operation was successful
    */
-  setSkillValue(skillId: string, value: number): void {
-    const skill = this.skills.get(skillId);
-    if (skill) {
-      skill.value = value;
-      skill.displayValue = `+${value}%`;
-      logger.debug(`Set skill ${skillId} value to ${value}`);
-      
-      // Save to persist across sessions
-      this.saveSkills();
-    }
+  setSkillValue(skillId: string, value: number): boolean {
+    return tryCatch(
+      () => {
+        if (!skillId) {
+          throw new Error('Invalid skill ID');
+        }
+        
+        if (typeof value !== 'number' || isNaN(value)) {
+          throw new Error(`Invalid value for skill ${skillId}: ${value}`);
+        }
+        
+        const skill = this.skills.get(skillId);
+        if (!skill) {
+          logger.warn(`Attempted to set value for non-existent skill: ${skillId}`);
+          return false;
+        }
+        
+        skill.value = value;
+        skill.displayValue = `+${value}%`;
+        logger.debug(`Set skill ${skillId} value to ${value}`);
+        
+        // Save to persist across sessions
+        this.saveSkills();
+        return true;
+      },
+      {
+        message: `Failed to set skill value: ${skillId} = ${value}`,
+        severity: ErrorSeverity.MEDIUM,
+        category: ErrorCategory.GAME_STATE,
+        module: 'PassiveSkillModel',
+        recoverable: true,
+        context: { skillId, value }
+      }
+    ) ?? false;
   }
 
   /**
    * Load skills from local storage
+   * @returns Whether load operation was successful
    */
-  loadSavedSkills(): void {
-    const savedSkills = loadPassiveSkills();
-    logger.debug('Loading saved skills from storage');
-    
-    if (savedSkills['increased-attack-damage-value']) {
-      const damageSkill = this.skills.get('increased-attack-damage');
-      if (damageSkill) {
-        const match = savedSkills['increased-attack-damage-value'].match(/\+(\d+)%/);
-        if (match && match[1]) {
-          damageSkill.value = parseInt(match[1], 10);
-          damageSkill.displayValue = savedSkills['increased-attack-damage-value'];
-          logger.debug(`Loaded damage skill value: ${damageSkill.value}`);
-        }
+  loadSavedSkills(): boolean {
+    return tryCatch(
+      () => {
+        const savedSkills = loadPassiveSkills();
+        logger.debug('Loading saved skills from storage');
+        
+        // Process each known skill type
+        const processSkill = (skillId: string, valueKey: string) => {
+          if (savedSkills[valueKey]) {
+            const skill = this.skills.get(skillId);
+            if (skill) {
+              const match = savedSkills[valueKey].match(/\+(\d+)%/);
+              if (match && match[1]) {
+                skill.value = parseInt(match[1], 10);
+                skill.displayValue = savedSkills[valueKey];
+                logger.debug(`Loaded ${skillId} value: ${skill.value}`);
+              }
+            }
+          }
+        };
+        
+        // Process each skill with proper validation
+        processSkill('increased-attack-damage', 'increased-attack-damage-value');
+        processSkill('increased-attack-speed', 'increased-attack-speed-value');
+        processSkill('life-steal', 'life-steal-value');
+        
+        return true;
+      },
+      {
+        message: 'Failed to load saved skills from storage',
+        severity: ErrorSeverity.MEDIUM,
+        category: ErrorCategory.STORAGE,
+        module: 'PassiveSkillModel',
+        recoverable: true
+      },
+      // Recovery function
+      () => {
+        logger.warn('Using default skill values due to load failure');
       }
-    }
-    
-    if (savedSkills['increased-attack-speed-value']) {
-      const speedSkill = this.skills.get('increased-attack-speed');
-      if (speedSkill) {
-        const match = savedSkills['increased-attack-speed-value'].match(/\+(\d+)%/);
-        if (match && match[1]) {
-          speedSkill.value = parseInt(match[1], 10);
-          speedSkill.displayValue = savedSkills['increased-attack-speed-value'];
-          logger.debug(`Loaded speed skill value: ${speedSkill.value}`);
-        }
-      }
-    }
-    
-    if (savedSkills['life-steal-value']) {
-      const lifeStealSkill = this.skills.get('life-steal');
-      if (lifeStealSkill) {
-        const match = savedSkills['life-steal-value'].match(/\+(\d+)%/);
-        if (match && match[1]) {
-          lifeStealSkill.value = parseInt(match[1], 10);
-          lifeStealSkill.displayValue = savedSkills['life-steal-value'];
-          logger.debug(`Loaded life steal skill value: ${lifeStealSkill.value}`);
-        }
-      }
-    }
+    ) ?? false;
   }
 
   /**
    * Save skills to local storage
+   * @returns Whether save operation was successful
    */
-  saveSkills(): void {
-    const skillData: Record<string, string> = {};
-    
-    const damageSkill = this.skills.get('increased-attack-damage');
-    if (damageSkill) {
-      skillData['increased-attack-damage-value'] = damageSkill.displayValue;
-    }
-    
-    const speedSkill = this.skills.get('increased-attack-speed');
-    if (speedSkill) {
-      skillData['increased-attack-speed-value'] = speedSkill.displayValue;
-    }
-    
-    const lifeStealSkill = this.skills.get('life-steal');
-    if (lifeStealSkill) {
-      skillData['life-steal-value'] = lifeStealSkill.displayValue;
-    }
-    
-    // Save to storage
-    savePassiveSkills(skillData);
-    logger.debug('Saved skills to storage');
+  saveSkills(): boolean {
+    return tryCatch(
+      () => {
+        const skillData: Record<string, string> = {};
+        
+        // Helper to safely add skill value to data object
+        const addSkillToData = (skillId: string, valueKey: string) => {
+          const skill = this.skills.get(skillId);
+          if (skill) {
+            skillData[valueKey] = skill.displayValue;
+          }
+        };
+        
+        // Add each skill with proper validation
+        addSkillToData('increased-attack-damage', 'increased-attack-damage-value');
+        addSkillToData('increased-attack-speed', 'increased-attack-speed-value');
+        addSkillToData('life-steal', 'life-steal-value');
+        
+        // Save to storage
+        const success = savePassiveSkills(skillData);
+        if (success) {
+          logger.debug('Saved skills to storage');
+        }
+        return success;
+      },
+      {
+        message: 'Failed to save skills to storage',
+        severity: ErrorSeverity.MEDIUM,
+        category: ErrorCategory.STORAGE,
+        module: 'PassiveSkillModel',
+        recoverable: true
+      }
+    ) ?? false;
+  }
+  
+  /**
+   * Reset all skills to default values
+   * @returns Whether reset operation was successful
+   */
+  resetAllSkills(): boolean {
+    return tryCatch(
+      () => {
+        // Reset each skill to zero
+        this.skills.forEach(skill => {
+          skill.value = 0;
+          skill.displayValue = '+0%';
+        });
+        
+        // Save the reset skills
+        this.saveSkills();
+        logger.info('All skills reset to default values');
+        return true;
+      },
+      {
+        message: 'Failed to reset skills to default values',
+        severity: ErrorSeverity.MEDIUM,
+        category: ErrorCategory.GAME_STATE,
+        module: 'PassiveSkillModel',
+        recoverable: true
+      }
+    ) ?? false;
   }
 }
 
