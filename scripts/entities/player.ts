@@ -7,6 +7,7 @@ import { StatsComponent } from "../ecs/components/StatsComponent";
 import { createLogger } from "../utils/logger";
 import { IPlayer, AutoAttack, ProjectileOptions } from "../types/player-types";
 import stateStore from "../game/state-store";
+import { BaseEntity } from "./base-entity";
 
 // Create a logger for the Player class
 const logger = createLogger('Player');
@@ -15,14 +16,13 @@ const logger = createLogger('Player');
  * Player class representing the main character in the game
  * Implements IPlayer interface for type safety
  */
-export class Player implements IPlayer {
+export class Player extends BaseEntity implements IPlayer {
   // These properties can be computed from the state store but we keep them
   // to maintain interface compatibility and avoid breaking existing code
   get level(): number { return stateStore.player.level.get(); }
   get kills(): number { return stateStore.levelSystem.kills.get(); }
   
-  // Container and game references
-  readonly gameContainer: HTMLElement;
+  // Game reference
   readonly game: Game | null;
 
   // Position and dimensions
@@ -65,8 +65,7 @@ export class Player implements IPlayer {
   // Abilities
   abilityManager: AbilityManager;
 
-  // DOM element
-  element: HTMLElement | null;
+  // DOM element inherited from BaseEntity
   levelSystem: LevelSystem | null = null;
 
   /**
@@ -75,7 +74,7 @@ export class Player implements IPlayer {
    * @param game - Optional Game instance reference
    */
   constructor(gameContainer: HTMLElement, game: Game | null = null) {
-    this.gameContainer = gameContainer;
+    super(gameContainer, 'player', 'div', 'player');
     this.game = game;
 
     // Position and dimensions
@@ -116,12 +115,40 @@ export class Player implements IPlayer {
     // Initialize abilities
     this.abilityManager = new AbilityManager(this);
 
-    // Create DOM element
-    this.element = this.createPlayerElement();
+    // Set up the DOM element (already created in BaseEntity constructor)
+    this.setupPlayerElement();
     this.updatePosition();
+    
+    // Call initialize on the player
+    this.initialize();
     
     // Set up state change handlers
     this.setupStateChangeHandlers();
+  }
+
+  /**
+   * Initialize the player
+   */
+  initialize(): void {
+    super.initialize();
+    logger.debug('Player initialized');
+  }
+
+  /**
+   * Update player state
+   * @param deltaTime - Time since last update in ms
+   * @param keys - Current state of keyboard keys
+   */
+  update(deltaTime: number, keys?: Record<string, boolean>): void {
+    super.update(deltaTime);
+    
+    // Move player if keys are provided
+    if (keys) {
+      this.move(keys);
+    }
+    
+    // Regenerate energy
+    this.regenerateEnergy(deltaTime);
   }
 
   /**
@@ -163,14 +190,13 @@ export class Player implements IPlayer {
   }
 
   /**
-   * Create player DOM element
-   * Extracted method for better organization
+   * Setup player DOM element
+   * Makes sure the element has the right class and is added to the container
    */
-  private createPlayerElement(): HTMLElement {
-    const element = document.createElement("div");
-    element.className = "player";
-    this.gameContainer.appendChild(element);
-    return element;
+  private setupPlayerElement(): void {
+    // Element class is already set in the constructor via BaseEntity
+    // Just make sure it's in the game container
+    this.gameContainer.appendChild(this.element);
   }
 
   /**
@@ -252,13 +278,10 @@ export class Player implements IPlayer {
 
   /**
    * Updates the DOM element position
-   * No need for null check - element is only null after destroy()
    */
   updatePosition(): void {
-    if (this.element) {
-      this.element.style.left = this.x + "px";
-      this.element.style.top = this.y + "px";
-    }
+    this.element.style.left = this.x + "px";
+    this.element.style.top = this.y + "px";
   }
 
   /**
@@ -453,12 +476,7 @@ export class Player implements IPlayer {
   }
 
   /**
-   * Make the player temporarily invulnerable
-   * @param duration - Duration in milliseconds
-   */
-  /**
    * Set up handlers for state changes
-   * No conditionals needed - state store is always available
    */
   private setupStateChangeHandlers(): void {
     // When player health is updated in the state store, update the UI
@@ -487,18 +505,14 @@ export class Player implements IPlayer {
     this.isInvulnerable = true;
 
     // Add visual indication of invulnerability
-    if (this.element) {
-      this.element.classList.add('invulnerable');
-    }
+    this.element.classList.add('invulnerable');
     
     // Set timeout to remove invulnerability after duration
     this.invulnerabilityTimeoutId = window.setTimeout(() => {
       this.isInvulnerable = false;
       
       // Remove visual indication
-      if (this.element) {
-        this.element.classList.remove('invulnerable');
-      }
+      this.element.classList.remove('invulnerable');
       
       this.invulnerabilityTimeoutId = 0;
       
@@ -548,9 +562,9 @@ export class Player implements IPlayer {
     stateStore.levelSystem.kills.set(levelSystem.getKills());
     stateStore.levelSystem.killsToNextLevel.set(levelSystem.getKillsToNextLevel());
     
-    // Listen for level changes
+    // Listen for level changes using a lambda to avoid 'this' binding issues
     levelSystem.onLevelUp((newLevel: number) => {
-      // Update state store - the getter for this.level will use this
+      // Update state store values
       stateStore.player.level.set(newLevel);
       stateStore.levelSystem.level.set(newLevel);
     });
@@ -559,17 +573,21 @@ export class Player implements IPlayer {
   /**
    * Clean up player resources
    */
-  destroy(): void {
+  cleanup(): void {
     // Clear any invulnerability timeout
     this.clearInvulnerabilityTimeout();
     
-    // Remove DOM element
-    if (this.element && this.element.parentNode) {
-      this.element.parentNode.removeChild(this.element);
-      this.element = null;
-    }
-    
     // Reset collision tracking
     this.collidingEnemies.clear();
+    
+    logger.debug('Player cleanup');
+    super.cleanup();
+  }
+  
+  /**
+   * Destroy the player (backwards compatibility)
+   */
+  destroy(): void {
+    this.cleanup();
   }
 }

@@ -1,5 +1,9 @@
 import CONFIG from "../../config";
 import { GameEvents, EVENTS } from "../../utils/event-system";
+import { BaseEntity } from "../base-entity";
+import { createLogger } from "../../utils/logger";
+
+const logger = createLogger('Enemy');
 
 /**
  * Type for particle creation callback
@@ -9,10 +13,8 @@ export type ParticleCreationFunction = (x: number, y: number, count: number) => 
 /**
  * Base Enemy class representing monsters that attack the player
  */
-export class Enemy {
-  // DOM elements
-  gameContainer: HTMLElement;
-  element: HTMLElement;
+export class Enemy extends BaseEntity {
+  // DOM elements (element is inherited from BaseEntity)
   healthBarContainer: HTMLElement;
   healthBar: HTMLElement;
 
@@ -31,16 +33,13 @@ export class Enemy {
   // Collision tracking
   isCollidingWithPlayer: boolean = false;
 
-  // Unique identifier
-  id: string;
-
   /**
    * Create a new enemy
    * @param gameContainer - DOM element containing the game
    * @param playerLevel - Current level of the player
    */
   constructor(gameContainer: HTMLElement, playerLevel: number) {
-    this.gameContainer = gameContainer;
+    super(gameContainer, `enemy_${Date.now()}_${Math.floor(Math.random() * 1000)}`);
 
     // Position and dimensions
     this.width = CONFIG.ENEMY.BASE.WIDTH;
@@ -54,8 +53,7 @@ export class Enemy {
     this.maxHealth = this.health;
     this.damage = CONFIG.ENEMY.BASE.BASE_DAMAGE + playerLevel;
 
-    // Assign unique ID
-    this.id = "enemy_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+    // ID is already assigned by BaseEntity constructor
 
     // Determine spawn position (outside screen)
     this.setSpawnPosition();
@@ -78,6 +76,30 @@ export class Enemy {
 
     // Add to game container
     this.gameContainer.appendChild(this.element);
+    
+    // Initialize the enemy
+    this.initialize();
+  }
+
+  /**
+   * Initialize the enemy
+   */
+  initialize(): void {
+    super.initialize();
+    logger.debug(`Enemy ${this.id} initialized: health=${this.health}, speed=${this.speed}`);
+  }
+  
+  /**
+   * Update enemy state
+   * @param deltaTime - Time since last update in ms
+   * @param player - Reference to the player
+   */
+  update(deltaTime: number, player?: any): void {
+    super.update(deltaTime);
+    
+    if (player) {
+      this.moveTowardsPlayer(player);
+    }
   }
 
   /**
@@ -219,15 +241,22 @@ export class Enemy {
    * Clean up enemy resources
    * @param player - Optional player reference to unregister collision
    */
-  destroy(player?: any): void {
+  cleanup(player?: any): void {
     // If this enemy was colliding with player, unregister the collision
     if (this.isCollidingWithPlayer && player && player.unregisterEnemyCollision) {
       player.unregisterEnemyCollision(this);
     }
     
-    if (this.element && this.element.parentNode) {
-      this.element.parentNode.removeChild(this.element);
-    }
+    logger.debug(`Enemy ${this.id} cleanup`);
+    super.cleanup();
+  }
+  
+  /**
+   * Destroy the enemy (backwards compatibility)
+   * @param player - Optional player reference to unregister collision
+   */
+  destroy(player?: any): void {
+    this.cleanup(player);
   }
 }
 

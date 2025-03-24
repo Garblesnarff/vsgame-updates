@@ -1,4 +1,7 @@
 import { Particle } from "../entities/particle";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger('ParticleSystem');
 
 /**
  * Particle System
@@ -23,25 +26,26 @@ export class ParticleSystem {
 
   /**
    * Update all particles
+   * @param deltaTime - Time since last update in milliseconds
    */
-  update(): void {
+  update(deltaTime: number = 0): void {
     // Update regular particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
-      if (this.particles[i].update()) {
+      if (this.particles[i].update(deltaTime)) {
         this.particles.splice(i, 1);
       }
     }
 
     // Update blood novas
     for (let i = this.bloodNovas.length - 1; i >= 0; i--) {
-      if (this.bloodNovas[i].update()) {
+      if (this.bloodNovas[i].update(deltaTime)) {
         this.bloodNovas.splice(i, 1);
       }
     }
 
     // Update shadow trails
     for (let i = this.shadowTrails.length - 1; i >= 0; i--) {
-      if (this.shadowTrails[i].update()) {
+      if (this.shadowTrails[i].update(deltaTime)) {
         this.shadowTrails.splice(i, 1);
       }
     }
@@ -122,21 +126,23 @@ export class ParticleSystem {
    * Reset the particle system
    */
   reset(): void {
+    logger.debug('Resetting particle system');
+    
     // Clean up all particles
     for (const particle of this.particles) {
-      particle.destroy();
+      particle.cleanup();
     }
     this.particles = [];
 
     // Clean up all blood novas
     for (const nova of this.bloodNovas) {
-      nova.destroy();
+      nova.cleanup();
     }
     this.bloodNovas = [];
 
     // Clean up all shadow trails
     for (const trail of this.shadowTrails) {
-      trail.destroy();
+      trail.cleanup();
     }
     this.shadowTrails = [];
 

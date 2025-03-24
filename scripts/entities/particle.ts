@@ -1,3 +1,8 @@
+import { BaseEntity } from "./base-entity";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger('Particle');
+
 /**
  * Interface for particle creation options
  */
@@ -15,10 +20,8 @@ interface ParticleOptions {
 /**
  * Particle class for visual effects
  */
-export class Particle {
-  // DOM elements
-  gameContainer: HTMLElement;
-  element: HTMLElement;
+export class Particle extends BaseEntity {
+  // DOM elements inherited from BaseEntity
 
   // Position and movement
   x: number;
@@ -38,7 +41,7 @@ export class Particle {
    * @param options - Particle options
    */
   constructor(gameContainer: HTMLElement, options: ParticleOptions) {
-    this.gameContainer = gameContainer;
+    super(gameContainer, `particle_${options.type || 'blood'}_${Date.now()}`);
 
     // Position and movement
     this.x = options.x || 0;
@@ -85,13 +88,25 @@ export class Particle {
 
     // Add to game container
     this.gameContainer.appendChild(this.element);
+    
+    // Initialize the particle
+    this.initialize();
+  }
+
+  /**
+   * Initialize the particle
+   */
+  initialize(): void {
+    super.initialize();
+    logger.debug(`Particle ${this.id} initialized: type=${this.type}`);
   }
 
   /**
    * Updates the particle position and properties
+   * @param _deltaTime - Time since last update in ms (not used)
    * @returns Whether the particle has expired
    */
-  update(): boolean {
+  update(_deltaTime: number = 0): boolean {
     // Move particle
     this.x += this.vx;
     this.y += this.vy;
@@ -122,7 +137,7 @@ export class Particle {
 
     // Check if particle should be removed
     if (this.life <= 0 || this.opacity <= 0) {
-      this.destroy();
+      this.cleanup();
       return true;
     }
 
@@ -220,10 +235,16 @@ export class Particle {
   /**
    * Clean up particle resources
    */
+  cleanup(): void {
+    logger.debug(`Particle ${this.id} cleanup`);
+    super.cleanup();
+  }
+
+  /**
+   * Destroy the particle (backwards compatibility)
+   */
   destroy(): void {
-    if (this.element && this.element.parentNode) {
-      this.element.parentNode.removeChild(this.element);
-    }
+    this.cleanup();
   }
 }
 

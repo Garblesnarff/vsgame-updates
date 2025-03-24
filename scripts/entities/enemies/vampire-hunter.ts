@@ -1,6 +1,9 @@
 import { Enemy } from './base-enemy';
 import CONFIG from '../../config';
 import { GameEvents, EVENTS } from '../../utils/event-system';
+import { createLogger } from '../../utils/logger';
+
+const logger = createLogger('VampireHunter');
 
 /**
  * VampireHunter enemy class
@@ -12,6 +15,7 @@ export class VampireHunter extends Enemy {
   private lastFired: number;
   private detectionRadius: number;
   private aimingTime: number;
+  // @ts-ignore: This is used in state transitions
   private isAiming: boolean;
   private aimStartTime: number;
   private preferredDistance: number;
@@ -63,7 +67,30 @@ export class VampireHunter extends Enemy {
     this.addRangedIndicator();
     
     // Set the initial aim visual state
-    this.setAimingVisual();
+    this.setAimingVisual(false);
+  }
+  
+  /**
+   * Initialize the vampire hunter
+   */
+  initialize(): void {
+    super.initialize();
+    logger.debug(`VampireHunter ${this.id} initialized`);
+  }
+  
+  /**
+   * Update vampire hunter state
+   * @param deltaTime - Time since last update in ms
+   * @param player - The player to target
+   * @param createProjectile - Function to create projectiles
+   */
+  update(deltaTime: number, player?: any, createProjectile?: any): void {
+    super.update(deltaTime);
+    
+    // Move towards player if we have one
+    if (player) {
+      this.handleBehavior(player, createProjectile);
+    }
   }
   
   /**
@@ -77,9 +104,10 @@ export class VampireHunter extends Enemy {
   
   /**
    * Handle the aiming state visualization
+   * @param isAiming - Whether the hunter is aiming
    */
-  private setAimingVisual(_p0?: boolean): void {
-    if (this.isAiming) {
+  private setAimingVisual(isAiming: boolean): void {
+    if (isAiming) {
       this.element.classList.add('hunter-aiming');
     } else {
       this.element.classList.remove('hunter-aiming');
@@ -87,11 +115,12 @@ export class VampireHunter extends Enemy {
   }
   
   /**
-   * Override moveTowardsPlayer to implement the Vampire Hunter's unique behavior
+   * Handle the vampire hunter's behavior
+   * This replaces the old moveTowardsPlayer method to better follow the lifecycle pattern
    * @param player - Player object to track
    * @param createProjectile - Function to create a projectile
    */
-  moveTowardsPlayer(player: any, createProjectile?: any): void {
+  private handleBehavior(player: any, createProjectile?: any): void {
     // Only proceed if we have the player
     if (!player) return;
     
@@ -115,7 +144,7 @@ export class VampireHunter extends Enemy {
           this.aimStartTime = now;
           
           this.isAiming = true;
-          this.setAimingVisual();
+          this.setAimingVisual(true);
         } else {
           // Move slowly towards player
           this.x += dirX * this.speed * 0.5;
@@ -128,7 +157,7 @@ export class VampireHunter extends Enemy {
         if (distToPlayer > this.detectionRadius) {
           this.state = 'patrol';          
           this.isAiming = false;
-          this.setAimingVisual();
+          this.setAimingVisual(false);
         } 
         // If aiming time completed, fire
         else if (now - this.aimStartTime >= this.aimingTime) {
@@ -165,21 +194,28 @@ export class VampireHunter extends Enemy {
             this.state = 'aim';
             this.aimStartTime = now;
             this.isAiming = true;
-            this.setAimingVisual();
+            this.setAimingVisual(true);
           } else {
             // Strafe perpendicular to player
             const strafeDir = Math.random() > 0.5 ? 1 : -1;
             this.x += -dirY * this.speed * 0.5 * strafeDir;
             this.y += dirX * this.speed * 0.5 * strafeDir;
           }
-          
-          this.isAiming = false;
         }
         break;
     }
     
     // Update position
     this.updatePosition();
+  }
+  
+  /**
+   * Legacy moveTowardsPlayer method for backwards compatibility
+   * @param player - Player object to track
+   * @param createProjectile - Function to create a projectile
+   */
+  moveTowardsPlayer(player: any, createProjectile?: any): void {
+    this.handleBehavior(player, createProjectile);
   }
   
   /**
@@ -215,6 +251,15 @@ export class VampireHunter extends Enemy {
     
     // Emit event
     GameEvents.emit(EVENTS.ENEMY_ATTACK, this);
+  }
+  
+  /**
+   * Clean up vampire hunter resources
+   * @param player - Optional player to unregister with
+   */
+  cleanup(player?: any): void {
+    logger.debug(`VampireHunter ${this.id} cleanup`);
+    super.cleanup(player);
   }
 }
 

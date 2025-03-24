@@ -53,6 +53,123 @@ export class Game {
   set availableKillPoints(value: number) { stateStore.game.availableKillPoints.set(value); }
 
   /**
+   * Update projectile movement and check for collisions using the entity lifecycle
+   * @param deltaTime - Time since last update in ms
+   */
+  updateProjectilesLifecycle(deltaTime: number): void {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const projectile = this.projectiles[i];
+
+      // Update projectile using lifecycle method
+      projectile.update(deltaTime);
+
+      // Check if projectile is out of bounds
+      if (projectile.isOutOfBounds()) {
+        projectile.cleanup();
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+
+      let shouldRemoveProjectile = false;
+
+      // Handle enemy projectiles (they only collide with the player)
+      if (projectile.isEnemyProjectile) {
+        // Check collision with player
+        if (
+          this.player.isAlive &&
+          !this.player.isInvulnerable &&
+          projectile.collidesWithPlayer(this.player)
+        ) {
+          // Create hit effect
+          this.particleSystem.createBloodParticles(
+            projectile.x,
+            projectile.y,
+            5
+          );
+
+          // Apply damage to player
+          this.player.takeDamage(projectile.damage);
+
+          // Remove projectile
+          shouldRemoveProjectile = true;
+        }
+      } 
+      // Handle player projectiles (they only collide with enemies)
+      else {
+        // Check collision with enemies
+        for (let j = this.enemies.length - 1; j >= 0; j--) {
+          const enemy = this.enemies[j];
+
+          if (projectile.collidesWith(enemy)) {
+            // Create blood particles
+            this.particleSystem.createBloodParticles(
+              projectile.x,
+              projectile.y,
+              5
+            );
+
+            // Apply damage to enemy and get the damage dealt
+            const damageDealt = projectile.damage;
+            const enemyDied = enemy.takeDamage(
+              damageDealt,
+              this.particleSystem.createBloodParticles.bind(this.particleSystem),
+              projectile.isBloodLance ? 'bloodLance' : undefined
+            );
+            
+            // Apply life steal if the player has it
+            const lifeStealPercentage = this.player.stats.getLifeStealPercentage();
+            if (lifeStealPercentage > 0 && !projectile.isEnemyProjectile) {
+              const healAmount = damageDealt * (lifeStealPercentage / 100);
+              if (healAmount > 0) {
+                this.player.heal(healAmount);
+              }
+            }
+            
+            if (enemyDied) {
+              // Enemy died
+              enemy.cleanup(this.player);
+              this.enemies.splice(j, 1);
+
+              // Emit enemy death event
+              GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+
+              // Add kill to player and check for level up
+              if (this.levelSystem.addKill()) {
+                // Level up was handled by the callback
+              }
+            } else {
+              // Emit enemy damage event
+              GameEvents.emit(EVENTS.ENEMY_DAMAGE, enemy, projectile.damage);
+            }
+
+            // Handle Blood Lance special behavior
+            if (projectile.isBloodLance) {
+              shouldRemoveProjectile = projectile.handleBloodLanceHit(
+                enemy,
+                this.player.heal.bind(this.player)
+              );
+            } else {
+              // Regular projectile or auto-attack - remove after hitting
+              shouldRemoveProjectile = true;
+            }
+
+            // Break loop for non-piercing projectiles
+            if (shouldRemoveProjectile && !projectile.isBloodLance) {
+              break;
+            }
+          }
+        }
+      }
+
+      // Remove projectile if needed
+      if (shouldRemoveProjectile) {
+        projectile.cleanup();
+        this.projectiles.splice(i, 1);
+      }
+    }
+  }
+
+  /**
    * Create a new game
    * @param gameContainer - DOM element containing the game
    */
@@ -138,11 +255,8 @@ export class Game {
     // Update game time
     this.gameTime += deltaTime;
 
-    // Update player position based on input
-    this.player.move(this.inputHandler.getKeys());
-
-    // Update player energy
-    this.player.regenerateEnergy(deltaTime);
+    // Update player using lifecycle method
+    this.player.update(deltaTime, this.inputHandler.getKeys());
 
     // Update abilities
     this.player.abilityManager.update(deltaTime, this.enemies);
@@ -151,6 +265,10 @@ export class Game {
     const playerLevel = this.player?.level ?? 1; // Handle potentially undefined level
     const newEnemy = this.spawnSystem.update(this.gameTime, playerLevel);
     if (newEnemy) {
+      // Initialize the enemy if not already initialized
+      if (!newEnemy.isEntityInitialized()) {
+        newEnemy.initialize();
+      }
       this.enemies.push(newEnemy);
 
       // Emit enemy spawn event
@@ -160,14 +278,14 @@ export class Game {
     // Auto-attack
     this.updateAutoAttack();
 
-    // Update enemies
-    this.updateEnemies(deltaTime);
+    // Update enemies using lifecycle
+    this.updateEnemiesLifecycle(deltaTime);
 
-    // Update projectiles
-    this.updateProjectiles();
+    // Update projectiles using lifecycle
+    this.updateProjectilesLifecycle(deltaTime);
 
-    // Update particles
-    this.particleSystem.update();
+    // Update particles using lifecycle
+    this.particleSystem.update(deltaTime);
 
     // Update UI
     this.uiManager.update();
@@ -233,19 +351,19 @@ export class Game {
   }
 
   /**
-   * Update enemy movement and check for collisions
-   * @param _deltaTime - Time since last update in ms
+   * Update enemies using the entity lifecycle
+   * @param deltaTime - Time since last update in ms
    */
-  updateEnemies(_deltaTime: number): void {
+  updateEnemiesLifecycle(deltaTime: number): void {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
-      // Move enemy towards player
+      // Update enemy using lifecycle method
       // Special handling for VampireHunter to pass createProjectile function
       if (enemy instanceof VampireHunter) {
-        enemy.moveTowardsPlayer(this.player, this.createProjectile.bind(this));
+        enemy.update(deltaTime, this.player, this.createProjectile.bind(this));
       } else {
-        enemy.moveTowardsPlayer(this.player);
+        enemy.update(deltaTime, this.player);
       }
 
       // Check for Blood Drain ability affecting this enemy
@@ -256,7 +374,7 @@ export class Game {
 
       // Check if enemy is far out of bounds (cleanup)
       if (enemy.isOutOfBounds()) {
-        enemy.destroy(this.player);
+        enemy.cleanup(this.player);
         this.enemies.splice(i, 1);
         continue;
       }
@@ -548,9 +666,10 @@ export class Game {
 
     // Reset player
     if (this.player) {
-      this.player.destroy();
+      this.player.cleanup();
     }
     this.player = new Player(this.gameContainer, this);
+    // Player is already initialized in its constructor
     logger.debug('New player created. Auto-attack enabled:', this.player.autoAttack.enabled);
     logger.debug('Auto-attack cooldown:', this.player.autoAttack.cooldown);
 
@@ -840,15 +959,17 @@ export class Game {
    * Clean up all game entities
    */
   cleanupEntities(): void {
+    logger.info('Cleaning up all game entities');
+    
     // Clean up enemies
     for (const enemy of this.enemies) {
-      enemy.destroy();
+      enemy.cleanup();
     }
     this.enemies = [];
 
     // Clean up projectiles
     for (const projectile of this.projectiles) {
-      projectile.destroy();
+      projectile.cleanup();
     }
     this.projectiles = [];
 
@@ -904,6 +1025,8 @@ export class Game {
    * Call this when the game is completely destroyed (e.g., page unload)
    */
   dispose(): void {
+    logger.info('Disposing game...');
+    
     // Stop the game loop
     this.gameLoop.stop();
     
@@ -912,6 +1035,11 @@ export class Game {
     
     // Clean up entities
     this.cleanupEntities();
+    
+    // Clean up player separately to ensure it's properly handled
+    if (this.player) {
+      this.player.cleanup();
+    }
     
     // Remove all events to prevent memory leaks
     GameEvents.removeAllListeners();

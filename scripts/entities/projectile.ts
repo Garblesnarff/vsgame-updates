@@ -1,5 +1,9 @@
 import CONFIG from "../config";
 import { Enemy } from "../entities/enemies/base-enemy";
+import { BaseEntity } from "./base-entity";
+import { createLogger } from "../utils/logger";
+
+const logger = createLogger('Projectile');
 
 
 /**
@@ -25,10 +29,9 @@ export interface ProjectileOptions {
 /**
  * Projectile class for player attacks and abilities
  */
-export class Projectile {
+export class Projectile extends BaseEntity {
   // DOM elements
-  gameContainer: HTMLElement;
-  element: HTMLElement;
+  // DOM elements inherited from BaseEntity
 
   // Position and movement
   x: number;
@@ -54,7 +57,7 @@ export class Projectile {
    * @param options - Projectile options
    */
   constructor(gameContainer: HTMLElement, options: ProjectileOptions) {
-    this.gameContainer = gameContainer;
+    super(gameContainer, options.isBloodLance ? `bloodlance_${Date.now()}` : `projectile_${Date.now()}`);
 
     // Position and movement
     this.x = options.x || 0;
@@ -97,6 +100,26 @@ export class Projectile {
 
     // Add to game container
     this.gameContainer.appendChild(this.element);
+    
+    // Initialize the projectile
+    this.initialize();
+  }
+
+  /**
+   * Initialize the projectile
+   */
+  initialize(): void {
+    super.initialize();
+    logger.debug(`Projectile ${this.id} initialized: type=${this.isBloodLance ? 'bloodlance' : (this.isEnemyProjectile ? 'enemy' : 'player')}`);
+  }
+
+  /**
+   * Update the projectile state
+   * @param deltaTime - Time since last update in ms
+   */
+  update(deltaTime: number): void {
+    super.update(deltaTime);
+    this.move();
   }
 
   /**
@@ -194,10 +217,16 @@ export class Projectile {
   /**
    * Clean up projectile resources
    */
+  cleanup(): void {
+    logger.debug(`Projectile ${this.id} cleanup`);
+    super.cleanup();
+  }
+
+  /**
+   * Destroy the projectile (backwards compatibility)
+   */
   destroy(): void {
-    if (this.element && this.element.parentNode) {
-      this.element.parentNode.removeChild(this.element);
-    }
+    this.cleanup();
   }
 }
 
