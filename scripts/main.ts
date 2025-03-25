@@ -153,6 +153,19 @@ function setupEventListeners(): void {
     logger.info("Game over");
   });
 
+  // Boss events
+  GameEvents.on(EVENTS.BOSS_WARNING, (bossType: string) => {
+    logger.info(`Boss warning: ${bossType} approaching`);
+  });
+
+  GameEvents.on(EVENTS.BOSS_SPAWN, (boss: any) => {
+    logger.info(`Boss spawned: ${boss.name}`);
+  });
+
+  GameEvents.on(EVENTS.BOSS_DEFEATED, () => {
+    logger.info('Boss defeated');
+  });
+
   // Player events
   GameEvents.on(EVENTS.PLAYER_LEVEL_UP, (level: number) => {
     logger.info(`Player leveled up to ${level}`);

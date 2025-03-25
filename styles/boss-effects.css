@@ -1,0 +1,230 @@
+/* Boss Effect Animations */
+
+/* Boss Arena Pulse */
+@keyframes arenaGlow {
+  0% { box-shadow: inset 0 0 30px rgba(255, 0, 0, 0.3), 0 0 30px rgba(255, 0, 0, 0.3); }
+  50% { box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.5), 0 0 50px rgba(255, 0, 0, 0.5); }
+  100% { box-shadow: inset 0 0 30px rgba(255, 0, 0, 0.3), 0 0 30px rgba(255, 0, 0, 0.3); }
+}
+
+/* Boss Warning Pulse */
+@keyframes warning-pulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+}
+
+/* Boss Attack Charge */
+@keyframes charge-pulse {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.1); filter: brightness(1.5); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* Zone Damage Fade */
+@keyframes zone-damage-fade {
+  0% { opacity: 0.6; }
+  100% { opacity: 0; }
+}
+
+/* Consecration Zone Pulse */
+@keyframes consecration-pulse {
+  0% { opacity: 0.3; box-shadow: inset 0 0 20px rgba(255, 255, 100, 0.6); }
+  50% { opacity: 0.5; box-shadow: inset 0 0 30px rgba(255, 255, 100, 0.8); }
+  100% { opacity: 0.3; box-shadow: inset 0 0 20px rgba(255, 255, 100, 0.6); }
+}
+
+/* Flash Fade */
+@keyframes flash-fade {
+  0% { opacity: 0.8; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* Impact Fade */
+@keyframes impact-fade {
+  0% { opacity: 0.7; transform: scale(0.8); }
+  50% { opacity: 0.9; transform: scale(1.2); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* Shield Pulse */
+@keyframes shield-pulse {
+  0% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.3); }
+  100% { opacity: 0; transform: scale(1.6); }
+}
+
+/* Beam Fade */
+@keyframes beam-fade {
+  0% { opacity: 0; transform-origin: left; transform: scaleX(0.2) rotate(inherit); }
+  20% { opacity: 1; transform-origin: left; transform: scaleX(1.1) rotate(inherit); }
+  30% { opacity: 1; transform-origin: left; transform: scaleX(1) rotate(inherit); }
+  80% { opacity: 1; transform-origin: left; transform: scaleX(1) rotate(inherit); }
+  100% { opacity: 0; transform-origin: left; transform: scaleX(1) rotate(inherit); }
+}
+
+/* Pillar Fade */
+@keyframes pillar-fade {
+  0% { opacity: 0; transform: scale(0.5); }
+  20% { opacity: 1; transform: scale(1.1); }
+  30% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.2); }
+}
+
+/* Slash Fade */
+@keyframes slash-fade {
+  0% { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+
+/* Hit Fade */
+@keyframes hit-fade {
+  0% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* Boss Notification Flash */
+@keyframes warning-flash {
+  0% { text-shadow: 0 0 10px rgba(255, 0, 0, 0.8); }
+  50% { text-shadow: 0 0 20px rgba(255, 0, 0, 1); }
+  100% { text-shadow: 0 0 10px rgba(255, 0, 0, 0.8); }
+}
+
+/* Boss styles */
+.boss {
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.7);
+  z-index: 15;
+}
+
+.boss-arena {
+  pointer-events: none;
+  animation: arenaGlow 3s infinite;
+}
+
+.church-paladin {
+  background-color: #f8f8ff !important;
+  border: 2px solid #ffd700 !important;
+  box-shadow: 0 0 10px #ffd700 !important;
+}
+
+.divine-shield {
+  animation: shield-pulse 2s infinite;
+}
+
+.judgment-charge {
+  animation: charge-pulse 0.5s infinite;
+}
+
+.light-pillar-warning {
+  animation: warning-pulse 0.5s infinite;
+}
+
+.holy-projectile {
+  background-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 10px 5px rgba(255, 255, 180, 0.8);
+  border-radius: 50%;
+  z-index: 10;
+}
+
+.boss-health-container {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 2px solid #fff;
+  border-radius: 5px;
+  z-index: 100;
+  padding: 5px;
+}
+
+.boss-name {
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 5px;
+}
+
+.boss-health-bar {
+  background-color: #f00;
+  height: 15px;
+  width: 100%;
+  border-radius: 3px;
+  transition: width 0.2s ease-out;
+}
+
+.phase-indicator {
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background-color: #fff;
+  z-index: 5;
+}
+
+/* Attack effects */
+.sword-slash {
+  position: absolute;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+  z-index: 15;
+  animation: slash-fade 0.3s forwards;
+}
+
+.shield-bash-impact {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.8);
+  z-index: 15;
+  animation: impact-fade 0.5s forwards;
+}
+
+.consecration-zone {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 180, 0.3);
+  border: 2px solid rgba(255, 255, 100, 0.6);
+  box-shadow: inset 0 0 20px rgba(255, 255, 100, 0.6);
+  z-index: 5;
+  animation: consecration-pulse 2s infinite;
+}
+
+.teleport-flash {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 20px 10px rgba(255, 255, 255, 0.6);
+  z-index: 20;
+  animation: flash-fade 0.5s forwards;
+}
+
+.judgment-beam {
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 20px 10px rgba(255, 255, 180, 0.8);
+  z-index: 20;
+  transform-origin: 0 50%;
+  animation: beam-fade 1s forwards;
+}
+
+/* Buff indicators */
+#buff-container {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 100;
+}
+
+.buff-indicator {
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 14px;
+  border: 1px solid #ffcc00;
+}

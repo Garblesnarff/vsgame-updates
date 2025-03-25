@@ -393,6 +393,16 @@ export const EVENTS = {
   ENEMY_DODGE: "enemy:dodge", // New event for enemy dodging
   ENEMY_SUMMON: "enemy:summon", // New event for enemy summoning other enemies
   SPAWN_SPECIAL: "spawn:special",
+  
+  // Boss events
+  BOSS_SPAWN: "boss:spawn", // Boss appears
+  BOSS_WARNING: "boss:warning", // Warning before boss appears
+  BOSS_ATTACK: "boss:attack", // Boss performs an attack
+  BOSS_ATTACK_START: "boss:attackStart", // Boss starts an attack with charge-up
+  BOSS_PHASE_CHANGE: "boss:phaseChange", // Boss enters a new phase
+  BOSS_SPECIAL_MOVE: "boss:specialMove", // Boss uses a special ability
+  BOSS_DEFEATED: "boss:defeated", // Boss is defeated
+  BOSS_REWARD: "boss:reward", // Boss drops rewards
 
   // Ability events
   ABILITY_USE: "ability:use",

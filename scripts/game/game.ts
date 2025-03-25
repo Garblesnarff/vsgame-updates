@@ -1,4 +1,5 @@
 import { Player } from "../entities/player";
+import { integrateWithGame } from './game-boss-integration';
 import { Projectile, ProjectileOptions } from "../entities/projectile";
 import { Enemy } from "../entities/enemies/base-enemy";
 import { VampireHunter } from "../entities/enemies/vampire-hunter";
@@ -215,6 +216,10 @@ export class Game {
 
     // Initialize event listeners
     this.initializeEventListeners();
+
+    // INTEGRATE BOSS SYSTEM
+    console.log('GAME: Directly integrating boss system in constructor');
+    integrateWithGame(this);
   }
 
   /**

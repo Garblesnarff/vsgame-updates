@@ -1,3 +1,6 @@
+/* Import other stylesheets */
+@import 'boss.css';
+
 /* Base styles */
 body {
     margin: 0;
