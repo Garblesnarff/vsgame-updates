@@ -68,6 +68,11 @@ export class Player extends BaseEntity implements IPlayer {
   // DOM element inherited from BaseEntity
   levelSystem: LevelSystem | null = null;
 
+  // Vampire Scout mark effect
+  private vampireScoutMarkActive: boolean = false;
+  private energyRegenReductionFactor: number = 1;
+  private markTimeoutId: number = 0;
+
   /**
    * Create a new player
    * @param gameContainer - DOM element containing the game
@@ -288,9 +293,12 @@ export class Player extends BaseEntity implements IPlayer {
    * Regenerates energy over time
    */
   regenerateEnergy(deltaTime: number): void {
+    // Apply energy regen reduction if marked by Vampire Scout
+    const effectiveRegen = this.stats.getEnergyRegen() * this.energyRegenReductionFactor;
+    
     const newEnergy = Math.min(
       this.stats.getMaxEnergy(),
-      this.stats.getEnergy() + this.stats.getEnergyRegen() * (deltaTime / 1000)
+      this.stats.getEnergy() + effectiveRegen * (deltaTime / 1000)
     );
     
     this.stats.setEnergy(newEnergy);
@@ -571,11 +579,89 @@ export class Player extends BaseEntity implements IPlayer {
   }
 
   /**
+   * Apply Vampire Scout mark effect to the player
+   * @param energyRegenReduction - Factor to reduce energy regeneration by (0.5 = 50% reduction)
+   */
+  applyVampireScoutMark(energyRegenReduction: number): void {
+    // Clear any existing mark timeout
+    this.clearMarkTimeout();
+    
+    // Set mark as active
+    this.vampireScoutMarkActive = true;
+    
+    // Set energy regen reduction
+    this.energyRegenReductionFactor = 1 - energyRegenReduction;
+    
+    // Add visual indication that isn't too overwhelming
+    this.element.classList.add('vampire-scout-marked');
+    
+    logger.debug(`Player marked by Vampire Scout. Energy regen reduced by ${energyRegenReduction * 100}%`);
+  }
+  
+  /**
+   * Remove Vampire Scout mark effect from the player
+   */
+  removeVampireScoutMark(): void {
+    // Reset mark state
+    this.vampireScoutMarkActive = false;
+    this.energyRegenReductionFactor = 1;
+    
+    // Remove visual indication
+    this.element.classList.remove('vampire-scout-marked');
+    
+    // Clear timeout if it exists
+    this.clearMarkTimeout();
+    
+    logger.debug('Vampire Scout mark removed from player');
+  }
+  
+  /**
+   * Clear the mark timeout if it exists
+   */
+  private clearMarkTimeout(): void {
+    if (this.markTimeoutId !== 0) {
+      window.clearTimeout(this.markTimeoutId);
+      this.markTimeoutId = 0;
+    }
+  }
+
+  /**
+   * Check if player is marked by Vampire Scout
+   * @returns Whether player is marked
+   */
+  isMarkedByVampireScout(): boolean {
+    return this.vampireScoutMarkActive;
+  }
+
+  /**
+   * Block energy regeneration temporarily
+   * For use with special enemy abilities like Silver Zones
+   * @param duration - Duration in milliseconds
+   */
+  blockEnergyRegen(duration: number): void {
+    // Save current reduction factor to restore later
+    const previousFactor = this.energyRegenReductionFactor;
+    
+    // Block energy regen completely
+    this.energyRegenReductionFactor = 0;
+    
+    // Set timeout to restore
+    window.setTimeout(() => {
+      this.energyRegenReductionFactor = previousFactor;
+    }, duration);
+    
+    logger.debug(`Energy regeneration blocked for ${duration}ms`);
+  }
+
+  /**
    * Clean up player resources
    */
   cleanup(): void {
     // Clear any invulnerability timeout
     this.clearInvulnerabilityTimeout();
+    
+    // Clear any mark timeout
+    this.clearMarkTimeout();
     
     // Reset collision tracking
     this.collidingEnemies.clear();

@@ -376,6 +376,8 @@ export const EVENTS = {
   PLAYER_DEATH: "player:death",
   PLAYER_LEVEL_UP: "player:levelUp",
   PLAYER_SKILL_POINT: "player:skillPoint",
+  PLAYER_DEBUFF: "player:debuff", // New event for player debuffs
+  PLAYER_DEBUFF_END: "player:debuffEnd", // New event for player debuffs ending
 
   // Enemy events
   ENEMY_SPAWN: "enemy:spawn",
@@ -388,6 +390,8 @@ export const EVENTS = {
   ENEMY_HEAL: "enemy:heal",
   ENEMY_BUFF: "enemy:buff",
   ENEMY_BUFF_END: "enemy:buffEnd",
+  ENEMY_DODGE: "enemy:dodge", // New event for enemy dodging
+  ENEMY_SUMMON: "enemy:summon", // New event for enemy summoning other enemies
   SPAWN_SPECIAL: "spawn:special",
 
   // Ability events

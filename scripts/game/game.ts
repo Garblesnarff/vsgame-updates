@@ -2,6 +2,7 @@ import { Player } from "../entities/player";
 import { Projectile, ProjectileOptions } from "../entities/projectile";
 import { Enemy } from "../entities/enemies/base-enemy";
 import { VampireHunter } from "../entities/enemies/vampire-hunter";
+import { BasicEnemy } from "../entities/enemies/basic-enemy";
 import { GameLoop } from "./game-loop";
 import { InputHandler } from "./input-handler";
 import { SpawnSystem } from "./spawn-system";
@@ -224,9 +225,115 @@ export class Game {
     GameEvents.once(EVENTS.GAME_INIT, () => {
       logger.info("Game initialized");
     });
+    
+    // Listen for enemy summon events (used by Vampire Scout)
+    GameEvents.on(EVENTS.ENEMY_SUMMON, (data) => {
+      this.handleEnemySummon(data);
+    });
 
     // Emit game initialized event
     GameEvents.emit(EVENTS.GAME_INIT, this);
+  }
+  
+  /**
+   * Handle enemy summon event from Vampire Scout
+   * @param data - Summon data with position, count, and types
+   */
+  handleEnemySummon(data: any): void {
+    if (!data || !data.position || !data.count) {
+      logger.warn('Invalid enemy summon data received:', data);
+      return;
+    }
+    
+    logger.info(`Enemy summon event: Spawning ${data.count} enemies near position (${data.position.x}, ${data.position.y})`);
+    
+    // Get player level for proper enemy scaling
+    const playerLevel = this.player?.level ?? 1;
+    
+    // Get enemy types to spawn (default to basic enemies if not specified)
+    const enemyTypes = data.types || ['basic'];
+    
+    // Calculate spawn radius (default to 50 if not specified)
+    const spawnRadius = data.spawnRadius || 50;
+    
+    // Spawn the requested number of enemies
+    for (let i = 0; i < data.count; i++) {
+      // Calculate a random position within the spawn radius
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.random() * spawnRadius;
+      const x = data.position.x + Math.cos(angle) * distance;
+      const y = data.position.y + Math.sin(angle) * distance;
+      
+      // Create enemy based on the type (currently only basic type is implemented)
+      let enemy: Enemy;
+      
+      if (enemyTypes.includes('basic')) {
+        enemy = new BasicEnemy(this.gameContainer, playerLevel);
+      } else {
+        // Default to basic enemy if type is not recognized
+        enemy = new BasicEnemy(this.gameContainer, playerLevel);
+      }
+      
+      // Set enemy position
+      enemy.x = x;
+      enemy.y = y;
+      enemy.updatePosition();
+      
+      // Initialize and add to game
+      enemy.initialize();
+      this.enemies.push(enemy);
+      
+      // Emit spawn event
+      GameEvents.emit(EVENTS.ENEMY_SPAWN, enemy, 'summonedEnemy');
+    }
+    
+    // Create a visual effect for the summoning
+    this.createSummonEffect(data.position.x, data.position.y, spawnRadius);
+  }
+  
+  /**
+   * Create visual effect for enemy summoning
+   * @param x - Center X coordinate
+   * @param y - Center Y coordinate
+   * @param radius - Radius of the effect
+   */
+  createSummonEffect(x: number, y: number, radius: number): void {
+    // Create a circular pulse effect
+    const effect = document.createElement('div');
+    effect.className = 'summon-pulse-effect';
+    effect.style.position = 'absolute';
+    effect.style.left = (x - radius) + 'px';
+    effect.style.top = (y - radius) + 'px';
+    effect.style.width = (radius * 2) + 'px';
+    effect.style.height = (radius * 2) + 'px';
+    effect.style.borderRadius = '50%';
+    effect.style.backgroundColor = 'rgba(128, 0, 128, 0.2)';
+    effect.style.border = '2px solid rgba(128, 0, 128, 0.5)';
+    effect.style.boxShadow = '0 0 15px rgba(128, 0, 128, 0.3)';
+    effect.style.zIndex = '5';
+    effect.style.animation = 'summon-pulse 1s forwards';
+    
+    this.gameContainer.appendChild(effect);
+    
+    // Add animation to the styles if it doesn't exist
+    if (!document.getElementById('summon-pulse-animation')) {
+      const style = document.createElement('style');
+      style.id = 'summon-pulse-animation';
+      style.textContent = `
+        @keyframes summon-pulse {
+          0% { transform: scale(0.2); opacity: 0.7; }
+          100% { transform: scale(1); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Remove after animation completes
+    setTimeout(() => {
+      if (effect.parentNode) {
+        effect.parentNode.removeChild(effect);
+      }
+    }, 1000);
   }
 
   /**
@@ -756,297 +863,306 @@ export class Game {
     // Update state store
     stateStore.player.attackPower.set(attackPower);
     
-    // Apply speed skill
-    const speedValue = passiveSkillModel.getSkillValue('increased-attack-speed');
-    // Make sure speed percentage cannot be negative
-    const speedPercent = Math.max(0, speedValue / 100);
-    // Apply attack speed multiplier - default is 1, add percentage bonus
-    const multiplier = 1 + speedPercent;
-    
-    this.player.stats.setAttackSpeedMultiplier(multiplier);
-    logger.debug(`Applied attack speed multiplier: ${multiplier} (${speedValue}% bonus)`);
-    
-    // Update state store
-    stateStore.player.attackSpeed.set(multiplier);
-    
-    // Also adjust the auto attack cooldown directly
-    if (this.player.autoAttack) {
-      // Store the original cooldown if not already stored
-      if (!this.player.autoAttack.originalCooldown) {
-        this.player.autoAttack.originalCooldown = CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
-      }
-      const originalCooldown = this.player.autoAttack.originalCooldown;
-      
-      // Apply the speed multiplier to reduce cooldown - DIVIDE by multiplier
-      // Use a minimum cooldown value to prevent it from becoming too fast
-      const newCooldown = Math.max(100, originalCooldown / multiplier);
-      this.player.autoAttack.cooldown = newCooldown;
-      
-      // Reset the lastFired timestamp to allow immediate firing
-      this.player.autoAttack.lastFired = 0;
-      
-      logger.debug(`Applied speed boost: Original cooldown: ${originalCooldown}ms, New cooldown: ${newCooldown}ms, Multiplier: ${multiplier}`);
-    }
-    
-    // Apply life steal skill
-    const lifeStealValue = passiveSkillModel.getSkillValue('life-steal');
-    // Make sure life steal percentage cannot be negative
-    const lifeStealPercentage = Math.max(0, lifeStealValue);
-    
-    this.player.stats.setLifeStealPercentage(lifeStealPercentage);
-    logger.debug(`Applied life steal percentage: ${lifeStealPercentage}%`);
-    
-    // Update state store
-    stateStore.player.lifeSteal.set(lifeStealPercentage);
-    
-    // Log the final stats
-    this.logPlayerStats();
+// Apply speed skill
+const speedValue = passiveSkillModel.getSkillValue('increased-attack-speed');
+// Make sure speed percentage cannot be negative
+const speedPercent = Math.max(0, speedValue / 100);
+// Apply attack speed multiplier - default is 1, add percentage bonus
+const multiplier = 1 + speedPercent;
+
+this.player.stats.setAttackSpeedMultiplier(multiplier);
+logger.debug(`Applied attack speed multiplier: ${multiplier} (${speedValue}% bonus)`);
+
+// Update state store
+stateStore.player.attackSpeed.set(multiplier);
+
+// Also adjust the auto attack cooldown directly
+if (this.player.autoAttack) {
+  // Store the original cooldown if not already stored
+  if (!this.player.autoAttack.originalCooldown) {
+    this.player.autoAttack.originalCooldown = CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
   }
-
-  /**
-   * Toggle the skill menu
-   */
-  toggleSkillMenu(): void {
-    this.uiManager.toggleSkillMenu();
-  }
-
-  /**
-   * Toggle game pause
-   */
-  togglePause(): void {
-    if (this.player.showingSkillMenu) {
-      // Don't toggle pause if skill menu is open
-      return;
-    }
-
-    this.gameLoop.togglePause(this.gameContainer);
-
-    // Emit appropriate event
-    if (this.gameLoop.gamePaused) {
-      GameEvents.emit(EVENTS.GAME_PAUSE, this);
-    } else {
-      GameEvents.emit(EVENTS.GAME_RESUME, this);
-    }
-  }
-
-  /**
-   * Upgrade a skill
-   * @param skillId - ID of the skill to upgrade
-   */
-  upgradeSkill(skillId: string): void {
-    // Check if player has skill points
-    if ((this.player.skillPoints ?? 0) <= 0) {
-      return;
-    }
-
-    let pointCost = CONFIG.UI.SKILL_MENU.UPGRADE_COST;
-    let upgraded = false;
-
-    // Handle different skills
-    if (skillId === "autoAttack") {
-      // Auto attack upgrade
-      const autoAttack = this.player.autoAttack;
-      if (autoAttack && autoAttack.level < autoAttack.maxLevel) {
-        autoAttack.level++;
-        autoAttack.damage += 10; // +10 damage per level
-        autoAttack.cooldown = Math.max(
-          300,
-          autoAttack.cooldown - 100
-        ); // -100ms cooldown (min 300ms)
-        autoAttack.range += 30; // +30 range per level
-        upgraded = true;
-      }
-    } else if (skillId === "bloodLance") {
-      // Blood Lance unlock/upgrade
-      const bloodLance = this.player.abilityManager.getAbility("bloodLance");
-      const playerLevel = this.player?.level ?? 0;
-
-      if (
-        bloodLance &&
-        !bloodLance.unlocked &&
-        playerLevel >= CONFIG.ABILITIES.BLOOD_LANCE.UNLOCK_LEVEL
-      ) {
-        // Unlock ability
-        pointCost = CONFIG.UI.SKILL_MENU.BLOOD_LANCE_UNLOCK_COST;
-        upgraded = this.player.abilityManager.unlockAbility("bloodLance");
-        
-        // No UI initialization here - handled by AbilityManager
-      } else if (bloodLance && bloodLance.unlocked) {
-        // Upgrade ability
-        upgraded = this.player.abilityManager.upgradeAbility("bloodLance");
-      }
-    } else if (skillId === "nightShield") {
-      // Night Shield unlock/upgrade
-      const nightShield = this.player.abilityManager.getAbility("nightShield");
-      const playerLevel = this.player?.level ?? 0;
-
-      if (
-        nightShield &&
-        !nightShield.unlocked &&
-        playerLevel >= CONFIG.ABILITIES.NIGHT_SHIELD.UNLOCK_LEVEL
-      ) {
-        // Unlock ability
-        pointCost = CONFIG.UI.SKILL_MENU.NIGHT_SHIELD_UNLOCK_COST;
-        upgraded = this.player.abilityManager.unlockAbility("nightShield");
-        
-        // No UI initialization here - handled by AbilityManager
-      } else if (nightShield && nightShield.unlocked) {
-        // Upgrade ability
-        upgraded = this.player.abilityManager.upgradeAbility("nightShield");
-      }
-    } else {
-      // Regular ability upgrade
-      upgraded = this.player.abilityManager.upgradeAbility(skillId);
-    }
-
-    // Deduct skill points if upgrade was successful
-    if (upgraded) {
-      this.player.skillPoints -= pointCost;
-
-      // Emit ability upgraded event
-      GameEvents.emit(EVENTS.ABILITY_UPGRADE, skillId, this.player);
-    }
-  }
-
-  /**
-   * Check if the game is currently running
-   * @returns Whether the game is running
-   */
-  isRunning(): boolean {
-    return stateStore.game.isRunning.get();
-  }
-
-  /**
-   * Get the current game state
-   * @returns Current game state
-   */
-  getState(): GameState {
-    return this.stateManager.getCurrentState();
-  }
-
-  /**
-   * Log player stats for debugging
-   */
-  logPlayerStats(): void {
-    logger.group('CURRENT PLAYER STATS');
-    logger.info(`Attack Power: ${this.player.stats.getAttackPower()}`);
-    logger.info(`Attack Speed Multiplier: ${this.player.stats.getAttackSpeedMultiplier()}`);
-    logger.info(`Life Steal Percentage: ${this.player.stats.getLifeStealPercentage()}%`);
-    if (this.player.autoAttack) {
-      logger.info(`Auto Attack Cooldown: ${this.player.autoAttack.cooldown}ms`);
-      logger.info(`Auto Attack Enabled: ${this.player.autoAttack.enabled}`);
-    }
-    logger.groupEnd();
-  }
-
-   /**
-   * Clean up event listeners to prevent memory leaks
-   */
-  cleanupEventListeners(): void {
-    // No need to unsubscribe from one-time events (GAME_INIT)
-    // But we should unsubscribe from any events we've subscribed to
-    
-    // Remove all game-related events to prevent leaks
-    GameEvents.removeAllListeners(EVENTS.GAME_START);
-    GameEvents.removeAllListeners(EVENTS.GAME_OVER);
-    GameEvents.removeAllListeners(EVENTS.GAME_PAUSE);
-    GameEvents.removeAllListeners(EVENTS.GAME_RESUME);
-    GameEvents.removeAllListeners(EVENTS.GAME_RESTART);
-    
-    logger.debug('Cleaned up all game event listeners');
-  }
-
-  /**
-   * Clean up all game entities
-   */
-  cleanupEntities(): void {
-    logger.info('Cleaning up all game entities');
-    
-    // Clean up enemies
-    for (const enemy of this.enemies) {
-      enemy.cleanup();
-    }
-    this.enemies = [];
-
-    // Clean up projectiles
-    for (const projectile of this.projectiles) {
-      projectile.cleanup();
-    }
-    this.projectiles = [];
-
-    // Clean up particles
-    this.particleSystem.reset();
-    
-    // Clean up passive skill menu
-    if (this.passiveSkillMenu) {
-      this.passiveSkillMenu.destroy();
-    }
-
-    // Clean up any DOM elements that might have been missed
-    const bloodNovas = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BLOOD_NOVA));
-    bloodNovas.forEach(element => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    });
-
-    const bloodDrainAOEs = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BLOOD_DRAIN_AOE));
-    bloodDrainAOEs.forEach(element => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    });
-
-    const bats = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BAT));
-    bats.forEach(element => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    });
-
-    const shadowTrails = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.SHADOW_TRAIL));
-    shadowTrails.forEach(element => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    });
-
-    const bloodParticles = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BLOOD_PARTICLE));
-    bloodParticles.forEach(element => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    });
-    
-    logger.debug('Cleaned up all game entities');
-  }
+  const originalCooldown = this.player.autoAttack.originalCooldown;
   
-  /**
-   * Perform complete cleanup of all game resources
-   * Call this when the game is completely destroyed (e.g., page unload)
-   */
-  dispose(): void {
-    logger.info('Disposing game...');
-    
-    // Stop the game loop
-    this.gameLoop.stop();
-    
-    // Clean up event listeners
-    this.cleanupEventListeners();
-    
-    // Clean up entities
-    this.cleanupEntities();
-    
-    // Clean up player separately to ensure it's properly handled
-    if (this.player) {
-      this.player.cleanup();
-    }
-    
-    // Remove all events to prevent memory leaks
-    GameEvents.removeAllListeners();
-    
-    logger.info('Game completely disposed');
+  // Apply the speed multiplier to reduce cooldown - DIVIDE by multiplier
+  // Use a minimum cooldown value to prevent it from becoming too fast
+  const newCooldown = Math.max(100, originalCooldown / multiplier);
+  this.player.autoAttack.cooldown = newCooldown;
+  
+  // Reset the lastFired timestamp to allow immediate firing
+  this.player.autoAttack.lastFired = 0;
+  
+  logger.debug(`Applied speed boost: Original cooldown: ${originalCooldown}ms, New cooldown: ${newCooldown}ms, Multiplier: ${multiplier}`);
+}
+
+// Apply life steal skill
+const lifeStealValue = passiveSkillModel.getSkillValue('life-steal');
+// Make sure life steal percentage cannot be negative
+const lifeStealPercentage = Math.max(0, lifeStealValue);
+
+this.player.stats.setLifeStealPercentage(lifeStealPercentage);
+logger.debug(`Applied life steal percentage: ${lifeStealPercentage}%`);
+
+// Update state store
+stateStore.player.lifeSteal.set(lifeStealPercentage);
+
+// Log the final stats
+this.logPlayerStats();
+}
+
+/**
+* Toggle the skill menu
+*/
+toggleSkillMenu(): void {
+this.uiManager.toggleSkillMenu();
+}
+
+/**
+* Toggle game pause
+*/
+togglePause(): void {
+if (this.player.showingSkillMenu) {
+  // Don't toggle pause if skill menu is open
+  return;
+}
+
+this.gameLoop.togglePause(this.gameContainer);
+
+// Emit appropriate event
+if (this.gameLoop.gamePaused) {
+  GameEvents.emit(EVENTS.GAME_PAUSE, this);
+} else {
+  GameEvents.emit(EVENTS.GAME_RESUME, this);
+}
+}
+
+/**
+* Upgrade a skill
+* @param skillId - ID of the skill to upgrade
+*/
+upgradeSkill(skillId: string): void {
+// Check if player has skill points
+if ((this.player.skillPoints ?? 0) <= 0) {
+  return;
+}
+
+let pointCost = CONFIG.UI.SKILL_MENU.UPGRADE_COST;
+let upgraded = false;
+
+// Handle different skills
+if (skillId === "autoAttack") {
+  // Auto attack upgrade
+  const autoAttack = this.player.autoAttack;
+  if (autoAttack && autoAttack.level < autoAttack.maxLevel) {
+    autoAttack.level++;
+    autoAttack.damage += 10; // +10 damage per level
+    autoAttack.cooldown = Math.max(
+      300,
+      autoAttack.cooldown - 100
+    ); // -100ms cooldown (min 300ms)
+    autoAttack.range += 30; // +30 range per level
+    upgraded = true;
   }
+} else if (skillId === "bloodLance") {
+  // Blood Lance unlock/upgrade
+  const bloodLance = this.player.abilityManager.getAbility("bloodLance");
+  const playerLevel = this.player?.level ?? 0;
+
+  if (
+    bloodLance &&
+    !bloodLance.unlocked &&
+    playerLevel >= CONFIG.ABILITIES.BLOOD_LANCE.UNLOCK_LEVEL
+  ) {
+    // Unlock ability
+    pointCost = CONFIG.UI.SKILL_MENU.BLOOD_LANCE_UNLOCK_COST;
+    upgraded = this.player.abilityManager.unlockAbility("bloodLance");
+    
+    // No UI initialization here - handled by AbilityManager
+  } else if (bloodLance && bloodLance.unlocked) {
+    // Upgrade ability
+    upgraded = this.player.abilityManager.upgradeAbility("bloodLance");
+  }
+} else if (skillId === "nightShield") {
+  // Night Shield unlock/upgrade
+  const nightShield = this.player.abilityManager.getAbility("nightShield");
+  const playerLevel = this.player?.level ?? 0;
+
+  if (
+    nightShield &&
+    !nightShield.unlocked &&
+    playerLevel >= CONFIG.ABILITIES.NIGHT_SHIELD.UNLOCK_LEVEL
+  ) {
+    // Unlock ability
+    pointCost = CONFIG.UI.SKILL_MENU.NIGHT_SHIELD_UNLOCK_COST;
+    upgraded = this.player.abilityManager.unlockAbility("nightShield");
+    
+    // No UI initialization here - handled by AbilityManager
+  } else if (nightShield && nightShield.unlocked) {
+    // Upgrade ability
+    upgraded = this.player.abilityManager.upgradeAbility("nightShield");
+  }
+} else {
+  // Regular ability upgrade
+  upgraded = this.player.abilityManager.upgradeAbility(skillId);
+}
+
+// Deduct skill points if upgrade was successful
+if (upgraded) {
+  this.player.skillPoints -= pointCost;
+
+  // Emit ability upgraded event
+  GameEvents.emit(EVENTS.ABILITY_UPGRADE, skillId, this.player);
+}
+}
+
+/**
+* Check if the game is currently running
+* @returns Whether the game is running
+*/
+isRunning(): boolean {
+return stateStore.game.isRunning.get();
+}
+
+/**
+* Get the current game state
+* @returns Current game state
+*/
+getState(): GameState {
+return this.stateManager.getCurrentState();
+}
+
+/**
+* Log player stats for debugging
+*/
+logPlayerStats(): void {
+logger.group('CURRENT PLAYER STATS');
+logger.info(`Attack Power: ${this.player.stats.getAttackPower()}`);
+logger.info(`Attack Speed Multiplier: ${this.player.stats.getAttackSpeedMultiplier()}`);
+logger.info(`Life Steal Percentage: ${this.player.stats.getLifeStealPercentage()}%`);
+if (this.player.autoAttack) {
+  logger.info(`Auto Attack Cooldown: ${this.player.autoAttack.cooldown}ms`);
+  logger.info(`Auto Attack Enabled: ${this.player.autoAttack.enabled}`);
+}
+logger.groupEnd();
+}
+
+/**
+* Clean up event listeners to prevent memory leaks
+*/
+cleanupEventListeners(): void {
+// No need to unsubscribe from one-time events (GAME_INIT)
+// But we should unsubscribe from any events we've subscribed to
+
+// Remove all game-related events to prevent leaks
+GameEvents.removeAllListeners(EVENTS.GAME_START);
+GameEvents.removeAllListeners(EVENTS.GAME_OVER);
+GameEvents.removeAllListeners(EVENTS.GAME_PAUSE);
+GameEvents.removeAllListeners(EVENTS.GAME_RESUME);
+GameEvents.removeAllListeners(EVENTS.GAME_RESTART);
+GameEvents.removeAllListeners(EVENTS.ENEMY_SUMMON);
+
+logger.debug('Cleaned up all game event listeners');
+}
+
+/**
+* Clean up all game entities
+*/
+cleanupEntities(): void {
+logger.info('Cleaning up all game entities');
+
+// Clean up enemies
+for (const enemy of this.enemies) {
+  enemy.cleanup();
+}
+this.enemies = [];
+
+// Clean up projectiles
+for (const projectile of this.projectiles) {
+  projectile.cleanup();
+}
+this.projectiles = [];
+
+// Clean up particles
+this.particleSystem.reset();
+
+// Clean up passive skill menu
+if (this.passiveSkillMenu) {
+  this.passiveSkillMenu.destroy();
+}
+
+// Clean up any DOM elements that might have been missed
+const bloodNovas = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BLOOD_NOVA));
+bloodNovas.forEach(element => {
+  if (element.parentNode) {
+    element.parentNode.removeChild(element);
+  }
+});
+
+const bloodDrainAOEs = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BLOOD_DRAIN_AOE));
+bloodDrainAOEs.forEach(element => {
+  if (element.parentNode) {
+    element.parentNode.removeChild(element);
+  }
+});
+
+const bats = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BAT));
+bats.forEach(element => {
+  if (element.parentNode) {
+    element.parentNode.removeChild(element);
+  }
+});
+
+const shadowTrails = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.SHADOW_TRAIL));
+shadowTrails.forEach(element => {
+  if (element.parentNode) {
+    element.parentNode.removeChild(element);
+  }
+});
+
+const bloodParticles = document.querySelectorAll(SELECTORS.class(CSS_CLASSES.GAME.BLOOD_PARTICLE));
+bloodParticles.forEach(element => {
+  if (element.parentNode) {
+    element.parentNode.removeChild(element);
+  }
+});
+
+// Clean up summon effects if any
+const summonEffects = document.querySelectorAll('.summon-pulse-effect');
+summonEffects.forEach(element => {
+  if (element.parentNode) {
+    element.parentNode.removeChild(element);
+  }
+});
+
+logger.debug('Cleaned up all game entities');
+}
+
+/**
+* Perform complete cleanup of all game resources
+* Call this when the game is completely destroyed (e.g., page unload)
+*/
+dispose(): void {
+logger.info('Disposing game...');
+
+// Stop the game loop
+this.gameLoop.stop();
+
+// Clean up event listeners
+this.cleanupEventListeners();
+
+// Clean up entities
+this.cleanupEntities();
+
+// Clean up player separately to ensure it's properly handled
+if (this.player) {
+  this.player.cleanup();
+}
+
+// Remove all events to prevent memory leaks
+GameEvents.removeAllListeners();
+
+logger.info('Game completely disposed');
+}
 }
 
 export default Game;

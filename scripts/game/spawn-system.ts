@@ -5,7 +5,8 @@ import {
   FastSwarmer, 
   TankyBrute,
   SilverMage,
-  HolyPriest
+  HolyPriest,
+  VampireScout
 } from "../entities/enemies";
 import CONFIG from "../config";
 import { GameEvents, EVENTS } from "../utils/event-system";
@@ -21,12 +22,14 @@ export class SpawnSystem {
   lastHunterSpawnTime: number;
   lastSilverMageSpawnTime: number;
   lastHolyPriestSpawnTime: number;
+  lastVampireScoutSpawnTime: number;
   baseSpawnRate: number;
   currentSpawnRate: number;
   hunterSpawnRate: number;
   swarmSpawnRate: number;
   silverMageSpawnRate: number;
   holyPriestSpawnRate: number;
+  vampireScoutSpawnRate: number;
   swarmSize: number;
   bruteSpawnLevels: number[];
   bruteSpawnCount: Map<number, number>;
@@ -46,6 +49,7 @@ export class SpawnSystem {
     this.lastHunterSpawnTime = 0;
     this.lastSilverMageSpawnTime = 0;
     this.lastHolyPriestSpawnTime = 0;
+    this.lastVampireScoutSpawnTime = 0;
     this.baseSpawnRate = CONFIG.SPAWN_RATE;
     this.currentSpawnRate = this.baseSpawnRate;
     
@@ -56,6 +60,8 @@ export class SpawnSystem {
     this.silverMageSpawnRate = 15000; 
     // Define a spawn rate for Holy Priests - every 20 seconds initially, can be adjusted in config later
     this.holyPriestSpawnRate = 20000;
+    // Define a spawn rate for Vampire Scouts - every 18 seconds initially
+    this.vampireScoutSpawnRate = 18000;
     this.swarmSize = CONFIG.ENEMY.SPAWN_RATES.BASE_SWARM_SIZE;
 
     // Brute spawn levels (every 5 levels starting at 5)
@@ -119,6 +125,12 @@ export class SpawnSystem {
     if (playerLevel >= 5 && gameTime - this.lastHolyPriestSpawnTime > this.holyPriestSpawnRate) {
       this.lastHolyPriestSpawnTime = gameTime;
       return this.spawnHolyPriest(playerLevel);
+    }
+    
+    // Check if it's time to spawn a Vampire Scout (if player level is high enough)
+    if (playerLevel >= 4 && gameTime - this.lastVampireScoutSpawnTime > this.vampireScoutSpawnRate) {
+      this.lastVampireScoutSpawnTime = gameTime;
+      return this.spawnVampireScout(playerLevel);
     }
     
     // Check if we need to spawn brutes for the current level
@@ -249,6 +261,17 @@ export class SpawnSystem {
   }
   
   /**
+   * Spawn a Vampire Scout enemy
+   * @param playerLevel - Current player level
+   * @returns Vampire Scout enemy
+   */
+  spawnVampireScout(playerLevel: number): VampireScout {
+    const vampireScout = new VampireScout(this.gameContainer, playerLevel);
+    GameEvents.emit(EVENTS.ENEMY_SPAWN, vampireScout, 'vampireScout');
+    return vampireScout;
+  }
+  
+  /**
    * Check if we should spawn a brute at the current level
    * @param playerLevel - Current player level
    * @returns Whether a brute should be spawned
@@ -300,6 +323,15 @@ export class SpawnSystem {
         level: playerLevel 
       });
     }
+    
+    // Announce Vampire Scout availability at level 4
+    if (playerLevel === 4) {
+      GameEvents.emit(EVENTS.SPAWN_SPECIAL, { 
+        type: 'vampireScout', 
+        count: 1,
+        level: playerLevel 
+      });
+    }
   }
 
   /**
@@ -311,6 +343,7 @@ export class SpawnSystem {
     this.lastHunterSpawnTime = 0;
     this.lastSilverMageSpawnTime = 0;
     this.lastHolyPriestSpawnTime = 0;
+    this.lastVampireScoutSpawnTime = 0;
     this.currentSpawnRate = this.baseSpawnRate;
     this.spawnedBrutesCount = 0;
   }

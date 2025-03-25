@@ -12,6 +12,7 @@ A browser-based survival game where you play as a vampire fighting against waves
 - [Documentation](#documentation)
 - [Code Quality](#code-quality)
 - [Build](#build)
+- [Enemy Types](#enemy-types)
 
 ## Features
 
@@ -19,6 +20,7 @@ A browser-based survival game where you play as a vampire fighting against waves
 - Multiple abilities with cooldowns and energy costs
 - Auto-attack system
 - Enemy spawning with scaling difficulty
+- Varied enemy types with unique behaviors and abilities
 - Leveling system with skill points
 - Skill tree with ability upgrades
 - Visual effects for abilities
@@ -186,6 +188,26 @@ npm run build
 ```
 
 This will create optimized files in the `dist/` directory.
+
+## Enemy Types
+
+The game features various enemy types that offer different gameplay challenges:
+
+- **Basic Enemy**: Standard enemy with balanced stats.
+- **Fast Swarmer**: Quick enemies that attack in coordinated groups.
+- **Holy Priest**: Support unit that heals and buffs other enemies, creating protective shields and courage blessings.
+- **Silver Mage**: Ranged mystic that creates hazardous silver zones that damage the player and block energy regeneration.
+- **Tanky Brute**: Tough enemies with high health and damage but slow speed.
+- **Vampire Hunter**: Ranged attacker that shoots silver projectiles at the player.
+- **Vampire Scout**: Nimble traitor with supernatural abilities to track and mark the player, buffing all enemies while the mark is active. Can dodge attacks and summon reinforcements.
+
+### Enemy Spawning Progression
+
+Enemy types are introduced at different player levels:
+- Basic Enemy, Vampire Hunter, Fast Swarmer: Level 1 (from the start)
+- Silver Mage: Level 3
+- Vampire Scout: Level 4
+- Holy Priest, Tanky Brute: Level 5
 
 ## Architecture Improvements
 

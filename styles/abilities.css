@@ -120,3 +120,90 @@
     background-color: #4b0082;
     border-radius: 3px;
 }
+
+/* Vampire Scout Styles */
+.vampire-scout {
+    position: absolute;
+    z-index: 10;
+    transition: opacity 0.3s;
+}
+
+.vampire-scout .scout-eye {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: #ff0000;
+    box-shadow: 0 0 3px #ff0000;
+}
+
+.vampire-scout.channeling-mark {
+    border-color: #ff0000 !important;
+    box-shadow: 0 0 8px #ff0000 !important;
+}
+
+.mark-beam {
+    position: absolute;
+    background: linear-gradient(to right, rgba(255, 0, 0, 0.8), rgba(255, 0, 0, 0.4));
+    height: 2px;
+    transform-origin: 0 0;
+    box-shadow: 0 0 4px #ff0000;
+    z-index: 5;
+    animation: beam-pulse 0.5s infinite alternate;
+}
+
+.player-mark {
+    position: absolute;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    animation: mark-pulse 2s infinite alternate;
+    z-index: 10;
+}
+
+.dodge-afterimage {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.dash-trail {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.summon-circle {
+    pointer-events: none;
+}
+
+.bat-particle {
+    pointer-events: none;
+}
+
+/* Vampire Scout Animations */
+@keyframes beam-pulse {
+    from { opacity: 0.4; }
+    to { opacity: 0.8; }
+}
+
+@keyframes mark-pulse {
+    from { box-shadow: 0 0 10px rgba(255, 0, 0, 0.3); }
+    to { box-shadow: 0 0 15px rgba(255, 0, 0, 0.7); }
+}
+
+@keyframes pulse {
+    from { transform: scale(0.95); }
+    to { transform: scale(1.05); }
+}
+
+@keyframes fade-out {
+    from { opacity: 0.6; }
+    to { opacity: 0; }
+}
+
+@keyframes expand-fade {
+    0% { transform: scale(0.2); opacity: 0.7; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes bat-dissolve {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.5); }
+}
