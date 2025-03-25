@@ -3,6 +3,12 @@ import CONFIG from '../../config';
 import { GameEvents, EVENTS } from '../../utils/event-system';
 import { createLogger } from '../../utils/logger';
 
+declare global {
+  interface Window {
+    gameInstance?: { player: any };
+  }
+}
+
 const logger = createLogger('SilverMage');
 
 /**
@@ -441,29 +447,27 @@ export class SilverMage extends Enemy {
    * @returns Whether the enemy died
    */
   takeDamage(
-    amount: number,
-    createParticles?: ParticleCreationFunction,
-    projectileType?: string
-  ): boolean {
-    // Special interaction with Blood Lance - teleport defensively
-    if (projectileType === 'bloodLance') {
-      // Try to teleport if not on cooldown
-      const now = Date.now();
-      if (now - this.lastTeleportTime > this.teleportCooldown) {
-        // Get player from the game if available
-        // Access global game instance safely (if it exists in the global namespace)
-        const gameInstance = (window as any).gameInstance;
-        const player = gameInstance?.player;
-        if (player) {
-          this.teleportAway(player);
-          this.lastTeleportTime = now;
+      amount: number,
+      createParticles?: ParticleCreationFunction,
+      projectileType?: string
+    ): boolean {
+      // Special interaction with Blood Lance - teleport defensively
+      if (projectileType === 'bloodLance') {
+        // Try to teleport if not on cooldown
+        const now = Date.now();
+        if (now - this.lastTeleportTime > this.teleportCooldown) {
+          // Get player from the game if available
+          const player = window.gameInstance?.player;
+          if (player) {
+            this.teleportAway(player);
+            this.lastTeleportTime = now;
+          }
         }
       }
+      
+      // Default damage handling
+      return super.takeDamage(amount, createParticles, projectileType);
     }
-    
-    // Default damage handling
-    return super.takeDamage(amount, createParticles, projectileType);
-  }
   
   /**
    * Clean up silver mage resources
