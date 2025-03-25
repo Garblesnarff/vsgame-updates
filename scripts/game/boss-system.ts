@@ -43,8 +43,8 @@ export class BossSpawnSystem {
     this.gameContainer = gameContainer;
     this.game = game;
     
-    // Initialize timing - first boss at 2:30 minutes
-    this.nextBossTime = 2.5 * 60 * 1000; // 2.5 minutes in ms (150,000ms)
+    // Initialize timing - first boss at 1:00 minute for testing
+    this.nextBossTime = 60 * 1000; // 1 minute in ms (60,000ms)
     this.bossSpawnInterval = 5 * 60 * 1000; // 5 minutes in ms (300,000ms)
     this.bossWarningTime = 30 * 1000; // 30 seconds in ms
     this.lastBossWarningTime = 0;
@@ -229,8 +229,8 @@ export class BossSpawnSystem {
     logger.debug('Resetting boss spawn system');
     console.log('BOSS SYSTEM: Resetting boss spawn system');
     
-    // Reset timers - IMPORTANT: Make sure the timing is correct!
-    this.nextBossTime = 2.5 * 60 * 1000; // 2.5 minutes (exactly 150,000ms)
+    // Reset timers - Set to testing values
+    this.nextBossTime = 60 * 1000; // 1 minute (exactly 60,000ms)
     this.lastBossWarningTime = 0;
     
     // Reset state

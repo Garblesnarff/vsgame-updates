@@ -12,10 +12,10 @@ export function fixBossSpawnSystem(bossSystem: any): void {
   console.log('BOSS SYSTEM FIX: Applying fixes to boss spawn timing');
   
   // Force the boss spawn timing to specific values
-  // First boss at 2.5 minutes (150 seconds)
-  bossSystem.nextBossTime = 150 * 1000;
+  // First boss at 1 minute (60 seconds)
+  bossSystem.nextBossTime = 60 * 1000;
   
-  // Boss warning time 30 seconds before boss spawn
+  // Boss warning time 30 seconds before boss spawn (at 30 seconds)
   bossSystem.bossWarningTime = 30 * 1000;
   
   // Reset the warning flag to ensure it will show

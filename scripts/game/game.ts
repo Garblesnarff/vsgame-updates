@@ -1,5 +1,6 @@
 import { Player } from "../entities/player";
 import { integrateWithGame } from './game-boss-integration';
+import { fixBossSpawnSystem } from './boss-system-fix';
 import { Projectile, ProjectileOptions } from "../entities/projectile";
 import { Enemy } from "../entities/enemies/base-enemy";
 import { VampireHunter } from "../entities/enemies/vampire-hunter";
@@ -45,6 +46,7 @@ export class Game {
   stateManager: GameStateManager;
   levelSystem: LevelSystem;
   passiveSkillMenu: PassiveSkillMenu;
+  bossSpawnSystem: any; // Will be initialized by boss-system-integration
 
   // Player
   player: Player;
@@ -216,10 +218,6 @@ export class Game {
 
     // Initialize event listeners
     this.initializeEventListeners();
-
-    // INTEGRATE BOSS SYSTEM
-    console.log('GAME: Directly integrating boss system in constructor');
-    integrateWithGame(this);
   }
 
   /**
@@ -404,6 +402,17 @@ export class Game {
 
     // Update state manager
     this.stateManager.update(deltaTime);
+
+    // Update boss system if it exists
+    if (this.bossSpawnSystem) {
+      console.log(`GAME: Updating boss system at game time ${Math.floor(this.gameTime/1000)}s`);
+      const boss = this.bossSpawnSystem.update(this.gameTime, this.player.level);
+      if (boss) {
+        // Add boss to enemies array
+        this.enemies.push(boss);
+        console.log(`GAME: Boss added to enemies array`);
+      }
+    }
   }
 
   /**
@@ -816,6 +825,14 @@ export class Game {
     this.gameTime = 0;
     this.spawnSystem.reset();
     this.particleSystem.reset();
+    
+    // Reset boss system
+    if (this.bossSpawnSystem) {
+      console.log('GAME: Resetting boss system during restart');
+      this.bossSpawnSystem.reset();
+      // Reapply fixes to ensure correct timing
+      fixBossSpawnSystem(this.bossSpawnSystem);
+    }
 
     // Update UI manager with new player reference
     if (this.uiManager) {
