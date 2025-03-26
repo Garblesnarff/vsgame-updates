@@ -1,5 +1,5 @@
 import { Player } from "../entities/player";
-import { integrateWithGame } from './game-boss-integration';
+import { setupBossSystem } from './boss-system-integration';
 import { fixBossSpawnSystem } from './boss-system-fix';
 import { Projectile, ProjectileOptions } from "../entities/projectile";
 import { Enemy } from "../entities/enemies/base-enemy";
@@ -215,6 +215,9 @@ export class Game {
 
     // Initialize ability UI
     this.player.abilityManager.initializeUI();
+
+    // Initialize boss system
+    setupBossSystem(this);
 
     // Initialize event listeners
     this.initializeEventListeners();
