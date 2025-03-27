@@ -39,6 +39,55 @@ export class Boss extends Enemy {
   damageModifiers: Map<string, number>; // Ability types and their damage modifiers
   
   /**
+   * Create a visual effect when an entity hits the arena barrier
+   * @param x - X coordinate of impact
+   * @param y - Y coordinate of impact
+   */
+  createBarrierImpact(x: number, y: number): void {
+    // Create impact element
+    const impact = document.createElement('div');
+    impact.className = 'barrier-impact';
+    
+    // Set position and size
+    const size = 60;
+    impact.style.width = `${size}px`;
+    impact.style.height = `${size}px`;
+    impact.style.left = `${x - size/2}px`;
+    impact.style.top = `${y - size/2}px`;
+    impact.style.position = 'absolute';
+    impact.style.backgroundColor = 'rgba(255, 0, 0, 0.2)';
+    impact.style.border = '2px solid rgba(255, 0, 0, 0.7)';
+    impact.style.borderRadius = '50%';
+    impact.style.boxShadow = '0 0 10px rgba(255, 0, 0, 0.7)';
+    impact.style.zIndex = '60';
+    
+    // Add animation
+    const animationName = 'barrier-impact';
+    if (!document.getElementById(animationName + '-style')) {
+      const style = document.createElement('style');
+      style.id = animationName + '-style';
+      style.textContent = `
+        @keyframes ${animationName} {
+          0% { transform: scale(0.2); opacity: 1; }
+          100% { transform: scale(1.5); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    impact.style.animation = `${animationName} 0.5s forwards`;
+    
+    // Add to game container
+    this.gameContainer.appendChild(impact);
+    
+    // Remove after animation
+    setTimeout(() => {
+      if (impact.parentNode) {
+        impact.parentNode.removeChild(impact);
+      }
+    }, 500);
+  }
+  
+  /**
    * Create a new boss
    * @param gameContainer - DOM element containing the game
    * @param playerLevel - Current level of the player
@@ -158,6 +207,10 @@ export class Boss extends Enemy {
       y: CONFIG.GAME_HEIGHT / 2
     };
     
+    // Adjust arena radius for better visibility
+    const minDimension = Math.min(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+    this.arenaRadius = minDimension * 0.4; // 40% of the smaller dimension
+    
     // Create arena element
     this.arenaElement = document.createElement('div');
     this.arenaElement.className = 'boss-arena';
@@ -166,11 +219,27 @@ export class Boss extends Enemy {
     this.arenaElement.style.width = (this.arenaRadius * 2) + 'px';
     this.arenaElement.style.height = (this.arenaRadius * 2) + 'px';
     this.arenaElement.style.borderRadius = '50%';
-    this.arenaElement.style.border = '3px solid rgba(255, 0, 0, 0.7)';
-    this.arenaElement.style.boxShadow = 'inset 0 0 30px rgba(255, 0, 0, 0.3), 0 0 30px rgba(255, 0, 0, 0.3)';
+    this.arenaElement.style.border = '8px solid rgba(255, 0, 0, 0.9)';
+    this.arenaElement.style.boxShadow = 'inset 0 0 70px rgba(255, 0, 0, 0.7), 0 0 70px rgba(255, 0, 0, 0.7)';
     this.arenaElement.style.position = 'absolute';
-    this.arenaElement.style.zIndex = '5'; // Above background, below entities
+    this.arenaElement.style.zIndex = '50'; // Increased to ensure visibility
     this.arenaElement.style.pointerEvents = 'none'; // Don't block clicks
+    
+    // Add pulsing animation
+    const animationName = 'arena-pulse';
+    if (!document.getElementById(animationName + '-style')) {
+      const style = document.createElement('style');
+      style.id = animationName + '-style';
+      style.textContent = `
+        @keyframes ${animationName} {
+          0% { box-shadow: inset 0 0 70px rgba(255, 0, 0, 0.7), 0 0 70px rgba(255, 0, 0, 0.7); border-color: rgba(255, 0, 0, 0.9); }
+          50% { box-shadow: inset 0 0 100px rgba(255, 0, 0, 1), 0 0 100px rgba(255, 0, 0, 1); border-color: rgba(255, 255, 255, 1); transform: scale(1.01); }
+          100% { box-shadow: inset 0 0 70px rgba(255, 0, 0, 0.7), 0 0 70px rgba(255, 0, 0, 0.7); border-color: rgba(255, 0, 0, 0.9); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    this.arenaElement.style.animation = `${animationName} 2s infinite ease-in-out`
     
     // Add to game container
     this.gameContainer.appendChild(this.arenaElement);
@@ -248,7 +317,13 @@ export class Boss extends Enemy {
    */
   containEntityInArena(entity: any): void {
     // Safety check - if no arena center is defined, do nothing
-    if (!this.arenaCenter) return;
+    if (!this.arenaCenter || !entity) return;
+    
+    // Make sure entity has position and size properties
+    if (typeof entity.x !== 'number' || typeof entity.y !== 'number' ||
+        typeof entity.width !== 'number' || typeof entity.height !== 'number') {
+      return;
+    }
     
     // Calculate vector from arena center to entity center
     const entityCenterX = entity.x + entity.width / 2;
@@ -258,14 +333,17 @@ export class Boss extends Enemy {
     const dy = entityCenterY - this.arenaCenter.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
+    // Buffer to keep entities fully inside arena
+    const buffer = 5;
+    
     // Only contain if outside arena
-    if (distance > this.arenaRadius - entity.width / 2) {
+    if (distance > this.arenaRadius - entity.width / 2 - buffer) {
       // Calculate normalized direction
       const dirX = dx / distance;
       const dirY = dy / distance;
       
-      // Calculate new position on arena boundary
-      const newDistance = this.arenaRadius - entity.width / 2;
+      // Calculate new position on arena boundary with buffer
+      const newDistance = this.arenaRadius - entity.width / 2 - buffer;
       const newCenterX = this.arenaCenter.x + dirX * newDistance;
       const newCenterY = this.arenaCenter.y + dirY * newDistance;
       
@@ -273,8 +351,18 @@ export class Boss extends Enemy {
       entity.x = newCenterX - entity.width / 2;
       entity.y = newCenterY - entity.height / 2;
       
-      // Update position of DOM element
-      entity.updatePosition();
+      // Update position of DOM element if method exists
+      if (typeof entity.updatePosition === 'function') {
+        entity.updatePosition();
+      }
+      
+      // Create impact effect if it's the player
+      if (entity.isPlayer) {
+        this.createBarrierImpact(newCenterX, newCenterY);
+        
+        // Log message for debugging
+        logger.debug(`Player contained at boundary. Distance: ${distance}, Arena radius: ${this.arenaRadius}`);
+      }
     }
   }
   
@@ -487,9 +575,42 @@ export class Boss extends Enemy {
     // Update health bar
     this.updateHealthBar();
     
-    // Contain player in arena
-    if (player && this.arenaCreated) {
-      this.containEntityInArena(player);
+    // Enforce arena containment before other logic
+    if (this.arenaCreated) {
+      // First contain the boss itself
+      this.containEntityInArena(this);
+      
+      // Then contain the player
+      if (player) {
+        // Force containment with a more aggressive check
+        const playerCenterX = player.x + player.width / 2;
+        const playerCenterY = player.y + player.height / 2;
+        
+        const dx = playerCenterX - this.arenaCenter.x;
+        const dy = playerCenterY - this.arenaCenter.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // If player is far outside arena, teleport them inside with visual effect
+        if (distance > this.arenaRadius * 1.2) {
+          logger.debug(`Player way outside arena (${distance} > ${this.arenaRadius * 1.2}), teleporting in`);
+          player.x = this.arenaCenter.x - player.width / 2;
+          player.y = this.arenaCenter.y - player.height / 2;
+          player.updatePosition();
+        }
+        
+        // Apply normal containment
+        this.containEntityInArena(player);
+      }
+      
+      // Contain other enemies if provided
+      if (enemies) {
+        for (const enemy of enemies) {
+          // Only process other enemies (not self)
+          if (enemy !== this) {
+            this.containEntityInArena(enemy);
+          }
+        }
+      }
     }
     
     // Boss behavior changes based on phase - implemented in subclasses
