@@ -94,6 +94,14 @@ export class Game {
           // Apply damage to player
           this.player.takeDamage(projectile.damage);
 
+          // *** ADD THIS CHECK ***
+          if (!this.player.isAlive) {
+            this.gameOver();
+            // Potentially return or break here if gameOver stops the loop
+            // or handles cleanup appropriately. For now, just add the call.
+          }
+          // *** END ADDED CHECK ***
+
           // Remove projectile
           shouldRemoveProjectile = true;
         }

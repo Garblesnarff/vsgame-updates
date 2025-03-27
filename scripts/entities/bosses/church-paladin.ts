@@ -166,6 +166,7 @@ export class ChurchPaladin extends Boss {
         this.damageModifiers.set('bloodLance', 0.7);
         this.damageModifiers.set('nightShield', 0.7);
 
+        // Fix template literal
         logger.debug(`Church Paladin created at level ${playerLevel} with ${this.health} health`);
     }
 
@@ -197,10 +198,35 @@ export class ChurchPaladin extends Boss {
      * @param enemies - Array of all enemies
      */
     update(deltaTime: number, player?: any, enemies?: Enemy[]): void {
-        // Call parent update
+        // Call parent update (handles arena shrinking, health bar, phase checks)
         super.update(deltaTime, player, enemies);
 
         const now = Date.now();
+
+        // Check if player is already dead before doing any processing
+        if (player && (player.health <= 0 || player.isAlive === false)) {
+            // Skip additional processing for dead player
+            // Only continue with self-maintenance updates
+
+            // Update projectiles (but skip player collision)
+            this.updateHolyProjectiles(deltaTime);
+
+            // Update consecration zones (but skip player damage)
+            this.updateConsecrationZones(now);
+
+            // Update light pillars (but skip player damage)
+            this.updateLightPillars(now);
+
+            // Check divine shield expiration
+            if (this.hasShield && now - this.shieldStartTime > this.shieldDuration) {
+                this.deactivateDivineShield();
+            }
+
+            // Clear out dead acolytes
+            this.acolytes = this.acolytes.filter(acolyte => acolyte.health > 0);
+
+            return; // Skip phase behavior if player is dead
+        }
 
         // Update projectiles
         this.updateHolyProjectiles(deltaTime, player);
@@ -220,10 +246,20 @@ export class ChurchPaladin extends Boss {
         this.acolytes = this.acolytes.filter(acolyte => acolyte.health > 0);
 
         // Handle phase-specific behavior with player
-        if (player) {
+        if (player && player.isAlive) {
             // Movement and attacks based on current phase
             this.handlePhaseBasedBehavior(now, player, enemies);
+
+            // Add periodic focus check
+            // Make sure we're not dealing with keyboard focus issues
+            // by periodically refocusing on game container
+            if (now % 5000 < 20) { // Every 5 seconds
+                if (this.gameContainer) {
+                    this.gameContainer.focus();
+                }
+            }
         }
+        // Note: The final visual updatePosition() is called in the base Boss update method
     }
 
     /**
@@ -235,7 +271,7 @@ export class ChurchPaladin extends Boss {
     handlePhaseBasedBehavior(now: number, player: any, enemies?: Enemy[]): void {
         // If charging, continue charge
         if (this.isCharging && this.chargeTarget) {
-            this.continueCharge();
+            this.continueCharge(); // Movement handled within continueCharge
             return;
         }
 
@@ -261,7 +297,7 @@ export class ChurchPaladin extends Boss {
      * @param player - Reference to the player
      */
     handlePhase1Behavior(now: number, player: any): void {
-        // Direct approach movement
+        // Direct approach movement (includes clamping)
         this.moveTowardsPlayer(player);
 
         // Attack selection
@@ -301,7 +337,7 @@ export class ChurchPaladin extends Boss {
      * @param player - Reference to the player
      */
     handlePhase2Behavior(now: number, player: any): void {
-        // Faster movement in phase 2
+        // Faster movement in phase 2 (includes clamping)
         this.moveTowardsPlayer(player, 1.5);
 
         // Try to use divine shield when low in phase 2
@@ -375,18 +411,18 @@ export class ChurchPaladin extends Boss {
 
         // Too close: teleport away
         if (distToPlayer < 150 && now - this.lastTeleportTime > this.teleportCooldown) {
-            this.teleportAway(player);
+            this.teleportAway(player); // Movement handled within teleportAway
             this.lastTeleportTime = now;
             return;
         }
 
-        // Maintain medium distance
+        // Maintain medium distance (includes clamping)
         if (distToPlayer < 200) {
             this.moveAwayFromPlayer(player);
         } else if (distToPlayer > 350) {
             this.moveTowardsPlayer(player);
         } else {
-            // Strafe sideways when at optimal distance
+            // Strafe sideways when at optimal distance (includes clamping)
             this.strafeAroundPlayer(player);
         }
 
@@ -462,7 +498,7 @@ export class ChurchPaladin extends Boss {
     }
 
     /**
-     * Move towards player with optional speed multiplier
+     * Move towards player with optional speed multiplier, clamped to arena.
      * @param player - Player entity
      * @param speedMultiplier - Optional speed multiplier
      */
@@ -471,16 +507,25 @@ export class ChurchPaladin extends Boss {
         const dy = (player.y + player.height / 2) - (this.y + this.height / 2);
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Normalize and apply speed
-        this.x += (dx / dist) * this.speed * speedMultiplier;
-        this.y += (dy / dist) * this.speed * speedMultiplier;
+        // Avoid division by zero if already at the target
+        if (dist === 0) return;
 
-        // Update position
-        this.updatePosition();
+        // Calculate potential next position
+        let nextX = this.x + (dx / dist) * this.speed * speedMultiplier;
+        let nextY = this.y + (dy / dist) * this.speed * speedMultiplier;
+
+        // Clamp to arena boundaries using the inherited method
+        [nextX, nextY] = this.clampToArena(nextX, nextY);
+
+        // Apply final position
+        this.x = nextX;
+        this.y = nextY;
+
+        // Visual update is handled by the base Boss update method
     }
 
     /**
-     * Move away from player
+     * Move away from player, clamped to arena.
      * @param player - Player entity
      */
     moveAwayFromPlayer(player: any): void {
@@ -488,16 +533,25 @@ export class ChurchPaladin extends Boss {
         const dy = (player.y + player.height / 2) - (this.y + this.height / 2);
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Normalize, negate direction, and apply speed
-        this.x -= (dx / dist) * this.speed;
-        this.y -= (dy / dist) * this.speed;
+        // Avoid division by zero
+        if (dist === 0) return;
 
-        // Update position
-        this.updatePosition();
+        // Calculate potential next position
+        let nextX = this.x - (dx / dist) * this.speed;
+        let nextY = this.y - (dy / dist) * this.speed;
+
+        // Clamp to arena boundaries using the inherited method
+        [nextX, nextY] = this.clampToArena(nextX, nextY);
+
+        // Apply final position
+        this.x = nextX;
+        this.y = nextY;
+
+        // Visual update is handled by the base Boss update method
     }
 
     /**
-     * Strafe sideways around player
+     * Strafe sideways around player, clamped to arena.
      * @param player - Player entity
      */
     strafeAroundPlayer(player: any): void {
@@ -505,16 +559,25 @@ export class ChurchPaladin extends Boss {
         const dy = (player.y + player.height / 2) - (this.y + this.height / 2);
         const dist = Math.sqrt(dx * dx + dy * dy);
 
+        // Avoid division by zero
+        if (dist === 0) return;
+
         // Perpendicular direction (clockwise strafe)
         const strafeX = -dy / dist;
         const strafeY = dx / dist;
 
-        // Apply movement
-        this.x += strafeX * this.speed;
-        this.y += strafeY * this.speed;
+        // Calculate potential next position
+        let nextX = this.x + strafeX * this.speed;
+        let nextY = this.y + strafeY * this.speed;
 
-        // Update position
-        this.updatePosition();
+        // Clamp to arena boundaries using the inherited method
+        [nextX, nextY] = this.clampToArena(nextX, nextY);
+
+        // Apply final position
+        this.x = nextX;
+        this.y = nextY;
+
+        // Visual update is handled by the base Boss update method
     }
 
     /**
@@ -539,7 +602,7 @@ export class ChurchPaladin extends Boss {
     }
 
     /**
-     * Continue charge movement
+     * Continue charge movement, clamped to arena.
      */
     continueCharge(): void {
         if (!this.chargeTarget) return;
@@ -549,18 +612,32 @@ export class ChurchPaladin extends Boss {
         const dy = this.chargeTarget.y - (this.y + this.height / 2);
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Check if we've reached the target
+        // Check if we've reached the target or hit the boundary
         if (dist < 10) {
             this.finishCharge();
             return;
         }
 
-        // Move towards target at charge speed
-        this.x += (dx / dist) * this.chargeSpeed;
-        this.y += (dy / dist) * this.chargeSpeed;
+        // Calculate potential next position
+        let nextX = this.x + (dx / dist) * this.chargeSpeed;
+        let nextY = this.y + (dy / dist) * this.chargeSpeed;
 
-        // Update position
-        this.updatePosition();
+        // Clamp to arena boundaries using the inherited method
+        const [clampedX, clampedY] = this.clampToArena(nextX, nextY);
+
+        // If clamping occurred (position changed), finish the charge at the boundary
+        if (clampedX !== nextX || clampedY !== nextY) {
+            this.x = clampedX;
+            this.y = clampedY;
+            this.finishCharge(); // Finish charge if boundary is hit
+            return;
+        }
+
+        // Apply final position if not clamped
+        this.x = nextX;
+        this.y = nextY;
+
+        // Visual update is handled by the base Boss update method
     }
 
     /**
@@ -607,7 +684,7 @@ export class ChurchPaladin extends Boss {
     }
 
     /**
-     * Teleport away from player
+     * Teleport away from player, clamped to arena.
      * @param player - Player entity
      */
     teleportAway(player: any): void {
@@ -621,14 +698,14 @@ export class ChurchPaladin extends Boss {
         let newX = this.x + (dx / dist) * teleportDist;
         let newY = this.y + (dy / dist) * teleportDist;
 
-        // Ensure we stay in arena
+        // Ensure we stay in arena (initial check, might be redundant with clamp)
         const distFromCenter = Math.sqrt(
             Math.pow(newX + this.width / 2 - this.arenaCenter.x, 2) +
             Math.pow(newY + this.height / 2 - this.arenaCenter.y, 2)
         );
 
         if (distFromCenter + this.width / 2 > this.arenaRadius) {
-            // Try a random direction instead
+            // Try a random direction instead if initial calculation is way off
             const randomAngle = Math.random() * Math.PI * 2;
             newX = this.arenaCenter.x + Math.cos(randomAngle) * (this.arenaRadius - this.width) - this.width / 2;
             newY = this.arenaCenter.y + Math.sin(randomAngle) * (this.arenaRadius - this.height) - this.height / 2;
@@ -637,10 +714,13 @@ export class ChurchPaladin extends Boss {
         // Create teleport effect at old position
         this.createTeleportEffect(this.x, this.y);
 
+        // Clamp final teleport position to arena
+        [newX, newY] = this.clampToArena(newX, newY);
+
         // Update position
         this.x = newX;
         this.y = newY;
-        this.updatePosition();
+        // Visual update handled in main loop
 
         // Create teleport effect at new position
         this.createTeleportEffect(this.x, this.y);
@@ -1128,6 +1208,7 @@ export class ChurchPaladin extends Boss {
 
             // Update visual fade
             const opacity = 0.3 * (1 - (elapsedTime / zone.duration));
+            // Fix template literal
             zone.element.style.backgroundColor = `rgba(255, 255, 180, ${opacity})`;
 
             // Check if player is in zone
@@ -1460,8 +1541,22 @@ export class ChurchPaladin extends Boss {
         // Position while charging
         this.moveTowardsPlayer(player, 0.3); // Slow movement during charge
 
+        // Check if player is already dead to avoid unnecessary processing
+        if (player.health <= 0 || player.isDead === true || player.isAlive === false) {
+            setTimeout(() => {
+                this.element.classList.remove('judgment-charge');
+            }, 500);
+            return;
+        }
+
         // Schedule actual beam after charge-up
         setTimeout(() => {
+            // Recheck if player is alive before firing beam
+            if (player.health <= 0 || player.isDead === true || player.isAlive === false) {
+                this.element.classList.remove('judgment-charge');
+                return;
+            }
+
             // Fire beam
             this.fireJudgmentBeam(player);
 
@@ -1502,6 +1597,7 @@ export class ChurchPaladin extends Boss {
         beam.style.boxShadow = '0 0 20px 10px rgba(255, 255, 180, 0.8)';
         beam.style.zIndex = '20';
         beam.style.transformOrigin = '0 50%';
+        // Fix template literal
         beam.style.transform = `rotate(${angle}rad)`;
         beam.style.animation = 'beam-fade 1s forwards';
 
@@ -1542,6 +1638,10 @@ export class ChurchPaladin extends Boss {
      * @returns Whether player is hit
      */
     isPlayerHitByBeam(player: any, startX: number, startY: number, angle: number, beamWidth: number): boolean {
+        // Add check for dead player
+        // Don't hit dead players
+        if (!player || !player.isAlive || player.health <= 0) return false;
+
         // Calculate player center
         const playerCenterX = player.x + player.width / 2;
         const playerCenterY = player.y + player.height / 2;
@@ -1553,16 +1653,25 @@ export class ChurchPaladin extends Boss {
         // Calculate distance from player to beam line
         const playerDist = Math.sqrt(dx * dx + dy * dy);
         const playerAngle = Math.atan2(dy, dx);
-        const angleDiff = Math.abs(playerAngle - angle);
+        // Use Math.atan2 for angle difference to handle wrapping correctly
+        let angleDiff = playerAngle - angle;
+        // Normalize angle difference to [-PI, PI]
+        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+        while (angleDiff <= -Math.PI) angleDiff += 2 * Math.PI;
+
 
         // Convert to perpendicular distance
-        const perpDist = playerDist * Math.sin(angleDiff);
+        const perpDist = Math.abs(playerDist * Math.sin(angleDiff));
 
-        // Check if player is in beam
-        const inBeam = perpDist < (beamWidth / 2 + player.width / 2);
-        const inFrontOfBeam = Math.cos(angleDiff) > 0; // Player is in front of boss
+        // Check if player is in beam's width
+        const inBeamWidth = perpDist < (beamWidth / 2 + player.width / 2); // Consider player width
 
-        return inBeam && inFrontOfBeam;
+        // Check if player is in front of the beam origin along the beam's direction
+        // Project player vector onto beam vector
+        const projectedDist = playerDist * Math.cos(angleDiff);
+        const inFrontOfBeam = projectedDist > 0; // Player is in front if projection is positive
+
+        return inBeamWidth && inFrontOfBeam;
     }
 
     /**
@@ -1603,6 +1712,21 @@ export class ChurchPaladin extends Boss {
         // Add charge-up visual
         this.element.classList.add('holy-nova-charge');
 
+        // Add focus trick
+        // Add focused audio element (but immediately remove to ensure focus is cleared)
+        const tempButton = document.createElement('button');
+        tempButton.style.position = 'absolute';
+        tempButton.style.left = '-9999px';
+        document.body.appendChild(tempButton);
+        // Focus and immediately blur to potentially clear focus from other elements
+        tempButton.focus();
+        tempButton.blur();
+        setTimeout(() => {
+            if (tempButton.parentNode === document.body) {
+                 document.body.removeChild(tempButton);
+            }
+        }, 10); // Remove quickly
+
         // Schedule actual nova after charge-up
         setTimeout(() => {
             // Release nova
@@ -1610,6 +1734,12 @@ export class ChurchPaladin extends Boss {
 
             // Remove charge-up visual
             this.element.classList.remove('holy-nova-charge');
+
+            // Restore focus
+            // Restore keyboard focus to the game container
+            if (this.gameContainer) {
+                this.gameContainer.focus();
+            }
         }, 1500); // 1.5 second charge-up
 
         // Emit event
@@ -1635,6 +1765,10 @@ export class ChurchPaladin extends Boss {
         nova.style.zIndex = '20';
         nova.style.animation = 'nova-expand 0.8s forwards';
 
+        // Prevent focus capture
+        // Prevent nova from capturing focus/mouse events
+        nova.style.pointerEvents = 'none';
+
         // Add to game container
         this.gameContainer.appendChild(nova);
 
@@ -1648,6 +1782,12 @@ export class ChurchPaladin extends Boss {
         setTimeout(() => {
             if (nova.parentNode) {
                 nova.parentNode.removeChild(nova);
+            }
+
+            // Restore focus
+            // Restore keyboard focus
+            if (this.gameContainer) {
+                this.gameContainer.focus();
             }
         }, 800);
     }

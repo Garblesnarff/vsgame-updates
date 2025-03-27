@@ -92,6 +92,10 @@ export class Boss extends Enemy {
    * @param gameContainer - DOM element containing the game
    * @param playerLevel - Current level of the player
    */
+  // For death checking 
+  lastDeathCheckTime: number;
+  deathCheckInterval: number;
+  
   constructor(gameContainer: HTMLElement, playerLevel: number) {
     // Call parent constructor
     super(gameContainer, playerLevel);
@@ -123,6 +127,10 @@ export class Boss extends Enemy {
     // Boss state
     this.isBossActive = true;
     this.rewardDropped = false;
+    
+    // Set up periodic death checking (every 500ms)
+    this.lastDeathCheckTime = Date.now();
+    this.deathCheckInterval = 500;
     
     // Boss UI
     this.bossHealthBarContainer = null;
@@ -312,7 +320,7 @@ export class Boss extends Enemy {
   }
   
   /**
-   * Contain an entity within the arena boundary
+   * Contain an entity within the arena boundary - DEPRECATED: Use clampToArena in movement methods instead.
    * @param entity - Entity to contain
    */
   containEntityInArena(entity: any): void {
@@ -334,10 +342,10 @@ export class Boss extends Enemy {
     const distance = Math.sqrt(dx * dx + dy * dy);
     
     // Buffer to keep entities fully inside arena
-    const buffer = 5;
+    const buffer = 10; // Increased buffer
     
-    // Only contain if outside arena
-    if (distance > this.arenaRadius - entity.width / 2 - buffer) {
+    // Only contain if outside arena (using >= for robustness)
+    if (distance >= this.arenaRadius - entity.width / 2 - buffer) {
       // Calculate normalized direction
       const dirX = dx / distance;
       const dirY = dy / distance;
@@ -361,9 +369,48 @@ export class Boss extends Enemy {
         this.createBarrierImpact(newCenterX, newCenterY);
         
         // Log message for debugging
-        logger.debug(`Player contained at boundary. Distance: ${distance}, Arena radius: ${this.arenaRadius}`);
+        logger.debug(`Player contained at boundary. Distance: ${distance.toFixed(2)}, Arena radius: ${this.arenaRadius.toFixed(2)}`);
+      } else if (entity === this) {
+        // Log if boss is contained
+        logger.debug(`Boss contained at boundary. Distance: ${distance.toFixed(2)}, Arena radius: ${this.arenaRadius.toFixed(2)}`);
       }
     }
+  }
+
+  /**
+   * Clamps the given coordinates to stay within the arena boundaries.
+   * @param x - The potential next X coordinate.
+   * @param y - The potential next Y coordinate.
+   * @returns The clamped [x, y] coordinates.
+   */
+  clampToArena(x: number, y: number): [number, number] {
+    if (!this.arenaCreated || !this.arenaCenter || !this.arenaRadius) {
+      return [x, y]; // No arena, return original position
+    }
+
+    const entityRadius = (this.width + this.height) / 4; // Approximate radius
+    const buffer = 5; // Small buffer
+
+    const centerX = x + this.width / 2;
+    const centerY = y + this.height / 2;
+
+    const dx = centerX - this.arenaCenter.x;
+    const dy = centerY - this.arenaCenter.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    const maxDist = this.arenaRadius - entityRadius - buffer;
+
+    if (distance >= maxDist) {
+      const angle = Math.atan2(dy, dx);
+      const clampedCenterX = this.arenaCenter.x + Math.cos(angle) * maxDist;
+      const clampedCenterY = this.arenaCenter.y + Math.sin(angle) * maxDist;
+      
+      // Return clamped position based on center
+      return [clampedCenterX - this.width / 2, clampedCenterY - this.height / 2];
+    }
+
+    // Position is already inside the arena
+    return [x, y];
   }
   
   /**
@@ -554,6 +601,47 @@ export class Boss extends Enemy {
   }
   
   /**
+   * Check player for death condition and ensure they die if health <= 0
+   * @param player - The player object
+   * @returns Whether the player should be dead
+   */
+  checkPlayerDeath(player: any): boolean {
+    if (!player || player.health === undefined) return false;
+    
+    // Check if player is already dead
+    if (player.isDead === true) return true;
+    
+    // Check if player should be dead
+    if (player.health <= 0) {
+      logger.debug(`Player health is ${player.health}, should be dead`);
+      
+      // Try the die method if available
+      if (player.die && typeof player.die === 'function') {
+        try {
+          logger.debug('Forcing player.die() method call');
+          player.die();
+          return true;
+        } catch (error) {
+          logger.debug(`Error calling player.die(): ${error}`);
+        }
+      } else if (GameEvents && GameEvents.emit) {
+        // Alternative: Emit death event
+        logger.debug('Emitting PLAYER_DEATH event');
+        GameEvents.emit(EVENTS.PLAYER_DEATH, player);
+        return true;
+      }
+      
+      // Backup: Force isDead property
+      if (player.isDead !== undefined) {
+        player.isDead = true;
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  /**
    * Update boss state
    * @param deltaTime - Time since last update in ms
    * @param player - Reference to the player
@@ -563,8 +651,15 @@ export class Boss extends Enemy {
     // Don't update if not active
     if (!this.isBossActive) return;
     
-    // Call parent update
-    super.update(deltaTime, player, enemies);
+    // Call parent update (handles basic movement logic before clamping)
+    // super.update(deltaTime, player, enemies); // We'll call this after clamping if needed, or handle movement within phase logic
+
+    // Periodic death check (every 500ms)
+    const now = Date.now();
+    if (player && now - this.lastDeathCheckTime > this.deathCheckInterval) {
+      this.checkPlayerDeath(player);
+      this.lastDeathCheckTime = now;
+    }
     
     // Update arena size (slowly shrinks)
     this.updateArenaSize(deltaTime);
@@ -575,14 +670,29 @@ export class Boss extends Enemy {
     // Update health bar
     this.updateHealthBar();
     
-    // Enforce arena containment before other logic
+    // Arena containment is now handled within player and boss movement methods.
+    // Containment for other enemies might still be needed here.
     if (this.arenaCreated) {
-      // First contain the boss itself
-      this.containEntityInArena(this);
+      // Player and Boss handle their own containment in their move methods.
       
-      // Then contain the player
+      // Check player status for logging/teleport logic
       if (player) {
-        // Force containment with a more aggressive check
+        // Check if player should be dead - use our dedicated method
+        if (this.checkPlayerDeath(player)) {
+          // Player should be dead or was just killed, skip containment
+          logger.debug('Player is dead, skipping arena containment');
+          // Still need to update phase behavior even if player is dead
+          this.updatePhaseSpecificBehavior(deltaTime, player, enemies);
+          this.updatePosition(); // Update visual position
+          return; // Skip remaining enemy containment if player is dead
+        }
+        
+        // Only log player health every 2 seconds to avoid spamming the console
+        if (now % 2000 < 20 && player.health !== undefined) {
+          logger.debug(`Player health: ${player.health}`);
+        }
+        
+        // Force containment with a more aggressive check (teleport if way outside)
         const playerCenterX = player.x + player.width / 2;
         const playerCenterY = player.y + player.height / 2;
         
@@ -598,8 +708,8 @@ export class Boss extends Enemy {
           player.updatePosition();
         }
         
-        // Apply normal containment
-        this.containEntityInArena(player);
+        // Note: Player's move method now handles its own clamping.
+        // this.containEntityInArena(player); // Removed
       }
       
       // Contain other enemies if provided
@@ -607,14 +717,21 @@ export class Boss extends Enemy {
         for (const enemy of enemies) {
           // Only process other enemies (not self)
           if (enemy !== this) {
-            this.containEntityInArena(enemy);
+            // TODO: Implement clamping in BaseEnemy movement or keep this?
+            // For now, keep containing other enemies here.
+            // This method is deprecated, but keep it for non-boss enemies for now.
+            this.containEntityInArena(enemy); 
           }
         }
       }
     }
     
     // Boss behavior changes based on phase - implemented in subclasses
+    // Movement methods within phase logic should now handle clamping
     this.updatePhaseSpecificBehavior(deltaTime, player, enemies);
+
+    // Update visual position AFTER phase logic (which includes movement)
+    this.updatePosition(); 
   }
   
   /**
@@ -680,8 +797,10 @@ export class Boss extends Enemy {
    * @param player - Optional player reference to unregister collision
    */
   cleanup(player?: any): void {
+    logger.info(`Cleanup called for Boss ${this.id} (${this.name})`); // Added log
     // Remove arena
     if (this.arenaElement && this.arenaElement.parentNode) {
+      logger.debug(`Removing arena element for Boss ${this.id}`);
       this.arenaElement.parentNode.removeChild(this.arenaElement);
       this.arenaElement = null;
       this.arenaCreated = false;

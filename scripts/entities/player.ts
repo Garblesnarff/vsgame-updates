@@ -22,6 +22,24 @@ export class Player extends BaseEntity implements IPlayer {
   get level(): number { return stateStore.player.level.get(); }
   get kills(): number { return stateStore.levelSystem.kills.get(); }
   
+  // Die method that ensures proper death state transition
+  die(): void {
+    // Only process if actually alive
+    if (!this.isAlive) return;
+    
+    // Set state to dead
+    this.isAlive = false;
+    // State store updates isAlive via the setter
+    
+    // Add visual death effect
+    this.element.classList.add('dead');
+    
+    // Emit death event
+    GameEvents.emit(EVENTS.PLAYER_DEATH, this);
+    
+    console.log("Player death triggered at health: " + this.stats.getHealth());
+  }
+  
   // Game reference
   readonly game: Game | null;
 
@@ -147,6 +165,17 @@ export class Player extends BaseEntity implements IPlayer {
   update(deltaTime: number, keys?: Record<string, boolean>): void {
     super.update(deltaTime);
     
+    // Double-check health vs alive state for consistency
+    // This ensures player dies if health is zero but alive state wasn't updated
+    if (this.stats.getHealth() <= 0 && this.isAlive) {
+      console.log("Inconsistent player state detected in update - fixing");
+      this.die();
+      return;
+    }
+    
+    // Don't update if dead
+    if (!this.isAlive) return;
+    
     // Move player if keys are provided
     if (keys) {
       this.move(keys);
@@ -261,23 +290,89 @@ export class Player extends BaseEntity implements IPlayer {
   }
 
   /**
-   * Updates player position based on input
+   * Updates player position based on input, respecting arena boundaries during boss fights.
    * @param keys - Current state of keyboard keys
    */
   move(keys: Record<string, boolean>): void {
+    let deltaX = 0;
+    let deltaY = 0;
+
+    // Calculate intended movement based on keys
     if (keys["ArrowUp"] || keys["w"]) {
-      this.y = Math.max(0, this.y - this.speed);
+      deltaY -= this.speed;
     }
     if (keys["ArrowDown"] || keys["s"]) {
-      this.y = Math.min(CONFIG.GAME_HEIGHT - this.height, this.y + this.speed);
+      deltaY += this.speed;
     }
     if (keys["ArrowLeft"] || keys["a"]) {
-      this.x = Math.max(0, this.x - this.speed);
+      deltaX -= this.speed;
     }
     if (keys["ArrowRight"] || keys["d"]) {
-      this.x = Math.min(CONFIG.GAME_WIDTH - this.width, this.x + this.speed);
+      deltaX += this.speed;
     }
 
+    // Calculate potential next position
+    let nextX = this.x + deltaX;
+    let nextY = this.y + deltaY;
+
+    // Clamp to game boundaries first
+    nextX = Math.max(0, Math.min(CONFIG.GAME_WIDTH - this.width, nextX));
+    nextY = Math.max(0, Math.min(CONFIG.GAME_HEIGHT - this.height, nextY));
+
+    // Check for boss arena containment if applicable
+    const game = this.game; // Access game instance
+    // Check if game exists, is in boss fight, and currentBoss exists with arena details
+    // Use type assertion for game properties added by integration
+    if (game && (game as any).isInBossFight && (game as any).currentBoss && (game as any).currentBoss.arenaCenter && (game as any).currentBoss.arenaRadius) {
+      const boss = (game as any).currentBoss;
+      const arenaCenter = boss.arenaCenter;
+      const arenaRadius = boss.arenaRadius;
+      
+      // Use player's approximate radius for boundary check (average of width/height)
+      const playerRadius = (this.width + this.height) / 4; 
+      const buffer = 5; // Small buffer to prevent sticking exactly on the edge
+
+      // Calculate potential next center position
+      const nextCenterX = nextX + this.width / 2;
+      const nextCenterY = nextY + this.height / 2;
+
+      // Calculate distance from arena center to potential next center
+      const dx = nextCenterX - arenaCenter.x;
+      const dy = nextCenterY - arenaCenter.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // If potential position is outside the arena boundary
+      if (distance >= arenaRadius - playerRadius - buffer) {
+        // Calculate the angle from arena center to the potential position
+        const angle = Math.atan2(dy, dx);
+        
+        // Calculate the maximum allowed distance from the center
+        const maxDist = arenaRadius - playerRadius - buffer;
+        
+        // Clamp the position to the boundary
+        const clampedCenterX = arenaCenter.x + Math.cos(angle) * maxDist;
+        const clampedCenterY = arenaCenter.y + Math.sin(angle) * maxDist;
+        
+        // Update nextX and nextY based on the clamped center position
+        nextX = clampedCenterX - this.width / 2;
+        nextY = clampedCenterY - this.height / 2;
+
+        // Re-clamp to game boundaries in case the arena edge is outside
+        nextX = Math.max(0, Math.min(CONFIG.GAME_WIDTH - this.width, nextX));
+        nextY = Math.max(0, Math.min(CONFIG.GAME_HEIGHT - this.height, nextY));
+        
+        // Optional: Trigger barrier impact effect (if boss has the method)
+        if (typeof boss.createBarrierImpact === 'function') {
+           boss.createBarrierImpact(clampedCenterX, clampedCenterY);
+        }
+      }
+    }
+
+    // Apply the final (potentially clamped) position
+    this.x = nextX;
+    this.y = nextY;
+
+    // Update the visual position
     this.updatePosition();
   }
 
@@ -314,6 +409,11 @@ export class Player extends BaseEntity implements IPlayer {
    */
   takeDamage(amount: number): boolean {
     const now = Date.now();
+    
+    // If player is already dead, ignore further damage
+    if (!this.isAlive) {
+      return false;
+    }
     
     // Check invulnerability
     if (this.isInvulnerable) {
@@ -356,13 +456,10 @@ export class Player extends BaseEntity implements IPlayer {
     // Emit damage event
     GameEvents.emit(EVENTS.PLAYER_DAMAGE, damageTaken, this);
 
-    // Check if player died
-    if (newHealth <= 0) {
-      this.isAlive = false;
-      // State store updates isAlive via the setter
-
-      // Emit death event
-      GameEvents.emit(EVENTS.PLAYER_DEATH, this);
+    // Force consistency between health value and alive state
+    if (newHealth <= 0 && this.isAlive) {
+      console.log("Player health at zero - triggering death");
+      this.die();
     }
 
     return true;
