@@ -24,6 +24,7 @@ export class Boss extends Enemy {
   arenaCenter: { x: number, y: number };
   arenaShrinkRate: number;
   minArenaRadius: number;
+  arenaCreated: boolean; // Track if arena has been created
   
   // Boss state
   isBossActive: boolean;
@@ -55,10 +56,18 @@ export class Boss extends Enemy {
     this.maxPhases = 1; // Override in subclasses
     this.phaseThresholds = []; // Health percentages like [0.7, 0.4]
     
-    // Arena system
-    this.arenaRadius = CONFIG.GAME_WIDTH / 3; // Default arena size
+    // Arena system - initialize with defaults to avoid undefined errors
+    const minDimension = Math.min(CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT);
+    this.arenaRadius = minDimension / 3; // Default arena size - 1/3 of the smaller dimension
     this.arenaElement = null;
-    this.arenaCenter = { x: 0, y: 0 };
+    this.arenaCreated = false;
+    
+    // Initialize arena center to the center of the game area
+    this.arenaCenter = {
+      x: CONFIG.GAME_WIDTH / 2,
+      y: CONFIG.GAME_HEIGHT / 2
+    };
+    
     this.arenaShrinkRate = 0.05; // Shrink by 5% per minute
     this.minArenaRadius = this.arenaRadius * 0.7; // Don't shrink below 70%
     
@@ -77,11 +86,14 @@ export class Boss extends Enemy {
     // Scale boss appropriately
     this.scaleBossStats(playerLevel);
     
-    // Create arena and health bar
-    this.createArena();
+    // Create health bar in constructor
     this.createBossHealthBar();
     
+    // NOTE: We do NOT create the arena here! We'll create it in initialize()
+    // This prevents issues with arena center being undefined in some cases
+    
     logger.debug(`Boss ${this.id} created: ${this.name}, health=${this.health}, phase=${this.phase}/${this.maxPhases}`);
+    logger.debug(`Arena will be centered at (${this.arenaCenter.x}, ${this.arenaCenter.y}) with radius ${this.arenaRadius}`);
   }
   
   /**
@@ -90,17 +102,20 @@ export class Boss extends Enemy {
   initialize(): void {
     super.initialize();
     
-    // Set arena center to current position
-    this.arenaCenter = {
-      x: this.x + this.width / 2,
-      y: this.y + this.height / 2
-    };
+    // Create arena now that we know the game is fully initialized
+    this.createArena();
     
-    // Update arena position
-    this.updateArenaPosition();
+    // Position the boss at the top center of the arena
+    this.x = this.arenaCenter.x - this.width / 2;
+    this.y = this.arenaCenter.y - this.height / 2 - 100; // Appear slightly above center
+    
+    // Update position visually
+    this.updatePosition();
     
     // Emit boss spawn event
     GameEvents.emit(EVENTS.BOSS_SPAWN, this);
+    
+    logger.debug(`Boss initialized at position (${this.x}, ${this.y})`);
   }
   
   /**
@@ -130,6 +145,19 @@ export class Boss extends Enemy {
    * Create the arena visual element
    */
   createArena(): void {
+    // Don't create arena if it already exists
+    if (this.arenaCreated || this.arenaElement) {
+      // Just update position if it already exists
+      this.updateArenaPosition();
+      return;
+    }
+    
+    // Ensure arena center is set to the center of the game area
+    this.arenaCenter = {
+      x: CONFIG.GAME_WIDTH / 2,
+      y: CONFIG.GAME_HEIGHT / 2
+    };
+    
     // Create arena element
     this.arenaElement = document.createElement('div');
     this.arenaElement.className = 'boss-arena';
@@ -146,16 +174,30 @@ export class Boss extends Enemy {
     
     // Add to game container
     this.gameContainer.appendChild(this.arenaElement);
+    
+    // Set initial position
+    this.updateArenaPosition();
+    
+    // Mark arena as created
+    this.arenaCreated = true;
+    
+    logger.debug(`Arena element created with radius ${this.arenaRadius}px`);
+    logger.debug(`Arena centered at (${this.arenaCenter.x}, ${this.arenaCenter.y})`);
   }
   
   /**
-   * Update arena position (centered on boss initially)
+   * Update arena position (centered on arena center)
    */
   updateArenaPosition(): void {
     if (!this.arenaElement) return;
     
-    this.arenaElement.style.left = (this.arenaCenter.x - this.arenaRadius) + 'px';
-    this.arenaElement.style.top = (this.arenaCenter.y - this.arenaRadius) + 'px';
+    const left = this.arenaCenter.x - this.arenaRadius;
+    const top = this.arenaCenter.y - this.arenaRadius;
+    
+    this.arenaElement.style.left = left + 'px';
+    this.arenaElement.style.top = top + 'px';
+    
+    logger.debug(`Arena position updated to (${left}, ${top})`);
   }
   
   /**
@@ -185,6 +227,9 @@ export class Boss extends Enemy {
    * @returns Whether the entity is inside
    */
   isEntityInArena(entity: any): boolean {
+    // Safety check - if no arena center is defined, return true to avoid issues
+    if (!this.arenaCenter) return true;
+    
     // Calculate distance from arena center to entity center
     const entityCenterX = entity.x + entity.width / 2;
     const entityCenterY = entity.y + entity.height / 2;
@@ -202,6 +247,9 @@ export class Boss extends Enemy {
    * @param entity - Entity to contain
    */
   containEntityInArena(entity: any): void {
+    // Safety check - if no arena center is defined, do nothing
+    if (!this.arenaCenter) return;
+    
     // Calculate vector from arena center to entity center
     const entityCenterX = entity.x + entity.width / 2;
     const entityCenterY = entity.y + entity.height / 2;
@@ -440,7 +488,7 @@ export class Boss extends Enemy {
     this.updateHealthBar();
     
     // Contain player in arena
-    if (player) {
+    if (player && this.arenaCreated) {
       this.containEntityInArena(player);
     }
     
@@ -514,11 +562,14 @@ export class Boss extends Enemy {
     // Remove arena
     if (this.arenaElement && this.arenaElement.parentNode) {
       this.arenaElement.parentNode.removeChild(this.arenaElement);
+      this.arenaElement = null;
+      this.arenaCreated = false;
     }
     
     // Remove health bar
     if (this.bossHealthBarContainer && this.bossHealthBarContainer.parentNode) {
       this.bossHealthBarContainer.parentNode.removeChild(this.bossHealthBarContainer);
+      this.bossHealthBarContainer = null;
     }
     
     // Set boss as inactive
