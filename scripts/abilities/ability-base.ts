@@ -143,7 +143,14 @@ export class Ability {
     const hasEnergy = this.player.stats.getEnergy() >= this.energyCost;
     const isStunned = this.player.isStunned; // Check if player is stunned
 
-    return !onCooldown && hasEnergy && !this.active && !isStunned; // Add !isStunned check
+    const canUse = !onCooldown && hasEnergy && !this.active && !isStunned;
+    
+    // Log if blocked by stun
+    if (!canUse && isStunned) {
+      console.debug(`Ability ${this.name} use blocked by stun.`); // Using console.debug for less noise
+    }
+
+    return canUse;
   }
 
   /**

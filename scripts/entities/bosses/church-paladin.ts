@@ -1022,6 +1022,9 @@ export class ChurchPaladin extends Boss {
                     player.takeDamage(projectile.damage);
                 }
 
+                // Log the hit
+                logger.debug(`Holy projectile hit player. Player stunned: ${player.isStunned}`);
+
                 // Create hit effect
                 this.createProjectileHitEffect(projectile.x, projectile.y);
 

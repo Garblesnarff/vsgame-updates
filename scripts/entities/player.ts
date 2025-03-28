@@ -188,10 +188,17 @@ export class Player extends BaseEntity implements IPlayer {
     
     // Update status effects
     this.updateEffects(now);
+    
+    // Log stun status every update
+    logger.debug(`Player update - isStunned: ${this.isStunned}`);
 
     // Move player if keys are provided and not stunned
-    if (keys && !this.isStunned) {
-      this.move(keys);
+    if (keys) {
+      if (!this.isStunned) {
+        this.move(keys);
+      } else {
+        logger.debug('Player movement blocked by stun.');
+      }
     }
     
     // Regenerate energy
