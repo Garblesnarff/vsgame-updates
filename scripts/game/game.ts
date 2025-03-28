@@ -1,8 +1,9 @@
 import { Player } from "../entities/player";
-import { setupBossSystem } from './boss-system-integration';
+import { setupBossSystem } from './boss-system-integration'; // Removed unused GameBossProperties import
 import { fixBossSpawnSystem } from './boss-system-fix';
 import { Projectile, ProjectileOptions } from "../entities/projectile";
 import { Enemy } from "../entities/enemies/base-enemy";
+import { Boss } from "../entities/bosses"; // <-- Import Boss type
 import { VampireHunter } from "../entities/enemies/vampire-hunter";
 import { BasicEnemy } from "../entities/enemies/basic-enemy";
 import { GameLoop } from "./game-loop";
@@ -50,6 +51,12 @@ export class Game {
 
   // Player
   player: Player;
+
+  // --- Properties added by Boss Integration ---
+  isInBossFight: boolean = false;
+  currentBoss: Boss | null = null;
+  regularSpawnRateBackup: number = 0;
+  // --- End Boss Integration Properties ---
   
   // Kill points that are available for the passive skill tree
   // This is now backed by the state store
@@ -382,19 +389,23 @@ export class Game {
     // Update abilities
     this.player.abilityManager.update(deltaTime, this.enemies);
 
-    // Spawn enemies
-    const playerLevel = this.player?.level ?? 1; // Handle potentially undefined level
-    const newEnemy = this.spawnSystem.update(this.gameTime, playerLevel);
-    if (newEnemy) {
-      // Initialize the enemy if not already initialized
-      if (!newEnemy.isEntityInitialized()) {
-        newEnemy.initialize();
-      }
-      this.enemies.push(newEnemy);
+    // --- MODIFIED SECTION: Prevent regular spawns during boss fights ---
+    // Spawn enemies only if not in a boss fight
+    if (!this.isInBossFight) { // <-- Added condition
+      const playerLevel = this.player?.level ?? 1; // Handle potentially undefined level
+      const newEnemy = this.spawnSystem.update(this.gameTime, playerLevel);
+      if (newEnemy) {
+        // Initialize the enemy if not already initialized
+        if (!newEnemy.isEntityInitialized()) {
+          newEnemy.initialize();
+        }
+        this.enemies.push(newEnemy);
 
-      // Emit enemy spawn event
-      GameEvents.emit(EVENTS.ENEMY_SPAWN, newEnemy);
-    }
+        // Emit enemy spawn event
+        GameEvents.emit(EVENTS.ENEMY_SPAWN, newEnemy);
+      }
+    } // <-- Added closing brace
+    // --- END MODIFIED SECTION ---
 
     // Auto-attack
     this.updateAutoAttack();

@@ -87,16 +87,36 @@ export function addBossMethods(game: any): void {
   game.startBossFight = function(boss: Boss): void {
     logger.info(`Starting boss fight with ${boss.name}`);
     console.log(`BOSS FIGHT: Starting boss fight with ${boss.name}`);
+
+    // --- BEGIN ADDED CODE: Clear existing non-boss enemies ---
+    logger.debug(`Clearing ${this.enemies.length} existing enemies for boss fight.`);
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+        const enemy = this.enemies[i];
+        // Ensure we don't remove the boss itself if it somehow got added early,
+        // and ensure it's not a Boss instance.
+        if (enemy !== boss && !(enemy instanceof Boss)) {
+            logger.debug(`Cleaning up enemy ${enemy.id}`);
+            enemy.cleanup(this.player); // Call cleanup to remove DOM element and listeners
+            this.enemies.splice(i, 1); // Remove from the array
+        }
+    }
+    logger.debug(`Remaining enemies after clear: ${this.enemies.length}`);
+    // --- END ADDED CODE ---
     
     // Set boss fight state
     this.currentBoss = boss;
     this.isInBossFight = true;
     
-    // Reduce regular enemy spawn rate
-    this.regularSpawnRateBackup = this.spawnSystem.currentSpawnRate;
-    this.spawnSystem.currentSpawnRate *= 3.33; // Reduce spawn rate by 70%
+    // Back up spawn rate (the actual stopping happens in game.ts update)
+    if (!this.regularSpawnRateBackup) { // Only back up if not already backed up
+        this.regularSpawnRateBackup = this.spawnSystem.currentSpawnRate;
+    }
+    // Note: The line below that modifies currentSpawnRate is now less critical
+    // because the main update loop will skip spawning based on isInBossFight.
+    // Leaving it doesn't hurt, but it's not the primary mechanism anymore.
+    this.spawnSystem.currentSpawnRate *= 3.33; // Original logic: Reduce spawn rate by 70%
     
-    // Add boss to enemies array
+    // Add boss to enemies array (now happens *after* clearing others)
     this.enemies.push(boss);
     
     // Create a special notification
@@ -104,6 +124,16 @@ export function addBossMethods(game: any): void {
     
     // Emit event
     GameEvents.emit(EVENTS.BOSS_SPAWN, boss);
+
+    // --- ADDED CODE: Ensure boss arena is created (Safeguard) ---
+    // Check if the specific boss instance has arena-related methods/properties
+    if ('createArena' in boss && typeof boss.createArena === 'function' &&
+        'arenaElement' in boss && !boss.arenaElement) {
+        logger.debug("Force creating arena in startBossFight");
+        // We've confirmed createArena exists and is a function via the 'in' and typeof checks
+        (boss as any).createArena(); 
+    }
+    // --- END ADDED CODE ---
   };
   
   /**
