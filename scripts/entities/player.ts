@@ -94,6 +94,7 @@ export class Player extends BaseEntity implements IPlayer {
   private vampireScoutMarkActive: boolean = false;
   private energyRegenReductionFactor: number = 1;
   private markTimeoutId: number = 0;
+  private energyBlockTimeoutId: number = 0; // Add this line
 
   /**
    * Create a new player
@@ -749,18 +750,32 @@ export class Player extends BaseEntity implements IPlayer {
    * @param duration - Duration in milliseconds
    */
   blockEnergyRegen(duration: number): void {
-    // Save current reduction factor to restore later
-    const previousFactor = this.energyRegenReductionFactor;
-    
-    // Block energy regen completely
+    // Clear any existing timeout before setting a new one.
+    if (this.energyBlockTimeoutId) {
+      window.clearTimeout(this.energyBlockTimeoutId);
+      // console.log("Cleared previous energy block timeout"); // Optional debug log
+    }
+
+    // Only capture the '1' (unblocked) state if it's not already blocked
+    // If it's already 0, we still want to restore to 1 eventually.
+    const factorToRestore = 1; // We always want to restore to 1 eventually
+
+    // Block energy regen immediately
     this.energyRegenReductionFactor = 0;
-    
-    // Set timeout to restore
-    window.setTimeout(() => {
-      this.energyRegenReductionFactor = previousFactor;
+    // console.log(Energy regen blocked. Factor set to 0.); // Optional debug log
+
+    // Set a new timeout to restore the factor
+    this.energyBlockTimeoutId = window.setTimeout(() => {
+      // Restore the regeneration factor
+      this.energyRegenReductionFactor = factorToRestore;
+      // console.log(Energy regen restored. Factor set to ${factorToRestore}.); // Optional debug log
+
+      // Reset the timeout ID since it has now executed
+      this.energyBlockTimeoutId = 0;
     }, duration);
-    
-    logger.debug(`Energy regeneration blocked for ${duration}ms`);
+    // console.log(Scheduled energy regen restore in ${duration}ms. Timeout ID: ${this.energyBlockTimeoutId}); // Optional debug log
+
+    logger.debug(`Energy regeneration blocked for ${duration}ms`); // Keep existing logger
   }
 
   /**
@@ -772,6 +787,12 @@ export class Player extends BaseEntity implements IPlayer {
     
     // Clear any mark timeout
     this.clearMarkTimeout();
+
+    // Add this block
+    if (this.energyBlockTimeoutId) {
+      window.clearTimeout(this.energyBlockTimeoutId);
+      this.energyBlockTimeoutId = 0;
+    }
     
     // Reset collision tracking
     this.collidingEnemies.clear();
