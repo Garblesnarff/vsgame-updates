@@ -198,7 +198,7 @@ export class ChurchPaladin extends Boss {
      * @param enemies - Array of all enemies
      */
     update(deltaTime: number, player?: any, enemies?: Enemy[]): void {
-        // Call parent update (handles arena shrinking, health bar, phase checks)
+        // Call parent update (handles health bar, phase checks)
         super.update(deltaTime, player, enemies);
 
         const now = Date.now();
@@ -297,7 +297,7 @@ export class ChurchPaladin extends Boss {
      * @param player - Reference to the player
      */
     handlePhase1Behavior(now: number, player: any): void {
-        // Direct approach movement (includes clamping)
+        // Direct approach movement
         this.moveTowardsPlayer(player);
 
         // Attack selection
@@ -337,7 +337,7 @@ export class ChurchPaladin extends Boss {
      * @param player - Reference to the player
      */
     handlePhase2Behavior(now: number, player: any): void {
-        // Faster movement in phase 2 (includes clamping)
+        // Faster movement in phase 2
         this.moveTowardsPlayer(player, 1.5);
 
         // Try to use divine shield when low in phase 2
@@ -416,13 +416,13 @@ export class ChurchPaladin extends Boss {
             return;
         }
 
-        // Maintain medium distance (includes clamping)
+        // Maintain medium distance
         if (distToPlayer < 200) {
             this.moveAwayFromPlayer(player);
         } else if (distToPlayer > 350) {
             this.moveTowardsPlayer(player);
         } else {
-            // Strafe sideways when at optimal distance (includes clamping)
+            // Strafe sideways when at optimal distance
             this.strafeAroundPlayer(player);
         }
 
@@ -498,7 +498,7 @@ export class ChurchPaladin extends Boss {
     }
 
     /**
-     * Move towards player with optional speed multiplier, clamped to arena.
+     * Move towards player with optional speed multiplier.
      * @param player - Player entity
      * @param speedMultiplier - Optional speed multiplier
      */
@@ -514,8 +514,8 @@ export class ChurchPaladin extends Boss {
         let nextX = this.x + (dx / dist) * this.speed * speedMultiplier;
         let nextY = this.y + (dy / dist) * this.speed * speedMultiplier;
 
-        // Clamp to arena boundaries using the inherited method
-        [nextX, nextY] = this.clampToArena(nextX, nextY);
+        // TODO: Add clamping to game boundaries if needed
+        // [nextX, nextY] = this.clampToGameBounds(nextX, nextY);
 
         // Apply final position
         this.x = nextX;
@@ -525,7 +525,7 @@ export class ChurchPaladin extends Boss {
     }
 
     /**
-     * Move away from player, clamped to arena.
+     * Move away from player.
      * @param player - Player entity
      */
     moveAwayFromPlayer(player: any): void {
@@ -540,8 +540,8 @@ export class ChurchPaladin extends Boss {
         let nextX = this.x - (dx / dist) * this.speed;
         let nextY = this.y - (dy / dist) * this.speed;
 
-        // Clamp to arena boundaries using the inherited method
-        [nextX, nextY] = this.clampToArena(nextX, nextY);
+        // TODO: Add clamping to game boundaries if needed
+        // [nextX, nextY] = this.clampToGameBounds(nextX, nextY);
 
         // Apply final position
         this.x = nextX;
@@ -551,7 +551,7 @@ export class ChurchPaladin extends Boss {
     }
 
     /**
-     * Strafe sideways around player, clamped to arena.
+     * Strafe sideways around player.
      * @param player - Player entity
      */
     strafeAroundPlayer(player: any): void {
@@ -570,8 +570,8 @@ export class ChurchPaladin extends Boss {
         let nextX = this.x + strafeX * this.speed;
         let nextY = this.y + strafeY * this.speed;
 
-        // Clamp to arena boundaries using the inherited method
-        [nextX, nextY] = this.clampToArena(nextX, nextY);
+        // TODO: Add clamping to game boundaries if needed
+        // [nextX, nextY] = this.clampToGameBounds(nextX, nextY);
 
         // Apply final position
         this.x = nextX;
@@ -602,7 +602,7 @@ export class ChurchPaladin extends Boss {
     }
 
     /**
-     * Continue charge movement, clamped to arena.
+     * Continue charge movement.
      */
     continueCharge(): void {
         if (!this.chargeTarget) return;
@@ -622,18 +622,16 @@ export class ChurchPaladin extends Boss {
         let nextX = this.x + (dx / dist) * this.chargeSpeed;
         let nextY = this.y + (dy / dist) * this.chargeSpeed;
 
-        // Clamp to arena boundaries using the inherited method
-        const [clampedX, clampedY] = this.clampToArena(nextX, nextY);
+        // TODO: Add clamping to game boundaries if needed
+        // const [clampedX, clampedY] = this.clampToGameBounds(nextX, nextY);
+        // if (clampedX !== nextX || clampedY !== nextY) {
+        //     this.x = clampedX;
+        //     this.y = clampedY;
+        //     this.finishCharge(); // Finish charge if boundary is hit
+        //     return;
+        // }
 
-        // If clamping occurred (position changed), finish the charge at the boundary
-        if (clampedX !== nextX || clampedY !== nextY) {
-            this.x = clampedX;
-            this.y = clampedY;
-            this.finishCharge(); // Finish charge if boundary is hit
-            return;
-        }
-
-        // Apply final position if not clamped
+        // Apply final position
         this.x = nextX;
         this.y = nextY;
 
@@ -684,7 +682,7 @@ export class ChurchPaladin extends Boss {
     }
 
     /**
-     * Teleport away from player, clamped to arena.
+     * Teleport away from player.
      * @param player - Player entity
      */
     teleportAway(player: any): void {
@@ -698,24 +696,12 @@ export class ChurchPaladin extends Boss {
         let newX = this.x + (dx / dist) * teleportDist;
         let newY = this.y + (dy / dist) * teleportDist;
 
-        // Ensure we stay in arena (initial check, might be redundant with clamp)
-        const distFromCenter = Math.sqrt(
-            Math.pow(newX + this.width / 2 - this.arenaCenter.x, 2) +
-            Math.pow(newY + this.height / 2 - this.arenaCenter.y, 2)
-        );
-
-        if (distFromCenter + this.width / 2 > this.arenaRadius) {
-            // Try a random direction instead if initial calculation is way off
-            const randomAngle = Math.random() * Math.PI * 2;
-            newX = this.arenaCenter.x + Math.cos(randomAngle) * (this.arenaRadius - this.width) - this.width / 2;
-            newY = this.arenaCenter.y + Math.sin(randomAngle) * (this.arenaRadius - this.height) - this.height / 2;
-        }
+        // Clamp to game boundaries
+        newX = Math.max(0, Math.min(CONFIG.GAME_WIDTH - this.width, newX));
+        newY = Math.max(0, Math.min(CONFIG.GAME_HEIGHT - this.height, newY));
 
         // Create teleport effect at old position
         this.createTeleportEffect(this.x, this.y);
-
-        // Clamp final teleport position to arena
-        [newX, newY] = this.clampToArena(newX, newY);
 
         // Update position
         this.x = newX;
@@ -1046,12 +1032,6 @@ export class ChurchPaladin extends Boss {
 
             // Check if out of bounds
             if (this.isProjectileOutOfBounds(projectile)) {
-                this.removeProjectile(projectile);
-                continue;
-            }
-
-            // Check if outside arena
-            if (!this.isPointInArena(projectile.x, projectile.y)) {
                 this.removeProjectile(projectile);
                 continue;
             }
@@ -1971,20 +1951,6 @@ export class ChurchPaladin extends Boss {
                 impact.parentNode.removeChild(impact);
             }
         }, 300);
-    }
-
-    /**
-     * Check if a point is inside the arena
-     * @param x - X coordinate
-     * @param y - Y coordinate
-     * @returns Whether the point is in arena
-     */
-    isPointInArena(x: number, y: number): boolean {
-        const dx = x - this.arenaCenter.x;
-        const dy = y - this.arenaCenter.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        return distance < this.arenaRadius;
     }
 
     /**
