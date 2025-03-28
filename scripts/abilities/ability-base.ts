@@ -141,8 +141,9 @@ export class Ability {
     const now = Date.now();
     const onCooldown = now - this.lastUsed < this.cooldown;
     const hasEnergy = this.player.stats.getEnergy() >= this.energyCost;
+    const isStunned = this.player.isStunned; // Check if player is stunned
 
-    return !onCooldown && hasEnergy && !this.active;
+    return !onCooldown && hasEnergy && !this.active && !isStunned; // Add !isStunned check
   }
 
   /**

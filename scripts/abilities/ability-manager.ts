@@ -182,6 +182,18 @@ unlockAbility(abilityName: string): boolean {
   }
 
   /**
+   * Reset the cooldown for all abilities.
+   */
+  resetAllCooldowns(): void {
+    for (const ability of this.abilities.values()) {
+      // Setting lastUsed to 0 makes the ability available immediately
+      ability.lastUsed = 0;
+      // Also update the UI display
+      ability.updateCooldownDisplay();
+    }
+  }
+
+  /**
    * Reset all abilities to initial state
    */
   reset(): void {

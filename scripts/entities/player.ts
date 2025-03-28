@@ -86,6 +86,10 @@ export class Player extends BaseEntity implements IPlayer {
   // DOM element inherited from BaseEntity
   levelSystem: LevelSystem | null = null;
 
+  // Status Effects
+  effects: Map<string, number>; // Map effect name to expiry timestamp
+  isStunned: boolean;
+
   // Vampire Scout mark effect
   private vampireScoutMarkActive: boolean = false;
   private energyRegenReductionFactor: number = 1;
@@ -138,6 +142,10 @@ export class Player extends BaseEntity implements IPlayer {
     // Initialize abilities
     this.abilityManager = new AbilityManager(this);
 
+    // Initialize status effects
+    this.effects = new Map<string, number>();
+    this.isStunned = false;
+
     // Set up the DOM element (already created in BaseEntity constructor)
     this.setupPlayerElement();
     this.updatePosition();
@@ -176,8 +184,13 @@ export class Player extends BaseEntity implements IPlayer {
     // Don't update if dead
     if (!this.isAlive) return;
     
-    // Move player if keys are provided
-    if (keys) {
+    const now = Date.now(); // Define 'now' here
+    
+    // Update status effects
+    this.updateEffects(now);
+
+    // Move player if keys are provided and not stunned
+    if (keys && !this.isStunned) {
       this.move(keys);
     }
     
@@ -319,61 +332,54 @@ export class Player extends BaseEntity implements IPlayer {
     nextX = Math.max(0, Math.min(CONFIG.GAME_WIDTH - this.width, nextX));
     nextY = Math.max(0, Math.min(CONFIG.GAME_HEIGHT - this.height, nextY));
 
-    // Check for boss arena containment if applicable
-    const game = this.game; // Access game instance
-    // Check if game exists, is in boss fight, and currentBoss exists with arena details
-    // Use type assertion for game properties added by integration
-    if (game && (game as any).isInBossFight && (game as any).currentBoss && (game as any).currentBoss.arenaCenter && (game as any).currentBoss.arenaRadius) {
-      const boss = (game as any).currentBoss;
-      const arenaCenter = boss.arenaCenter;
-      const arenaRadius = boss.arenaRadius;
-      
-      // Use player's approximate radius for boundary check (average of width/height)
-      const playerRadius = (this.width + this.height) / 4; 
-      const buffer = 5; // Small buffer to prevent sticking exactly on the edge
-
-      // Calculate potential next center position
-      const nextCenterX = nextX + this.width / 2;
-      const nextCenterY = nextY + this.height / 2;
-
-      // Calculate distance from arena center to potential next center
-      const dx = nextCenterX - arenaCenter.x;
-      const dy = nextCenterY - arenaCenter.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      // If potential position is outside the arena boundary
-      if (distance >= arenaRadius - playerRadius - buffer) {
-        // Calculate the angle from arena center to the potential position
-        const angle = Math.atan2(dy, dx);
-        
-        // Calculate the maximum allowed distance from the center
-        const maxDist = arenaRadius - playerRadius - buffer;
-        
-        // Clamp the position to the boundary
-        const clampedCenterX = arenaCenter.x + Math.cos(angle) * maxDist;
-        const clampedCenterY = arenaCenter.y + Math.sin(angle) * maxDist;
-        
-        // Update nextX and nextY based on the clamped center position
-        nextX = clampedCenterX - this.width / 2;
-        nextY = clampedCenterY - this.height / 2;
-
-        // Re-clamp to game boundaries in case the arena edge is outside
-        nextX = Math.max(0, Math.min(CONFIG.GAME_WIDTH - this.width, nextX));
-        nextY = Math.max(0, Math.min(CONFIG.GAME_HEIGHT - this.height, nextY));
-        
-        // Optional: Trigger barrier impact effect (if boss has the method)
-        if (typeof boss.createBarrierImpact === 'function') {
-           boss.createBarrierImpact(clampedCenterX, clampedCenterY);
-        }
-      }
-    }
-
-    // Apply the final (potentially clamped) position
+    // Apply the final position (clamped only to game boundaries)
     this.x = nextX;
     this.y = nextY;
 
     // Update the visual position
     this.updatePosition();
+  }
+
+  /**
+   * Apply a status effect to the player
+   * @param effectName - Name of the effect (e.g., 'stun', 'slow')
+   * @param duration - Duration in milliseconds
+   */
+  applyEffect(effectName: string, duration: number): void {
+    const now = Date.now();
+    const expiryTime = now + duration;
+    
+    // Update or add the effect
+    this.effects.set(effectName, expiryTime);
+    
+    // Set specific flags based on effect
+    if (effectName === 'stun') {
+      this.isStunned = true;
+      this.element.classList.add('stunned'); // Add visual indicator
+      logger.debug(`Player stunned for ${duration}ms`);
+    }
+    // Add other effects like 'slow' here if needed
+  }
+
+  /**
+   * Update and clear expired status effects
+   * @param now - Current timestamp
+   */
+  updateEffects(now: number): void {
+    for (const [effectName, expiryTime] of this.effects.entries()) {
+      if (now >= expiryTime) {
+        // Effect expired
+        this.effects.delete(effectName);
+        
+        // Reset specific flags
+        if (effectName === 'stun') {
+          this.isStunned = false;
+          this.element.classList.remove('stunned'); // Remove visual indicator
+          logger.debug('Player stun expired');
+        }
+        // Reset other effect flags here
+      }
+    }
   }
 
   /**
