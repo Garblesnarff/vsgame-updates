@@ -1200,6 +1200,7 @@ export class ChurchPaladin extends Boss {
                 if (now % 200 < 20) {
                     // Apply damage if player has takeDamage method
                     if (player.takeDamage) {
+                        // Log removed
                         player.takeDamage(zone.damage * 0.2); // 1/5 of damage per second
                     }
 
@@ -1433,6 +1434,7 @@ export class ChurchPaladin extends Boss {
                 if (pillar.isActive) {
                     // Apply damage if player has takeDamage method
                     if (player.takeDamage) {
+                        // Log removed
                         player.takeDamage(pillar.damage);
                     }
 
@@ -1545,6 +1547,7 @@ export class ChurchPaladin extends Boss {
 
             // Remove charge-up visual
             this.element.classList.remove('judgment-charge');
+
         }, 2000); // 2 second charge-up
 
         // Emit event
@@ -1588,6 +1591,7 @@ export class ChurchPaladin extends Boss {
         this.gameContainer.appendChild(beam);
 
         // Check if player is hit
+        // Removed try...catch and logs around hit processing
         const isHit = this.isPlayerHitByBeam(player, startX, startY, angle, beamWidth);
 
         if (isHit) {
@@ -1595,7 +1599,6 @@ export class ChurchPaladin extends Boss {
             if (player.takeDamage) {
                 player.takeDamage(this.damage * 3);
             }
-
             // Create hit effect
             this.createJudgmentHitEffect(player);
         }
@@ -1636,12 +1639,11 @@ export class ChurchPaladin extends Boss {
         // Calculate distance from player to beam line
         const playerDist = Math.sqrt(dx * dx + dy * dy);
         const playerAngle = Math.atan2(dy, dx);
-        // Use Math.atan2 for angle difference to handle wrapping correctly
-        let angleDiff = playerAngle - angle;
-        // Normalize angle difference to [-PI, PI]
-        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-        while (angleDiff <= -Math.PI) angleDiff += 2 * Math.PI;
 
+        // Calculate the shortest angle difference between beam angle and player angle
+        // This avoids potential infinite loops from the previous while-based normalization
+        let angleDiff = playerAngle - angle;
+        angleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff)); // Normalize to [-PI, PI]
 
         // Convert to perpendicular distance
         const perpDist = Math.abs(playerDist * Math.sin(angleDiff));

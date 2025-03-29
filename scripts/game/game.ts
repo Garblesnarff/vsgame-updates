@@ -419,6 +419,14 @@ export class Game {
     // Update particles using lifecycle
     this.particleSystem.update(deltaTime);
 
+    // --- Check for Game Over after all updates ---
+    // Ensure we only trigger game over once
+    if (!this.player.isAlive && this.stateManager.getCurrentState() !== GameState.GAME_OVER) {
+      this.gameOver();
+      return; // Stop further updates this frame if game is over
+    }
+    // --- End Game Over Check ---
+
     // Update UI
     this.uiManager.update();
 
@@ -501,6 +509,9 @@ export class Game {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
+      // Check if it's the boss before updating
+      const isBoss = enemy instanceof Boss; // Or check specific boss type if needed
+
       // Update enemy using lifecycle method
       // Special handling for VampireHunter to pass createProjectile function
       if (enemy instanceof VampireHunter) {
@@ -508,6 +519,11 @@ export class Game {
       } else {
         // Pass the current enemies array to all enemy types for coordination
         enemy.update(deltaTime, this.player, this.enemies);
+      }
+
+      // Log after boss update
+      if (isBoss) {
+        // Boss update finished log removed
       }
 
       // Check for Blood Drain ability affecting this enemy

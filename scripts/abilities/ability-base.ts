@@ -1,6 +1,7 @@
 import { GameEvents, EVENTS } from "../utils/event-system";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
+// Removed unused createLogger import and logger constant
 
 /**
  * Configuration options for creating abilities
@@ -134,6 +135,7 @@ export class Ability {
    * @returns Whether the ability can be used
    */
   canUse(): boolean {
+    // Note: Original debug logs removed after fixing freeze issue.
     if (!this.unlocked) {
       return false;
     }

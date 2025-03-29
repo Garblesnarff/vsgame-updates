@@ -37,7 +37,7 @@ export class Player extends BaseEntity implements IPlayer {
     // Emit death event
     GameEvents.emit(EVENTS.PLAYER_DEATH, this);
     
-    console.log("Player death triggered at health: " + this.stats.getHealth());
+    console.log("Player death triggered at health: " + this.stats.getHealth()); // Keeping this original log
   }
   
   // Game reference
@@ -315,6 +315,12 @@ export class Player extends BaseEntity implements IPlayer {
    * @param keys - Current state of keyboard keys
    */
   move(keys: Record<string, boolean>): void {
+    // Check if alive AND if stunned (using the existing isStunned property)
+    // Note: Original debug logs removed after fixing freeze issue.
+    if (!this.isAlive || this.isStunned === true) {
+        return; // Stop movement if dead or stunned
+    }
+
     let deltaX = 0;
     let deltaY = 0;
 
@@ -472,9 +478,14 @@ export class Player extends BaseEntity implements IPlayer {
 
     // Force consistency between health value and alive state
     if (newHealth <= 0 && this.isAlive) {
-      console.log("Player health at zero - triggering death");
+      console.log("Player health at zero - triggering death"); // Keeping this original log
       this.die();
     }
+
+    // Temporary focus test removed
+    // if (this.gameContainer) {
+    //     this.gameContainer.focus();
+    // }
 
     return true;
   }
