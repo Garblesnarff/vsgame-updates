@@ -21,6 +21,29 @@
   100% { transform: scale(1); filter: brightness(1); }
 }
 
+/* Judgment Charge Pulse (New) */
+@keyframes judgment-charge-pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+    box-shadow: 0 0 20px 10px rgba(255, 215, 0, 0.4); /* Gold */
+    border-color: rgba(255, 215, 0, 0.6);
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+    box-shadow: 0 0 40px 20px rgba(255, 215, 0, 0.7); /* Brighter Gold */
+    border-color: rgba(255, 215, 0, 0.9);
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+    box-shadow: 0 0 20px 10px rgba(255, 215, 0, 0.4); /* Gold */
+    border-color: rgba(255, 215, 0, 0.6);
+  }
+}
+
+
 /* Zone Damage Fade */
 @keyframes zone-damage-fade {
   0% { opacity: 0.6; }
@@ -113,7 +136,8 @@
 }
 
 .judgment-charge {
-  animation: charge-pulse 0.5s infinite;
+  /* Optional: Keep a subtle effect on the boss itself */
+  filter: brightness(1.2);
 }
 
 .light-pillar-warning {
@@ -209,6 +233,15 @@
   animation: beam-fade 1s forwards;
 }
 
+/* New Judgment Charge Effect */
+.judgment-charge-effect {
+  background-color: rgba(255, 215, 0, 0.1); /* Semi-transparent gold */
+  border: 3px solid rgba(255, 215, 0, 0.6);
+  box-shadow: 0 0 20px 10px rgba(255, 215, 0, 0.4);
+  animation: judgment-charge-pulse 1s infinite ease-in-out;
+}
+
+
 /* Buff indicators */
 #buff-container {
   position: fixed;
@@ -228,3 +261,4 @@
   font-size: 14px;
   border: 1px solid #ffcc00;
 }
+

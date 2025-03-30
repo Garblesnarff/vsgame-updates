@@ -1520,8 +1520,11 @@ export class ChurchPaladin extends Boss {
     castJudgment(player: any): void {
         logger.debug('Church Paladin casting judgment');
 
-        // Add charge-up visual
+        // Add charge-up visual class
         this.element.classList.add('judgment-charge');
+
+        // Create and store the charge effect element
+        const chargeEffectElement = this.createJudgmentChargeEffect();
 
         // Position while charging
         this.moveTowardsPlayer(player, 0.3); // Slow movement during charge
@@ -1530,28 +1533,60 @@ export class ChurchPaladin extends Boss {
         if (player.health <= 0 || player.isDead === true || player.isAlive === false) {
             setTimeout(() => {
                 this.element.classList.remove('judgment-charge');
+                // Remove the charge effect element if player died during charge
+                if (chargeEffectElement && chargeEffectElement.parentNode) {
+                    chargeEffectElement.parentNode.removeChild(chargeEffectElement);
+                }
             }, 500);
             return;
         }
 
         // Schedule actual beam after charge-up
         setTimeout(() => {
+            // Remove charge-up visual class
+            this.element.classList.remove('judgment-charge');
+
+            // Remove the charge effect element
+            if (chargeEffectElement && chargeEffectElement.parentNode) {
+                chargeEffectElement.parentNode.removeChild(chargeEffectElement);
+            }
+
             // Recheck if player is alive before firing beam
             if (player.health <= 0 || player.isDead === true || player.isAlive === false) {
-                this.element.classList.remove('judgment-charge');
                 return;
             }
 
             // Fire beam
             this.fireJudgmentBeam(player);
 
-            // Remove charge-up visual
-            this.element.classList.remove('judgment-charge');
-
-        }, 2000); // 2 second charge-up
+        }, 4000); // 4 second charge-up
 
         // Emit event
         GameEvents.emit(EVENTS.BOSS_ATTACK_START, this, 'judgment');
+    }
+
+    /**
+     * Create judgment charge visual effect
+     * @returns The created effect element
+     */
+    createJudgmentChargeEffect(): HTMLElement {
+        const effectRadius = this.width * 1.2; // Slightly larger than the boss
+        const effect = document.createElement('div');
+        effect.className = 'judgment-charge-effect';
+        effect.style.position = 'absolute';
+        // Center the effect on the boss
+        effect.style.left = (this.x + this.width / 2 - effectRadius) + 'px';
+        effect.style.top = (this.y + this.height / 2 - effectRadius) + 'px';
+        effect.style.width = (effectRadius * 2) + 'px';
+        effect.style.height = (effectRadius * 2) + 'px';
+        effect.style.borderRadius = '50%';
+        // Styles will be defined in CSS
+        effect.style.zIndex = '18'; // Above boss, below beam
+        effect.style.pointerEvents = 'none'; // Don't interfere with clicks
+
+        // Add to game container
+        this.gameContainer.appendChild(effect);
+        return effect;
     }
 
     /**
