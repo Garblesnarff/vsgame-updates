@@ -184,7 +184,7 @@ export class PassiveSkillMenu {
       // Important: Use a different ID from the main skill menu
       this.menuOverlay = this.createElement('div', {
         id: DOM_IDS.PASSIVE_SKILL_MENU.OVERLAY,
-        className: CSS_CLASSES.PASSIVE_SKILL_MENU.OVERLAY
+        class: CSS_CLASSES.PASSIVE_SKILL_MENU.OVERLAY // Corrected: className to class
       }, this.gameContainer);
       
       // Set display style to ensure proper styling
@@ -192,12 +192,12 @@ export class PassiveSkillMenu {
       
       // Create menu container
       const menuContainer = this.createElement('div', {
-        className: CSS_CLASSES.PASSIVE_SKILL_MENU.CONTAINER
+        class: CSS_CLASSES.PASSIVE_SKILL_MENU.CONTAINER // Corrected: className to class
       }, this.menuOverlay);
       
       // Create header
       const header = this.createElement('div', {
-        className: CSS_CLASSES.PASSIVE_SKILL_MENU.HEADER
+        class: CSS_CLASSES.PASSIVE_SKILL_MENU.HEADER // Corrected: className to class
       }, menuContainer);
       
       // Add title with appropriate name
@@ -207,7 +207,7 @@ export class PassiveSkillMenu {
       
       // Add points display
       const pointsDisplay = this.createElement('div', {
-        className: CSS_CLASSES.PASSIVE_SKILL_MENU.POINTS_DISPLAY
+        class: CSS_CLASSES.PASSIVE_SKILL_MENU.POINTS_DISPLAY // Corrected: className to class
       }, header);
       pointsDisplay.textContent = 'Available Skill Points: ';
       
@@ -219,13 +219,13 @@ export class PassiveSkillMenu {
       // Add close button
       this.createElement('button', {
         id: DOM_IDS.PASSIVE_SKILL_MENU.CLOSE_BUTTON,
-        className: CSS_CLASSES.PASSIVE_SKILL_MENU.CLOSE_BUTTON,
+        class: CSS_CLASSES.PASSIVE_SKILL_MENU.CLOSE_BUTTON, // Corrected: className to class
         textContent: 'Close'
       }, header);
       
       // Add skill grid
       this.skillGrid = this.createElement('div', {
-        className: CSS_CLASSES.SKILL.GRID
+        class: CSS_CLASSES.SKILL.GRID // Corrected: className to class
       }, menuContainer);
       
       // Cache elements for faster access
