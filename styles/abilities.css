@@ -1,13 +1,4 @@
 /* Ability-specific styles only */
-/* Ability buttons bar */
-#abilities {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 20px;
-}
 
 .ability {
     width: 60px;
