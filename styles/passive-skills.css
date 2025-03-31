@@ -64,8 +64,8 @@
 
 /* Style cards in a grid layout like Vampiric Powers */
 #passive-skill-menu-overlay .skill-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr); /* Changed from 2 to 3 columns */
+  display: grid !important; /* Added !important */
+  grid-template-columns: repeat(3, 1fr) !important; /* Added !important */
   gap: 15px;
   padding: 5px;
   overflow-y: auto;
