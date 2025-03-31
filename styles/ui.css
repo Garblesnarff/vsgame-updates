@@ -97,7 +97,7 @@
 
 /* Skill Menu Styles */
 .skill-menu-overlay {
-    position: absolute;
+    position: fixed; /* Changed from absolute to fixed */
     top: 0;
     left: 0;
     width: 100%;
@@ -297,7 +297,7 @@
 
 /* Passive Skill Menu Styles */
 #passive-skill-menu-overlay {
-    position: absolute;
+    position: fixed; /* Changed from absolute to fixed */
     top: 0;
     left: 0;
     width: 100%;

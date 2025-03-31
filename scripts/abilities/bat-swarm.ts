@@ -1,6 +1,7 @@
 import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
+import CONFIG from "../config"; // Added import for CONFIG
 
 
 /**
@@ -184,14 +185,12 @@ export class BatSwarm extends Ability {
   /**
    * Check if a bat is outside the game area
    * @param bat - Bat object
-   * @returns Whether the bat is out of bounds
-   */
-  isBatOutOfBounds(bat: Bat): boolean {
-    const gameWidth = window.innerWidth;
-    const gameHeight = window.innerHeight;
-
-    return bat.x < 0 || bat.x > gameWidth || bat.y < 0 || bat.y > gameHeight;
-  }
+ * @returns Whether the bat is out of bounds
+ */
+isBatOutOfBounds(bat: Bat): boolean {
+    // Use world dimensions from CONFIG instead of window dimensions
+    return bat.x < 0 || bat.x > CONFIG.WORLD_WIDTH || bat.y < 0 || bat.y > CONFIG.WORLD_HEIGHT;
+}
 
   /**
    * Check if a bat collides with an enemy
