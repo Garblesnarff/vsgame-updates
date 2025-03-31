@@ -215,8 +215,10 @@ interface UIConfig {
  * Complete game configuration
  */
 interface GameConfig {
-  GAME_WIDTH: number;
-  GAME_HEIGHT: number;
+  WORLD_WIDTH: number; // Renamed from GAME_WIDTH
+  WORLD_HEIGHT: number; // Renamed from GAME_HEIGHT
+  SCREEN_WIDTH: number; // Added for potential UI use
+  SCREEN_HEIGHT: number; // Added for potential UI use
   SPAWN_RATE: number;
   PLAYER: PlayerConfig;
   ENEMY: EnemyConfig;
@@ -230,9 +232,11 @@ interface GameConfig {
  * Contains all constants and default values for the game
  */
 export const CONFIG: GameConfig = {
-  // Game settings
-  GAME_WIDTH: window.innerWidth,
-  GAME_HEIGHT: window.innerHeight,
+  // Game world settings
+  WORLD_WIDTH: 3000,
+  WORLD_HEIGHT: 2000,
+  SCREEN_WIDTH: window.innerWidth, // Keep screen size for UI etc.
+  SCREEN_HEIGHT: window.innerHeight,
   SPAWN_RATE: 2000, // ms between enemy spawns
 
   // Player settings

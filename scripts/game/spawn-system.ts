@@ -181,8 +181,8 @@ export class SpawnSystem {
     
     // Calculate spawn points around a circle for a more coordinated swarm appearance
     const spawnRadius = 300; // Distance from center point
-    const centerX = Math.random() * (CONFIG.GAME_WIDTH - 2 * spawnRadius) + spawnRadius;
-    const centerY = Math.random() * (CONFIG.GAME_HEIGHT - 2 * spawnRadius) + spawnRadius;
+    const centerX = Math.random() * (CONFIG.WORLD_WIDTH - 2 * spawnRadius) + spawnRadius;
+    const centerY = Math.random() * (CONFIG.WORLD_HEIGHT - 2 * spawnRadius) + spawnRadius;
     
     // Create first swarmer at a position on the circle
     const angle = Math.random() * Math.PI * 2;

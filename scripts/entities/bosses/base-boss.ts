@@ -84,8 +84,8 @@ export class Boss extends Enemy {
     super.initialize();
     
     // Position the boss at the center of the game area
-    this.x = CONFIG.GAME_WIDTH / 2 - this.width / 2;
-    this.y = CONFIG.GAME_HEIGHT / 2 - this.height / 2 - 100; // Appear slightly above center
+    this.x = CONFIG.WORLD_WIDTH / 2 - this.width / 2; // Changed from GAME_WIDTH
+    this.y = CONFIG.WORLD_HEIGHT / 2 - this.height / 2 - 100; // Changed from GAME_HEIGHT
     
     // Update position visually
     this.updatePosition();

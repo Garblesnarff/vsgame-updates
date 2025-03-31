@@ -241,8 +241,8 @@ export class SilverMage extends Enemy {
     let newY = this.y + dirY * this.teleportDistance;
     
     // Ensure we don't teleport out of bounds
-    newX = Math.max(0, Math.min(CONFIG.GAME_WIDTH - this.width, newX));
-    newY = Math.max(0, Math.min(CONFIG.GAME_HEIGHT - this.height, newY));
+    newX = Math.max(0, Math.min(CONFIG.WORLD_WIDTH - this.width, newX)); // Changed from GAME_WIDTH
+    newY = Math.max(0, Math.min(CONFIG.WORLD_HEIGHT - this.height, newY)); // Changed from GAME_HEIGHT
     
     // Teleport
     this.x = newX;

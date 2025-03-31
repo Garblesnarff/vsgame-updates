@@ -14,6 +14,7 @@ body {
     position: relative;
     width: 100vw;
     height: 100vh;
+    overflow: auto; /* Allow scrolling within the container */
 }
 
 /* Pause overlay */

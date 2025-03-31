@@ -146,9 +146,9 @@ export class Projectile extends BaseEntity {
   isOutOfBounds(): boolean {
     return (
       this.x < 0 ||
-      this.x > CONFIG.GAME_WIDTH ||
+      this.x > CONFIG.WORLD_WIDTH || // Changed from GAME_WIDTH
       this.y < 0 ||
-      this.y > CONFIG.GAME_HEIGHT
+      this.y > CONFIG.WORLD_HEIGHT // Changed from GAME_HEIGHT
     );
   }
 

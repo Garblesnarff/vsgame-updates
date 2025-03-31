@@ -697,8 +697,8 @@ export class ChurchPaladin extends Boss {
         let newY = this.y + (dy / dist) * teleportDist;
 
         // Clamp to game boundaries
-        newX = Math.max(0, Math.min(CONFIG.GAME_WIDTH - this.width, newX));
-        newY = Math.max(0, Math.min(CONFIG.GAME_HEIGHT - this.height, newY));
+        newX = Math.max(0, Math.min(CONFIG.WORLD_WIDTH - this.width, newX)); // Changed from GAME_WIDTH
+        newY = Math.max(0, Math.min(CONFIG.WORLD_HEIGHT - this.height, newY)); // Changed from GAME_HEIGHT
 
         // Create teleport effect at old position
         this.createTeleportEffect(this.x, this.y);
@@ -1068,9 +1068,9 @@ export class ChurchPaladin extends Boss {
     isProjectileOutOfBounds(projectile: HolyProjectile): boolean {
         return (
             projectile.x < 0 ||
-            projectile.x > CONFIG.GAME_WIDTH ||
+            projectile.x > CONFIG.WORLD_WIDTH || // Changed from GAME_WIDTH
             projectile.y < 0 ||
-            projectile.y > CONFIG.GAME_HEIGHT
+            projectile.y > CONFIG.WORLD_HEIGHT // Changed from GAME_HEIGHT
         );
     }
 

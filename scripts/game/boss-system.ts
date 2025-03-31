@@ -200,8 +200,8 @@ export class BossSpawnSystem {
     const boss = new BossClass(this.gameContainer, playerLevel);
     
     // Position boss in center of game area
-    boss.x = CONFIG.GAME_WIDTH / 2 - boss.width / 2;
-    boss.y = CONFIG.GAME_HEIGHT / 2 - boss.height / 2;
+    boss.x = CONFIG.WORLD_WIDTH / 2 - boss.width / 2; // Changed from GAME_WIDTH
+    boss.y = CONFIG.WORLD_HEIGHT / 2 - boss.height / 2; // Changed from GAME_HEIGHT
     boss.updatePosition();
     
     // Update rotation index for next spawn

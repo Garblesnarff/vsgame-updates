@@ -236,6 +236,9 @@ export class Game {
 
     // Initialize event listeners
     this.initializeEventListeners();
+
+    // Add world border element
+    this.createWorldBorder();
   }
 
   /**
@@ -432,6 +435,9 @@ export class Game {
 
     // Update state manager
     this.stateManager.update(deltaTime);
+
+    // Update camera scroll to follow player
+    this.updateCameraScroll();
 
     // Update boss system if it exists
     if (this.bossSpawnSystem) {
@@ -1219,10 +1225,56 @@ if (this.player) {
 }
 
 // Remove all events to prevent memory leaks
-GameEvents.removeAllListeners();
+    GameEvents.removeAllListeners();
 
-logger.info('Game completely disposed');
-}
+    logger.info('Game completely disposed');
+  }
+
+  /**
+   * Creates a visible border element representing the world boundaries.
+   */
+  createWorldBorder(): void {
+    const border = document.createElement('div');
+    border.style.position = 'absolute';
+    border.style.left = '0px';
+    border.style.top = '0px';
+    border.style.width = `${CONFIG.WORLD_WIDTH}px`;
+    border.style.height = `${CONFIG.WORLD_HEIGHT}px`;
+    border.style.border = '4px solid white'; // Visible white border
+    border.style.boxSizing = 'border-box'; // Include border in size
+    border.style.pointerEvents = 'none'; // Prevent interaction
+    border.style.zIndex = '-1'; // Draw behind entities
+    this.gameContainer.appendChild(border);
+    logger.info('World border created.');
+  }
+
+  /**
+   * Updates the scroll position of the game container to follow the player.
+   */
+  updateCameraScroll(): void {
+    if (!this.player || !this.gameContainer) return;
+
+    const playerCenterX = this.player.x + this.player.width / 2;
+    const playerCenterY = this.player.y + this.player.height / 2;
+
+    const containerWidth = this.gameContainer.clientWidth;
+    const containerHeight = this.gameContainer.clientHeight;
+
+    // Calculate desired scroll position to center the player
+    let targetScrollLeft = playerCenterX - containerWidth / 2;
+    let targetScrollTop = playerCenterY - containerHeight / 2;
+
+    // Clamp scroll position to world boundaries
+    const maxScrollLeft = CONFIG.WORLD_WIDTH - containerWidth;
+    const maxScrollTop = CONFIG.WORLD_HEIGHT - containerHeight;
+
+    targetScrollLeft = Math.max(0, Math.min(maxScrollLeft, targetScrollLeft));
+    targetScrollTop = Math.max(0, Math.min(maxScrollTop, targetScrollTop));
+
+    // Apply the scroll position
+    this.gameContainer.scrollLeft = targetScrollLeft;
+    this.gameContainer.scrollTop = targetScrollTop;
+  }
 }
 
 export default Game;

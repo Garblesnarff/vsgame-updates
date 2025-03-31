@@ -130,8 +130,8 @@ export class HolyPriest extends Enemy {
     updatePosition(): void {
         // First ensure the position is valid (not on edge of screen)
         const margin = 20; // Keep 20px margin from screen edge
-        this.x = Math.max(margin, Math.min(CONFIG.GAME_WIDTH - this.width - margin, this.x));
-        this.y = Math.max(margin, Math.min(CONFIG.GAME_HEIGHT - this.height - margin, this.y));
+        this.x = Math.max(margin, Math.min(CONFIG.WORLD_WIDTH - this.width - margin, this.x)); // Changed from GAME_WIDTH
+        this.y = Math.max(margin, Math.min(CONFIG.WORLD_HEIGHT - this.height - margin, this.y)); // Changed from GAME_HEIGHT
         
         // Then use the base implementation
         super.updatePosition();
@@ -343,8 +343,8 @@ export class HolyPriest extends Enemy {
         }
 
         // Ensure we stay in bounds
-        this.x = Math.max(0, Math.min(CONFIG.GAME_WIDTH - this.width, this.x));
-        this.y = Math.max(0, Math.min(CONFIG.GAME_HEIGHT - this.height, this.y));
+        this.x = Math.max(0, Math.min(CONFIG.WORLD_WIDTH - this.width, this.x)); // Changed from GAME_WIDTH
+        this.y = Math.max(0, Math.min(CONFIG.WORLD_HEIGHT - this.height, this.y)); // Changed from GAME_HEIGHT
 
         // Update position
         this.updatePosition();

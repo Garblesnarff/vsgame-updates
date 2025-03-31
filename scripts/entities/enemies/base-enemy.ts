@@ -111,20 +111,20 @@ export class Enemy extends BaseEntity {
 
     switch (side) {
       case 0: // Top
-        this.x = Math.random() * CONFIG.GAME_WIDTH;
+        this.x = Math.random() * CONFIG.WORLD_WIDTH; // Changed from GAME_WIDTH
         this.y = -this.height;
         break;
       case 1: // Right
-        this.x = CONFIG.GAME_WIDTH + this.width;
-        this.y = Math.random() * CONFIG.GAME_HEIGHT;
+        this.x = CONFIG.WORLD_WIDTH + this.width; // Changed from GAME_WIDTH
+        this.y = Math.random() * CONFIG.WORLD_HEIGHT; // Changed from GAME_HEIGHT
         break;
       case 2: // Bottom
-        this.x = Math.random() * CONFIG.GAME_WIDTH;
-        this.y = CONFIG.GAME_HEIGHT + this.height;
+        this.x = Math.random() * CONFIG.WORLD_WIDTH; // Changed from GAME_WIDTH
+        this.y = CONFIG.WORLD_HEIGHT + this.height; // Changed from GAME_HEIGHT
         break;
       case 3: // Left
         this.x = -this.width;
-        this.y = Math.random() * CONFIG.GAME_HEIGHT;
+        this.y = Math.random() * CONFIG.WORLD_HEIGHT; // Changed from GAME_HEIGHT
         break;
     }
   }
@@ -233,9 +233,9 @@ export class Enemy extends BaseEntity {
   isOutOfBounds(): boolean {
     return (
       this.x < -this.width - 100 ||
-      this.x > CONFIG.GAME_WIDTH + 100 ||
+      this.x > CONFIG.WORLD_WIDTH + 100 || // Changed from GAME_WIDTH
       this.y < -this.height - 100 ||
-      this.y > CONFIG.GAME_HEIGHT + 100
+      this.y > CONFIG.WORLD_HEIGHT + 100 // Changed from GAME_HEIGHT
     );
   }
 

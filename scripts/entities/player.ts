@@ -106,8 +106,8 @@ export class Player extends BaseEntity implements IPlayer {
     this.game = game;
 
     // Position and dimensions
-    this.x = CONFIG.GAME_WIDTH / 2 - CONFIG.PLAYER.WIDTH / 2;
-    this.y = CONFIG.GAME_HEIGHT / 2 - CONFIG.PLAYER.HEIGHT / 2;
+    this.x = CONFIG.WORLD_WIDTH / 2 - CONFIG.PLAYER.WIDTH / 2; // Changed from GAME_WIDTH
+    this.y = CONFIG.WORLD_HEIGHT / 2 - CONFIG.PLAYER.HEIGHT / 2; // Changed from GAME_HEIGHT
     this.width = CONFIG.PLAYER.WIDTH;
     this.height = CONFIG.PLAYER.HEIGHT;
     this.speed = CONFIG.PLAYER.SPEED;
@@ -343,8 +343,8 @@ export class Player extends BaseEntity implements IPlayer {
     let nextY = this.y + deltaY;
 
     // Clamp to game boundaries first
-    nextX = Math.max(0, Math.min(CONFIG.GAME_WIDTH - this.width, nextX));
-    nextY = Math.max(0, Math.min(CONFIG.GAME_HEIGHT - this.height, nextY));
+    nextX = Math.max(0, Math.min(CONFIG.WORLD_WIDTH - this.width, nextX)); // Changed from GAME_WIDTH
+    nextY = Math.max(0, Math.min(CONFIG.WORLD_HEIGHT - this.height, nextY)); // Changed from GAME_HEIGHT
 
     // Apply the final position (clamped only to game boundaries)
     this.x = nextX;
