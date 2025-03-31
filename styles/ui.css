@@ -310,7 +310,12 @@
 }
 
 #passive-skill-menu-overlay .skill-menu {
-    border-color: #b30000; /* Red border to distinguish from regular skill menu */
+    /* Inherits border color from .skill-menu */
+}
+
+/* Ensure passive skill grid is 3x3 */
+#passive-skill-menu-overlay .skill-grid {
+    grid-template-columns: repeat(3, 1fr);
 }
 
 /* Passive Skill Menu specific styles */
@@ -321,19 +326,6 @@
     display: inline-block;
     width: auto;
 }
-
-#passive-skill-menu-overlay .skill-menu-header h2 {
-    color: #ff4444;
-}
-
-#passive-skill-menu-overlay .skill-upgrade-btn {
-    background-color: #6a0000;
-}
-
-#passive-skill-menu-overlay .skill-upgrade-btn:hover:not(:disabled) {
-    background-color: #aa0000;
-}
-
-#passive-skill-menu-overlay .skill-card-header h3 {
-    color: #ff4444;
-}
+/* #passive-skill-menu-overlay .skill-menu-header h2 inherits color from .skill-menu-header h2 */
+/* #passive-skill-menu-overlay .skill-upgrade-btn inherits colors from .skill-upgrade-btn */
+/* #passive-skill-menu-overlay .skill-card-header h3 inherits color from .skill-card-header h3 */
