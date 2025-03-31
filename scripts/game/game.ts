@@ -528,6 +528,15 @@ export class Game {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
+      // --- ADD THIS CHECK ---
+      if (!enemy) {
+        console.warn(`Enemy at index ${i} is undefined. Skipping update.`);
+        // Optionally remove the undefined entry if it's persistent
+        // this.enemies.splice(i, 1); 
+        continue; // Skip to the next iteration
+      }
+      // --- END ADDED CHECK ---
+
       // Check if it's the boss before updating
       const isBoss = enemy instanceof Boss; // Or check specific boss type if needed
 
