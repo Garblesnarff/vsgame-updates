@@ -225,6 +225,27 @@ interface GameConfig {
   LEVEL: LevelConfig;
   ABILITIES: AbilitiesConfig;
   UI: UIConfig;
+  DROPS: DropsConfig; // Added for weapon drops
+}
+
+/**
+ * Configuration for a single drop type
+ */
+interface DropTypeConfig {
+  PROJECTILE_COUNT?: number; // For multi/spread shot
+  SPREAD_ANGLE?: number; // For spread shot (degrees)
+  Y_OFFSET?: number; // For multi shot (pixels)
+  COOLDOWN_MULTIPLIER?: number; // For rapid fire
+}
+
+/**
+ * Configuration for all weapon drops
+ */
+interface DropsConfig {
+  ENEMY_DROP_CHANCE: number; // Chance for any enemy to drop an item (0 to 1)
+  MULTI_SHOT: DropTypeConfig;
+  SPREAD_SHOT: DropTypeConfig;
+  RAPID_FIRE: DropTypeConfig;
 }
 
 /**
@@ -382,6 +403,22 @@ export const CONFIG: GameConfig = {
       BLOOD_LANCE_UNLOCK_COST: 3,
       NIGHT_SHIELD_UNLOCK_COST: 3,
       UPGRADE_COST: 1,
+    },
+  },
+
+  // Weapon Drop Settings
+  DROPS: {
+    ENEMY_DROP_CHANCE: 0.1, // 10% chance for an enemy to drop an item
+    MULTI_SHOT: {
+      PROJECTILE_COUNT: 3,
+      Y_OFFSET: 10, // Pixels above/below the center projectile
+    },
+    SPREAD_SHOT: {
+      PROJECTILE_COUNT: 5,
+      SPREAD_ANGLE: 30, // Total angle in degrees for the spread
+    },
+    RAPID_FIRE: {
+      COOLDOWN_MULTIPLIER: 0.5, // Halves the auto-attack cooldown
     },
   },
 };

@@ -35,3 +35,50 @@ body {
     from { opacity: 0.7; }
     to { opacity: 1; }
 }
+
+/* --- Drop Item Styles --- */
+.drop-item {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid gold;
+  border-radius: 50%;
+  background-color: rgba(255, 215, 0, 0.3); /* Semi-transparent gold */
+  box-shadow: 0 0 8px gold;
+  z-index: 5; /* Ensure drops are visible above some elements */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-size: 12px;
+  color: white;
+  text-shadow: 0 0 2px black;
+}
+
+/* Specific styles for different drop types */
+.drop-multi_shot {
+  background-color: rgba(0, 150, 255, 0.4); /* Blueish */
+  border-color: #0096FF;
+  box-shadow: 0 0 8px #0096FF;
+}
+.drop-multi_shot::after {
+  content: 'M';
+}
+
+.drop-spread_shot {
+  background-color: rgba(0, 255, 100, 0.4); /* Greenish */
+  border-color: #00FF64;
+  box-shadow: 0 0 8px #00FF64;
+}
+.drop-spread_shot::after {
+  content: 'S';
+}
+
+.drop-rapid_fire {
+  background-color: rgba(255, 50, 50, 0.4); /* Reddish */
+  border-color: #FF3232;
+  box-shadow: 0 0 8px #FF3232;
+}
+.drop-rapid_fire::after {
+  content: 'R';
+}

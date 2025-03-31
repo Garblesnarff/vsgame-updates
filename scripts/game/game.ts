@@ -4,6 +4,8 @@ import { fixBossSpawnSystem } from './boss-system-fix';
 import { Projectile, ProjectileOptions } from "../entities/projectile";
 import { Enemy } from "../entities/enemies/base-enemy";
 import { Boss } from "../entities/bosses"; // <-- Import Boss type
+import { Drop } from "../entities/drop"; // <-- Import Drop type
+import { DropType } from "../types/drop-types"; // <-- Import DropType enum
 import { VampireHunter } from "../entities/enemies/vampire-hunter";
 import { BasicEnemy } from "../entities/enemies/basic-enemy";
 import { GameLoop } from "./game-loop";
@@ -37,6 +39,7 @@ export class Game {
   gameTime: number = 0;
   enemies: Enemy[] = [];
   projectiles: Projectile[] = [];
+  drops: Drop[] = []; // <-- Add array to hold active drops
 
   // Game systems
   gameLoop: GameLoop;
@@ -156,6 +159,13 @@ export class Game {
               if (this.levelSystem.addKill()) {
                 // Level up was handled by the callback
               }
+
+              // --- Add Drop Chance Logic ---
+              if (Math.random() < CONFIG.DROPS.ENEMY_DROP_CHANCE) {
+                this.spawnDrop(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+              }
+              // --- End Drop Chance Logic ---
+
             } else {
               // Emit enemy damage event
               GameEvents.emit(EVENTS.ENEMY_DAMAGE, enemy, projectile.damage);
@@ -418,6 +428,9 @@ export class Game {
 
     // Update projectiles using lifecycle
     this.updateProjectilesLifecycle(deltaTime);
+
+    // Update drops using lifecycle
+    this.updateDropsLifecycle(deltaTime); // <-- Call new update method
 
     // Update particles using lifecycle
     this.particleSystem.update(deltaTime);
@@ -1146,10 +1159,16 @@ this.enemies = [];
 for (const projectile of this.projectiles) {
   projectile.cleanup();
 }
-this.projectiles = [];
+  this.projectiles = [];
 
-// Clean up particles
-this.particleSystem.reset();
+  // Clean up drops
+  for (const drop of this.drops) {
+    drop.cleanup();
+  }
+  this.drops = [];
+
+  // Clean up particles
+  this.particleSystem.reset();
 
 // Clean up passive skill menu
 if (this.passiveSkillMenu) {
@@ -1274,6 +1293,43 @@ if (this.player) {
     // Apply the scroll position
     this.gameContainer.scrollLeft = targetScrollLeft;
     this.gameContainer.scrollTop = targetScrollTop;
+  }
+
+  /**
+   * Spawns a random weapon drop at the specified location.
+   * @param x - The X coordinate for the drop.
+   * @param y - The Y coordinate for the drop.
+   */
+  spawnDrop(x: number, y: number): void {
+    const dropTypes = Object.values(DropType);
+    const randomType = dropTypes[Math.floor(Math.random() * dropTypes.length)];
+
+    const drop = new Drop(this.gameContainer, randomType, x, y);
+    this.drops.push(drop);
+    logger.info(`Spawned drop: ${randomType} at (${x.toFixed(0)}, ${y.toFixed(0)})`);
+    // Optionally emit an event: GameEvents.emit(EVENTS.DROP_SPAWN, drop);
+  }
+
+  /**
+   * Updates active drops, checking for player collision.
+   * @param deltaTime - Time since the last frame.
+   */
+  updateDropsLifecycle(deltaTime: number): void {
+    for (let i = this.drops.length - 1; i >= 0; i--) {
+      const drop = this.drops[i];
+      drop.update(deltaTime); // Update drop (e.g., animation)
+
+      // Check for collision with player
+      if (this.player.isAlive && drop.collidesWithPlayer(this.player)) {
+        logger.info(`Player picked up drop: ${drop.type}`);
+        this.player.pickupDrop(drop.type); // Notify player
+        drop.cleanup(); // Remove drop element
+        this.drops.splice(i, 1); // Remove from active drops array
+        // Optionally emit event: GameEvents.emit(EVENTS.PLAYER_PICKUP_DROP, drop.type);
+      }
+
+      // TODO: Add logic for drop timeout/despawn?
+    }
   }
 }
 

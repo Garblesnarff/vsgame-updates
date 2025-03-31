@@ -6,6 +6,7 @@ import { LevelSystem } from "../game/level-system";
 import { StatsComponent } from "../ecs/components/StatsComponent";
 import { createLogger } from "../utils/logger";
 import { IPlayer, AutoAttack, ProjectileOptions } from "../types/player-types";
+import { DropType } from "../types/drop-types"; // <-- Import DropType
 import stateStore from "../game/state-store";
 import { BaseEntity } from "./base-entity";
 
@@ -21,25 +22,25 @@ export class Player extends BaseEntity implements IPlayer {
   // to maintain interface compatibility and avoid breaking existing code
   get level(): number { return stateStore.player.level.get(); }
   get kills(): number { return stateStore.levelSystem.kills.get(); }
-  
+
   // Die method that ensures proper death state transition
   die(): void {
     // Only process if actually alive
     if (!this.isAlive) return;
-    
+
     // Set state to dead
     this.isAlive = false;
     // State store updates isAlive via the setter
-    
+
     // Add visual death effect
     this.element.classList.add('dead');
-    
+
     // Emit death event
     GameEvents.emit(EVENTS.PLAYER_DEATH, this);
-    
+
     console.log("Player death triggered at health: " + this.stats.getHealth()); // Keeping this original log
   }
-  
+
   // Game reference
   readonly game: Game | null;
 
@@ -60,18 +61,18 @@ export class Player extends BaseEntity implements IPlayer {
   // States - linked to state store
   get isAlive(): boolean { return stateStore.player.isAlive.get(); }
   set isAlive(value: boolean) { stateStore.player.isAlive.set(value); }
-  
+
   get isInvulnerable(): boolean { return stateStore.player.isInvulnerable.get(); }
   set isInvulnerable(value: boolean) { stateStore.player.isInvulnerable.set(value); }
-  
+
   get showingSkillMenu(): boolean { return stateStore.ui.showingSkillMenu.get(); }
   set showingSkillMenu(value: boolean) { stateStore.ui.showingSkillMenu.set(value); }
   lastDamageTime: number; // Track last damage time for collision cooldown
   private invulnerabilityTimeoutId = 0; // Track invulnerability timeout, default to 0 (invalid ID)
-  
+
   // Damage handling and collision tracking
   readonly collidingEnemies = new Set<string>(); // Track enemies colliding by ID
-  
+
   // Attack properties
   lastAttack: number;
   attackCooldown: number;
@@ -79,6 +80,7 @@ export class Player extends BaseEntity implements IPlayer {
 
   // Auto attack settings
   autoAttack: AutoAttack;
+  currentDropType: DropType | null = null; // <-- Store the active drop type
 
   // Abilities
   abilityManager: AbilityManager;
@@ -125,10 +127,10 @@ export class Player extends BaseEntity implements IPlayer {
       attackSpeedMultiplier: 1, // Default attack speed multiplier
       lifeStealPercentage: 0,   // Default life steal percentage
     });
-    
+
     // Initialize state store with initial values
     this.initializeStateStore();
-    
+
     // States
     this.lastDamageTime = 0; // Initialize last damage time
 
@@ -143,6 +145,9 @@ export class Player extends BaseEntity implements IPlayer {
     // Initialize abilities
     this.abilityManager = new AbilityManager(this);
 
+    // Store original cooldown for rapid fire reset (ensure it exists)
+    this.autoAttack.originalCooldown = this.autoAttack.cooldown ?? CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
+
     // Initialize status effects
     this.effects = new Map<string, number>();
     this.isStunned = false;
@@ -150,10 +155,10 @@ export class Player extends BaseEntity implements IPlayer {
     // Set up the DOM element (already created in BaseEntity constructor)
     this.setupPlayerElement();
     this.updatePosition();
-    
+
     // Call initialize on the player
     this.initialize();
-    
+
     // Set up state change handlers
     this.setupStateChangeHandlers();
   }
@@ -173,7 +178,7 @@ export class Player extends BaseEntity implements IPlayer {
    */
   update(deltaTime: number, keys?: Record<string, boolean>): void {
     super.update(deltaTime);
-    
+
     // Double-check health vs alive state for consistency
     // This ensures player dies if health is zero but alive state wasn't updated
     if (this.stats.getHealth() <= 0 && this.isAlive) {
@@ -181,15 +186,15 @@ export class Player extends BaseEntity implements IPlayer {
       this.die();
       return;
     }
-    
+
     // Don't update if dead
     if (!this.isAlive) return;
-    
+
     const now = Date.now(); // Define 'now' here
-    
+
     // Update status effects
     this.updateEffects(now);
-    
+
     // Log stun status every update
     logger.debug(`Player update - isStunned: ${this.isStunned}`);
 
@@ -201,7 +206,7 @@ export class Player extends BaseEntity implements IPlayer {
         logger.debug('Player movement blocked by stun.');
       }
     }
-    
+
     // Regenerate energy
     this.regenerateEnergy(deltaTime);
   }
@@ -235,7 +240,7 @@ export class Player extends BaseEntity implements IPlayer {
     return {
       enabled: CONFIG.ABILITIES.AUTO_ATTACK.ENABLED,
       cooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN,
-      originalCooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN,
+      originalCooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN, // Ensure this is set initially
       lastFired: 0,
       damage: CONFIG.ABILITIES.AUTO_ATTACK.DAMAGE,
       range: CONFIG.ABILITIES.AUTO_ATTACK.RANGE,
@@ -263,31 +268,31 @@ export class Player extends BaseEntity implements IPlayer {
   private getDynamicDamageCooldown(): number {
     // Base cooldown for collision detection
     const baseCooldown = 100; // ms between damage applications
-    
+
     // Get life steal percentage
     const lifeStealPct = this.stats.getLifeStealPercentage();
-    
+
     // Calculate cooldown - scale down as life steal increases
     let cooldown = baseCooldown;
-    
+
     // For high life steal percentages, reduce cooldown to allow more damage through
     if (lifeStealPct > 50) {
       // Scale down cooldown based on life steal (min 10ms)
       const reductionFactor = Math.min(0.9, (lifeStealPct - 50) / 100);
       cooldown *= (1 - reductionFactor);
     }
-    
+
     // If many enemies are colliding, reduce cooldown even further
     const enemyCount = this.collidingEnemies.size;
     if (enemyCount > 1) {
       // Scale down cooldown based on number of enemies (minimum 10ms)
       cooldown = Math.max(10, cooldown / Math.sqrt(enemyCount));
     }
-    
+
     logger.debug(`Dynamic damage cooldown: ${cooldown}ms, Enemies: ${enemyCount}, Life steal: ${lifeStealPct}%`);
     return cooldown;
   }
-  
+
   /**
    * Register an enemy collision - called when an enemy begins colliding
    * @param enemy - The enemy that started colliding
@@ -298,7 +303,7 @@ export class Player extends BaseEntity implements IPlayer {
       logger.debug(`Enemy ${enemy.id} registered collision. Total colliding: ${this.collidingEnemies.size}`);
     }
   }
-  
+
   /**
    * Unregister an enemy collision - called when an enemy stops colliding
    * @param enemy - The enemy that stopped colliding
@@ -362,10 +367,10 @@ export class Player extends BaseEntity implements IPlayer {
   applyEffect(effectName: string, duration: number): void {
     const now = Date.now();
     const expiryTime = now + duration;
-    
+
     // Update or add the effect
     this.effects.set(effectName, expiryTime);
-    
+
     // Set specific flags based on effect
     if (effectName === 'stun') {
       this.isStunned = true;
@@ -384,7 +389,7 @@ export class Player extends BaseEntity implements IPlayer {
       if (now >= expiryTime) {
         // Effect expired
         this.effects.delete(effectName);
-        
+
         // Reset specific flags
         if (effectName === 'stun') {
           this.isStunned = false;
@@ -410,14 +415,14 @@ export class Player extends BaseEntity implements IPlayer {
   regenerateEnergy(deltaTime: number): void {
     // Apply energy regen reduction if marked by Vampire Scout
     const effectiveRegen = this.stats.getEnergyRegen() * this.energyRegenReductionFactor;
-    
+
     const newEnergy = Math.min(
       this.stats.getMaxEnergy(),
       this.stats.getEnergy() + effectiveRegen * (deltaTime / 1000)
     );
-    
+
     this.stats.setEnergy(newEnergy);
-    
+
     // Update state store
     stateStore.player.energy.set(newEnergy);
   }
@@ -429,23 +434,23 @@ export class Player extends BaseEntity implements IPlayer {
    */
   takeDamage(amount: number): boolean {
     const now = Date.now();
-    
+
     // If player is already dead, ignore further damage
     if (!this.isAlive) {
       return false;
     }
-    
+
     // Check invulnerability
     if (this.isInvulnerable) {
       return false;
     }
-    
+
     // Use dynamic damage cooldown based on player stats and situation
     const cooldown = this.getDynamicDamageCooldown();
     if (now - this.lastDamageTime < cooldown) {
       return false;
     }
-    
+
     // Update last damage time
     this.lastDamageTime = now;
 
@@ -466,10 +471,10 @@ export class Player extends BaseEntity implements IPlayer {
 
     // Calculate new health
     const newHealth = Math.max(0, this.stats.getHealth() - damageTaken);
-    
+
     // Update stats component
     this.stats.setHealth(newHealth);
-    
+
     // Update state store
     stateStore.player.health.set(newHealth);
 
@@ -497,10 +502,10 @@ export class Player extends BaseEntity implements IPlayer {
   heal(amount: number): void {
     const oldHealth = this.stats.getHealth();
     const newHealth = Math.min(this.stats.getMaxHealth(), oldHealth + amount);
-    
+
     // Update stats component
     this.stats.setHealth(newHealth);
-    
+
     // Update state store
     stateStore.player.health.set(newHealth);
 
@@ -531,13 +536,13 @@ export class Player extends BaseEntity implements IPlayer {
 
     // Calculate new energy
     const newEnergy = this.stats.getEnergy() - 10;
-    
+
     // Update stats component
     this.stats.setEnergy(newEnergy);
-    
+
     // Update state store
     stateStore.player.energy.set(newEnergy);
-    
+
     this.lastAttack = now;
 
     // Calculate direction
@@ -574,9 +579,9 @@ export class Player extends BaseEntity implements IPlayer {
     // Check cooldown
     const timeSinceLastFired = now - this.autoAttack.lastFired;
     const cooldown = this.autoAttack.cooldown;
-    
+
     logger.debug(`Attempting to fire auto-projectile. Time since last: ${timeSinceLastFired}ms, Cooldown: ${cooldown}ms`);
-    
+
     if (timeSinceLastFired < cooldown) {
       return false;
     }
@@ -589,20 +594,125 @@ export class Player extends BaseEntity implements IPlayer {
       targetX - (this.x + this.width / 2)
     );
 
-    // Create projectile
-    logger.debug(`Firing auto-projectile at enemy`);
-    createProjectile({
-      x: this.x + this.width / 2,
-      y: this.y + this.height / 2,
-      vx: Math.cos(angle) * this.projectileSpeed,
-      vy: Math.sin(angle) * this.projectileSpeed,
-      damage: this.autoAttack.damage * this.stats.getAttackPower(), // Apply attack power as a multiplier
-      isAutoAttack: true,
-    });
+    // --- Modify projectile creation based on currentDropType ---
+    const startX = this.x + this.width / 2;
+    const startY = this.y + this.height / 2;
+    const baseDamage = this.autoAttack.damage * this.stats.getAttackPower(); // Apply attack power as a multiplier
+
+    switch (this.currentDropType) {
+      case DropType.MULTI_SHOT: {
+        logger.debug(`Firing MULTI_SHOT`);
+        const count = CONFIG.DROPS.MULTI_SHOT?.PROJECTILE_COUNT ?? 3;
+        const yOffset = CONFIG.DROPS.MULTI_SHOT?.Y_OFFSET ?? 10;
+        const angleRad = angle; // Base angle
+        const perpendicularAngle = angleRad + Math.PI / 2; // Angle perpendicular to the firing direction
+
+        // Calculate offsets based on the perpendicular angle
+        const offsetX = Math.cos(perpendicularAngle) * yOffset;
+        const offsetY = Math.sin(perpendicularAngle) * yOffset;
+
+        // Fire center projectile
+        createProjectile({
+          x: startX,
+          y: startY,
+          vx: Math.cos(angleRad) * this.projectileSpeed,
+          vy: Math.sin(angleRad) * this.projectileSpeed,
+          damage: baseDamage,
+          isAutoAttack: true,
+        });
+
+        // Fire side projectiles (only if count is 3 or more)
+        if (count >= 3) {
+           createProjectile({ // Offset 1
+            x: startX + offsetX,
+            y: startY + offsetY,
+            vx: Math.cos(angleRad) * this.projectileSpeed,
+            vy: Math.sin(angleRad) * this.projectileSpeed,
+            damage: baseDamage,
+            isAutoAttack: true,
+          });
+           createProjectile({ // Offset 2
+            x: startX - offsetX,
+            y: startY - offsetY,
+            vx: Math.cos(angleRad) * this.projectileSpeed,
+            vy: Math.sin(angleRad) * this.projectileSpeed,
+            damage: baseDamage,
+            isAutoAttack: true,
+          });
+        }
+        // Add logic for more projectiles if count > 3
+        break;
+      }
+
+      case DropType.SPREAD_SHOT: {
+        logger.debug(`Firing SPREAD_SHOT`);
+        const count = CONFIG.DROPS.SPREAD_SHOT?.PROJECTILE_COUNT ?? 5;
+        const totalSpreadAngleDeg = CONFIG.DROPS.SPREAD_SHOT?.SPREAD_ANGLE ?? 30;
+        const totalSpreadAngleRad = totalSpreadAngleDeg * (Math.PI / 180);
+        // Ensure count is at least 2 to avoid division by zero
+        const angleStep = count > 1 ? totalSpreadAngleRad / (count - 1) : 0;
+        const startAngle = angle - totalSpreadAngleRad / 2;
+
+        for (let i = 0; i < count; i++) {
+          // For a single projectile, use the original angle
+          const currentAngle = count > 1 ? startAngle + i * angleStep : angle;
+          createProjectile({
+            x: startX,
+            y: startY,
+            vx: Math.cos(currentAngle) * this.projectileSpeed,
+            vy: Math.sin(currentAngle) * this.projectileSpeed,
+            damage: baseDamage,
+            isAutoAttack: true,
+          });
+        }
+        break;
+      }
+
+      case DropType.RAPID_FIRE:
+      default: // Includes null (no drop) and RAPID_FIRE (handled by cooldown change in pickupDrop)
+        logger.debug(`Firing default/rapid auto-projectile`);
+        createProjectile({
+          x: startX,
+          y: startY,
+          vx: Math.cos(angle) * this.projectileSpeed,
+          vy: Math.sin(angle) * this.projectileSpeed,
+          damage: baseDamage,
+          isAutoAttack: true,
+        });
+        break;
+    }
+    // --- End modification ---
 
     // Update last fired timestamp
     this.autoAttack.lastFired = now;
     return true;
+  }
+
+  /**
+   * Handles picking up a weapon drop.
+   * @param dropType - The type of drop picked up.
+   */
+  pickupDrop(dropType: DropType): void {
+    logger.info(`Picked up drop: ${dropType}`);
+    this.currentDropType = dropType;
+
+    // Ensure originalCooldown exists before using it
+    const originalCooldown = this.autoAttack.originalCooldown ?? CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
+    const currentAttackSpeedMultiplier = this.stats.getAttackSpeedMultiplier() || 1; // Default to 1 if 0 or undefined
+
+    // Reset cooldown if picking up something other than rapid fire
+    if (dropType !== DropType.RAPID_FIRE) {
+      this.autoAttack.cooldown = originalCooldown / currentAttackSpeedMultiplier;
+      logger.debug(`Drop pickup: Reset auto-attack cooldown to ${this.autoAttack.cooldown}ms`);
+    } else {
+      // Apply rapid fire cooldown multiplier
+      const rapidFireMultiplier = CONFIG.DROPS.RAPID_FIRE?.COOLDOWN_MULTIPLIER ?? 1; // Add optional chaining and default
+      this.autoAttack.cooldown = (originalCooldown / currentAttackSpeedMultiplier) * rapidFireMultiplier;
+      logger.debug(`Drop pickup: Applied rapid fire cooldown: ${this.autoAttack.cooldown}ms`);
+    }
+
+    // Emit an event for UI updates or other systems
+    GameEvents.emit(EVENTS.PLAYER_PICKUP_DROP, dropType);
   }
 
   /**
@@ -613,11 +723,11 @@ export class Player extends BaseEntity implements IPlayer {
     stateStore.player.health.subscribe('player-health-ui', (newHealth) => {
       logger.debug(`Player health updated to ${newHealth}`);
     });
-    
+
     // When player level changes, update abilities or other mechanics
     stateStore.player.level.subscribe('player-level-abilities', (newLevel) => {
       logger.debug(`Player level updated to ${newLevel}`);
-      
+
       // Check for unlockable abilities - no need for conditional
       this.abilityManager.checkUnlockableAbilities();
     });
@@ -630,28 +740,28 @@ export class Player extends BaseEntity implements IPlayer {
   setInvulnerable(duration: number): void {
     // Clear any existing invulnerability timeout
     this.clearInvulnerabilityTimeout();
-    
+
     // Set invulnerable state
     this.isInvulnerable = true;
 
     // Add visual indication of invulnerability
     this.element.classList.add('invulnerable');
-    
+
     // Set timeout to remove invulnerability after duration
     this.invulnerabilityTimeoutId = window.setTimeout(() => {
       this.isInvulnerable = false;
-      
+
       // Remove visual indication
       this.element.classList.remove('invulnerable');
-      
+
       this.invulnerabilityTimeoutId = 0;
-      
+
       logger.debug('Invulnerability ended');
     }, duration);
-    
+
     logger.debug(`Player invulnerable for ${duration}ms`);
   }
-  
+
   /**
    * Clear the invulnerability timeout if it exists
    */
@@ -671,11 +781,11 @@ export class Player extends BaseEntity implements IPlayer {
     if (this.levelSystem) {
       return this.levelSystem.addKill();
     }
-    
+
     // Otherwise, use the state store to update kills
     const currentKills = stateStore.levelSystem.kills.get();
     stateStore.levelSystem.kills.set(currentKills + 1);
-    
+
     return false; // No level-up without a level system
   }
 
@@ -685,13 +795,13 @@ export class Player extends BaseEntity implements IPlayer {
    */
   setLevelSystem(levelSystem: LevelSystem): void {
     this.levelSystem = levelSystem;
-    
+
     // Initialize state store with current level from the level system
     stateStore.player.level.set(levelSystem.getLevel());
     stateStore.levelSystem.level.set(levelSystem.getLevel());
     stateStore.levelSystem.kills.set(levelSystem.getKills());
     stateStore.levelSystem.killsToNextLevel.set(levelSystem.getKillsToNextLevel());
-    
+
     // Listen for level changes using a lambda to avoid 'this' binding issues
     levelSystem.onLevelUp((newLevel: number) => {
       // Update state store values
@@ -707,19 +817,19 @@ export class Player extends BaseEntity implements IPlayer {
   applyVampireScoutMark(energyRegenReduction: number): void {
     // Clear any existing mark timeout
     this.clearMarkTimeout();
-    
+
     // Set mark as active
     this.vampireScoutMarkActive = true;
-    
+
     // Set energy regen reduction
     this.energyRegenReductionFactor = 1 - energyRegenReduction;
-    
+
     // Add visual indication that isn't too overwhelming
     this.element.classList.add('vampire-scout-marked');
-    
+
     logger.debug(`Player marked by Vampire Scout. Energy regen reduced by ${energyRegenReduction * 100}%`);
   }
-  
+
   /**
    * Remove Vampire Scout mark effect from the player
    */
@@ -727,16 +837,16 @@ export class Player extends BaseEntity implements IPlayer {
     // Reset mark state
     this.vampireScoutMarkActive = false;
     this.energyRegenReductionFactor = 1;
-    
+
     // Remove visual indication
     this.element.classList.remove('vampire-scout-marked');
-    
+
     // Clear timeout if it exists
     this.clearMarkTimeout();
-    
+
     logger.debug('Vampire Scout mark removed from player');
   }
-  
+
   /**
    * Clear the mark timeout if it exists
    */
@@ -795,7 +905,7 @@ export class Player extends BaseEntity implements IPlayer {
   cleanup(): void {
     // Clear any invulnerability timeout
     this.clearInvulnerabilityTimeout();
-    
+
     // Clear any mark timeout
     this.clearMarkTimeout();
 
@@ -804,14 +914,14 @@ export class Player extends BaseEntity implements IPlayer {
       window.clearTimeout(this.energyBlockTimeoutId);
       this.energyBlockTimeoutId = 0;
     }
-    
+
     // Reset collision tracking
     this.collidingEnemies.clear();
-    
+
     logger.debug('Player cleanup');
     super.cleanup();
   }
-  
+
   /**
    * Destroy the player (backwards compatibility)
    */

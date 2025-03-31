@@ -376,6 +376,7 @@ export const EVENTS = {
   PLAYER_DEATH: "player:death",
   PLAYER_LEVEL_UP: "player:levelUp",
   PLAYER_SKILL_POINT: "player:skillPoint",
+  PLAYER_PICKUP_DROP: "player:pickupDrop", // <-- Add drop pickup event
   PLAYER_DEBUFF: "player:debuff", // New event for player debuffs
   PLAYER_DEBUFF_END: "player:debuffEnd", // New event for player debuffs ending
 

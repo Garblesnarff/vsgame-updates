@@ -6,6 +6,7 @@ import { StatsComponent } from "../ecs/components/StatsComponent";
 import { AbilityManager } from "../abilities/ability-manager";
 import { Game } from "../game/game";
 import { LevelSystem } from "../game/level-system";
+import { DropType } from "./drop-types"; // <-- Import DropType
 
 /**
  * Interface for auto attack configuration
@@ -78,6 +79,8 @@ export interface IPlayer {
   addKill(): boolean;
   setLevelSystem(levelSystem: LevelSystem): void;
   destroy(): void;
+  // Added for weapon drops
+  pickupDrop(dropType: DropType): void;
 }
 
 /**
