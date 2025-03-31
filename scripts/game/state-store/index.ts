@@ -1,3 +1,4 @@
+import CONFIG from "../../config"; // Import config
 import { GameEvents } from "../../utils/event-system";
 import { createLogger } from "../../utils/logger";
 
@@ -94,8 +95,10 @@ export class StateStore {
     energy: new StateContainer<number>(100, 'player.energy'),
     maxEnergy: new StateContainer<number>(100, 'player.maxEnergy'),
     attackPower: new StateContainer<number>(1, 'player.attackPower'),
-    attackSpeed: new StateContainer<number>(1, 'player.attackSpeed'),
-    lifeSteal: new StateContainer<number>(0, 'player.lifeSteal'),
+    attackSpeed: new StateContainer<number>(0, 'player.attackSpeed'), // Represents % bonus
+    lifeSteal: new StateContainer<number>(0, 'player.lifeSteal'), // Represents % bonus
+    speed: new StateContainer<number>(CONFIG.PLAYER.SPEED, 'player.speed'), // Add speed state
+    cooldownReduction: new StateContainer<number>(0, 'player.cooldownReduction'), // Add CDR state (% bonus)
     isAlive: new StateContainer<boolean>(true, 'player.isAlive'),
     isInvulnerable: new StateContainer<boolean>(false, 'player.isInvulnerable'),
   };

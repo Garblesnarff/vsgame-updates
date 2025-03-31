@@ -6,9 +6,10 @@ import { LevelSystem } from "../game/level-system";
 import { StatsComponent } from "../ecs/components/StatsComponent";
 import { createLogger } from "../utils/logger";
 import { IPlayer, AutoAttack, ProjectileOptions } from "../types/player-types";
-import { DropType } from "../types/drop-types"; // <-- Import DropType
+import { DropType } from "../types/drop-types";
 import stateStore from "../game/state-store";
 import { BaseEntity } from "./base-entity";
+import passiveSkillModel from "../models/passive-skill-model"; // Import passive skill model
 
 // Create a logger for the Player class
 const logger = createLogger('Player');
@@ -85,8 +86,13 @@ export class Player extends BaseEntity implements IPlayer {
   // Abilities
   abilityManager: AbilityManager;
 
-  // DOM element inherited from BaseEntity
   levelSystem: LevelSystem | null = null;
+
+  // Base stats before passive modifications
+  private baseMaxHealth: number;
+  private baseSpeed: number;
+  private baseAttackCooldown: number; // Manual attack cooldown
+  private baseAutoAttackCooldown: number; // Auto attack cooldown
 
   // Status Effects
   effects: Map<string, number>; // Map effect name to expiry timestamp
@@ -112,9 +118,11 @@ export class Player extends BaseEntity implements IPlayer {
     this.y = CONFIG.WORLD_HEIGHT / 2 - CONFIG.PLAYER.HEIGHT / 2; // Changed from GAME_HEIGHT
     this.width = CONFIG.PLAYER.WIDTH;
     this.height = CONFIG.PLAYER.HEIGHT;
-    this.speed = CONFIG.PLAYER.SPEED;
+    this.baseSpeed = CONFIG.PLAYER.SPEED; // Store base speed
+    this.speed = this.baseSpeed; // Initialize current speed
 
     // Stats
+    this.baseMaxHealth = CONFIG.PLAYER.MAX_HEALTH; // Store base max health
     this.stats = new StatsComponent({
       health: CONFIG.PLAYER.MAX_HEALTH,
       maxHealth: CONFIG.PLAYER.MAX_HEALTH,
@@ -136,17 +144,20 @@ export class Player extends BaseEntity implements IPlayer {
 
     // Attack properties
     this.lastAttack = 0;
-    this.attackCooldown = CONFIG.PLAYER.ATTACK_COOLDOWN;
+    this.baseAttackCooldown = CONFIG.PLAYER.ATTACK_COOLDOWN; // Store base cooldown
+    this.attackCooldown = this.baseAttackCooldown; // Initialize current cooldown
     this.projectileSpeed = CONFIG.PLAYER.PROJECTILE_SPEED;
 
     // Auto attack settings
+    this.baseAutoAttackCooldown = CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN; // Store base auto attack cooldown
     this.autoAttack = this.createInitialAutoAttack();
+    // Note: autoAttack.cooldown will be set by applyPassiveSkillBonuses later
 
     // Initialize abilities
     this.abilityManager = new AbilityManager(this);
 
-    // Store original cooldown for rapid fire reset (ensure it exists)
-    this.autoAttack.originalCooldown = this.autoAttack.cooldown ?? CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
+    // Store base config cooldown for rapid fire reset logic
+    this.autoAttack.originalCooldown = this.baseAutoAttackCooldown;
 
     // Initialize status effects
     this.effects = new Map<string, number>();
@@ -161,6 +172,12 @@ export class Player extends BaseEntity implements IPlayer {
 
     // Set up state change handlers
     this.setupStateChangeHandlers();
+
+    // Apply initial passive skill bonuses
+    this.applyPassiveSkillBonuses();
+
+    // Listen for passive skill upgrades to re-apply bonuses
+    GameEvents.on(EVENTS.PASSIVE_SKILL_UPGRADED, this.applyPassiveSkillBonuses.bind(this));
   }
 
   /**
@@ -222,8 +239,10 @@ export class Player extends BaseEntity implements IPlayer {
     stateStore.player.energy.set(this.stats.getEnergy());
     stateStore.player.maxEnergy.set(this.stats.getMaxEnergy());
     stateStore.player.attackPower.set(this.stats.getAttackPower());
-    stateStore.player.attackSpeed.set(this.stats.getAttackSpeedMultiplier());
-    stateStore.player.lifeSteal.set(this.stats.getLifeStealPercentage());
+    stateStore.player.attackSpeed.set(this.stats.getAttackSpeedMultiplier()); // This will be updated by applyPassiveSkillBonuses
+    stateStore.player.lifeSteal.set(this.stats.getLifeStealPercentage()); // This will be updated by applyPassiveSkillBonuses
+    stateStore.player.speed.set(this.speed); // Add speed sync
+    // stateStore.player.cooldownReduction.set(0); // Add CDR sync (needs state definition)
 
     // Set initial player state
     stateStore.player.level.set(1);
@@ -239,10 +258,10 @@ export class Player extends BaseEntity implements IPlayer {
   private createInitialAutoAttack(): AutoAttack {
     return {
       enabled: CONFIG.ABILITIES.AUTO_ATTACK.ENABLED,
-      cooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN,
-      originalCooldown: CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN, // Ensure this is set initially
+      cooldown: this.baseAutoAttackCooldown, // Initialize with base, will be updated by applyPassiveSkillBonuses
+      originalCooldown: this.baseAutoAttackCooldown, // Store base config value here
       lastFired: 0,
-      damage: CONFIG.ABILITIES.AUTO_ATTACK.DAMAGE,
+      damage: CONFIG.ABILITIES.AUTO_ATTACK.DAMAGE, // Base damage, modified by attack power later
       range: CONFIG.ABILITIES.AUTO_ATTACK.RANGE,
       level: 1,
       maxLevel: CONFIG.ABILITIES.AUTO_ATTACK.MAX_LEVEL,
@@ -289,7 +308,8 @@ export class Player extends BaseEntity implements IPlayer {
       cooldown = Math.max(10, cooldown / Math.sqrt(enemyCount));
     }
 
-    logger.debug(`Dynamic damage cooldown: ${cooldown}ms, Enemies: ${enemyCount}, Life steal: ${lifeStealPct}%`);
+    // Note: Life steal percentage is now applied dynamically in applyPassiveSkillBonuses
+    logger.debug(`Dynamic damage cooldown: ${cooldown}ms, Enemies: ${enemyCount}, Life steal: ${passiveSkillModel.getSkillValue('life-steal')}%`);
     return cooldown;
   }
 
@@ -696,20 +716,27 @@ export class Player extends BaseEntity implements IPlayer {
     logger.info(`Picked up drop: ${dropType}`);
     this.currentDropType = dropType;
 
-    // Ensure originalCooldown exists before using it
-    const originalCooldown = this.autoAttack.originalCooldown ?? CONFIG.ABILITIES.AUTO_ATTACK.COOLDOWN;
-    const currentAttackSpeedMultiplier = this.stats.getAttackSpeedMultiplier() || 1; // Default to 1 if 0 or undefined
+    // Use baseAutoAttackCooldown and apply passive bonuses dynamically
+    const attackSpeedBonus = passiveSkillModel.getSkillValue('increased-attack-speed');
+    const cooldownReductionBonus = passiveSkillModel.getSkillValue('cooldown-reduction');
 
-    // Reset cooldown if picking up something other than rapid fire
-    if (dropType !== DropType.RAPID_FIRE) {
-      this.autoAttack.cooldown = originalCooldown / currentAttackSpeedMultiplier;
-      logger.debug(`Drop pickup: Reset auto-attack cooldown to ${this.autoAttack.cooldown}ms`);
+    // Calculate the effective cooldown reduction multiplier (e.g., 10% CDR -> 0.9 multiplier)
+    const cdrMultiplier = 1 - (cooldownReductionBonus / 100);
+    // Calculate the effective attack speed multiplier (e.g., 10% AS -> 1 / 1.1 multiplier)
+    const attackSpeedMultiplier = 1 / (1 + (attackSpeedBonus / 100));
+
+    let finalCooldown = this.baseAutoAttackCooldown * attackSpeedMultiplier * cdrMultiplier;
+
+    // Apply rapid fire multiplier if active
+    if (dropType === DropType.RAPID_FIRE) {
+      const rapidFireMultiplier = CONFIG.DROPS.RAPID_FIRE?.COOLDOWN_MULTIPLIER ?? 1;
+      finalCooldown *= rapidFireMultiplier;
+      logger.debug(`Drop pickup: Applied rapid fire multiplier. Base: ${this.baseAutoAttackCooldown}, AS: ${attackSpeedBonus}%, CDR: ${cooldownReductionBonus}%, Final: ${finalCooldown}ms`);
     } else {
-      // Apply rapid fire cooldown multiplier
-      const rapidFireMultiplier = CONFIG.DROPS.RAPID_FIRE?.COOLDOWN_MULTIPLIER ?? 1; // Add optional chaining and default
-      this.autoAttack.cooldown = (originalCooldown / currentAttackSpeedMultiplier) * rapidFireMultiplier;
-      logger.debug(`Drop pickup: Applied rapid fire cooldown: ${this.autoAttack.cooldown}ms`);
+      logger.debug(`Drop pickup: Calculated auto-attack cooldown. Base: ${this.baseAutoAttackCooldown}, AS: ${attackSpeedBonus}%, CDR: ${cooldownReductionBonus}%, Final: ${finalCooldown}ms`);
     }
+
+    this.autoAttack.cooldown = Math.max(50, finalCooldown); // Ensure a minimum cooldown
 
     // Emit an event for UI updates or other systems
     GameEvents.emit(EVENTS.PLAYER_PICKUP_DROP, dropType);
@@ -731,6 +758,91 @@ export class Player extends BaseEntity implements IPlayer {
       // Check for unlockable abilities - no need for conditional
       this.abilityManager.checkUnlockableAbilities();
     });
+  }
+
+  /**
+   * Applies bonuses from passive skills to player stats and properties.
+   * Should be called on initialization and whenever a passive skill is upgraded.
+   */
+  applyPassiveSkillBonuses(): void {
+    logger.debug('Applying passive skill bonuses...');
+
+    // --- Get Skill Values ---
+    const healthBonus = passiveSkillModel.getSkillValue('increased-health-pool');
+    const speedBonus = passiveSkillModel.getSkillValue('increased-movement-speed');
+    const damageBonus = passiveSkillModel.getSkillValue('increased-attack-damage');
+    const attackSpeedBonus = passiveSkillModel.getSkillValue('increased-attack-speed');
+    const lifeStealBonus = passiveSkillModel.getSkillValue('life-steal');
+    const cooldownReductionBonus = passiveSkillModel.getSkillValue('cooldown-reduction');
+
+    // --- Calculate Multipliers/Modifiers ---
+    const healthMultiplier = 1 + (healthBonus / 100);
+    const speedMultiplier = 1 + (speedBonus / 100);
+    const damageMultiplier = 1 + (damageBonus / 100);
+    // Attack speed bonus reduces cooldown time, so the multiplier is inverse
+    const attackSpeedCooldownMultiplier = 1 / (1 + (attackSpeedBonus / 100));
+    // Cooldown reduction bonus reduces cooldown time
+    const cdrMultiplier = 1 - (cooldownReductionBonus / 100);
+
+    // --- Apply Bonuses ---
+
+    // Health
+    const previousMaxHealth = this.stats.getMaxHealth();
+    const newMaxHealth = Math.round(this.baseMaxHealth * healthMultiplier);
+    this.stats.setMaxHealth(newMaxHealth);
+    // Optionally heal the player by the amount their max health increased
+    const healthIncrease = newMaxHealth - previousMaxHealth;
+    if (healthIncrease > 0 && this.isAlive) {
+      this.heal(healthIncrease);
+    }
+    stateStore.player.maxHealth.set(newMaxHealth);
+    logger.debug(`Health Bonus: ${healthBonus}% -> Max Health: ${newMaxHealth}`);
+
+    // Speed
+    this.speed = this.baseSpeed * speedMultiplier;
+    // this.stats.setSpeed(this.speed); // StatsComponent doesn't track speed directly
+    stateStore.player.speed.set(this.speed);
+    logger.debug(`Speed Bonus: ${speedBonus}% -> Speed: ${this.speed}`);
+
+    // Attack Power (Damage Bonus)
+    // Assuming base attack power is 1 and damage is calculated elsewhere using this multiplier
+    this.stats.setAttackPower(damageMultiplier);
+    stateStore.player.attackPower.set(damageMultiplier);
+    logger.debug(`Damage Bonus: ${damageBonus}% -> Attack Power Multiplier: ${damageMultiplier}`);
+
+    // Life Steal
+    this.stats.setLifeStealPercentage(lifeStealBonus);
+    stateStore.player.lifeSteal.set(lifeStealBonus);
+    logger.debug(`Life Steal Bonus: ${lifeStealBonus}%`);
+
+    // Attack Speed & Cooldown Reduction (apply to cooldowns)
+    const combinedCooldownMultiplier = attackSpeedCooldownMultiplier * cdrMultiplier;
+
+    // Manual Attack Cooldown
+    this.attackCooldown = Math.max(50, this.baseAttackCooldown * combinedCooldownMultiplier); // Minimum cooldown 50ms
+    logger.debug(`AS Bonus: ${attackSpeedBonus}%, CDR Bonus: ${cooldownReductionBonus}% -> Manual Attack CD: ${this.attackCooldown}ms`);
+
+    // Auto Attack Cooldown
+    // Recalculate auto attack cooldown, considering rapid fire drop if active
+    let finalAutoAttackCooldown = this.baseAutoAttackCooldown * combinedCooldownMultiplier;
+    if (this.currentDropType === DropType.RAPID_FIRE) {
+        const rapidFireMultiplier = CONFIG.DROPS.RAPID_FIRE?.COOLDOWN_MULTIPLIER ?? 1;
+        finalAutoAttackCooldown *= rapidFireMultiplier;
+    }
+    this.autoAttack.cooldown = Math.max(50, finalAutoAttackCooldown); // Minimum cooldown 50ms
+    // Update state store for attack speed (as a percentage bonus for UI)
+    stateStore.player.attackSpeed.set(attackSpeedBonus); // Represents % bonus
+    // Update state store for cooldown reduction (as a percentage bonus for UI)
+    stateStore.player.cooldownReduction.set(cooldownReductionBonus); // Represents % bonus
+    logger.debug(`-> Auto Attack CD: ${this.autoAttack.cooldown}ms`);
+
+
+    // Ability Cooldowns (apply CDR multiplier)
+    this.abilityManager.applyCooldownReduction(cdrMultiplier);
+    logger.debug(`Applied CDR Multiplier ${cdrMultiplier} to abilities.`);
+
+    // Optionally, emit an event that stats were updated
+    // GameEvents.emit(EVENTS.PLAYER_STATS_UPDATED, this);
   }
 
   /**
@@ -926,6 +1038,8 @@ export class Player extends BaseEntity implements IPlayer {
    * Destroy the player (backwards compatibility)
    */
   destroy(): void {
+    // Unsubscribe from passive skill upgrade event
+    GameEvents.off(EVENTS.PASSIVE_SKILL_UPGRADED, this.applyPassiveSkillBonuses.bind(this));
     this.cleanup();
   }
 }

@@ -8,6 +8,7 @@ import PassiveSkillMenuEventManager from "./PassiveSkillMenuEventManager";
 import stateStore from "../game/state-store";
 import { GameState } from "../types/game-types";
 import { DOM_IDS, CSS_CLASSES, SELECTORS } from "../constants/dom-elements";
+import { GameEvents, EVENTS } from "../utils/event-system"; // Import event system
 
 // Create a logger for the PassiveSkillMenu class
 const logger = createLogger('PassiveSkillMenu');
@@ -472,24 +473,17 @@ export class PassiveSkillMenu {
       const card = document.createElement('div');
       card.className = CSS_CLASSES.SKILL.CARD;
       card.id = DOM_IDS.SKILL.CARD(skill.id);
-      
-      const effectName = skill.id === 'increased-attack-damage' ? 'Damage' : 
-                        skill.id === 'increased-attack-speed' ? 'Attack Speed' : 'Life Steal';
-      
-      // Enhanced skill descriptions
-      const descriptions: Record<string, string> = {
-        'increased-attack-damage': 'Increases your damage output against all enemies.',
-        'increased-attack-speed': 'Reduces the cooldown between attacks, allowing you to attack more frequently.',
-        'life-steal': 'Heals you for a percentage of the damage you deal to enemies.'
-      };
-      
-      // Set inner HTML with the same structure as the skill menu
+
+      // Use a simpler effect name display or derive from skill name
+      const effectName = skill.name.replace('Increased ', ''); // e.g., "Attack Damage", "Health Pool"
+
+      // Set inner HTML using the skill's description from the model
       card.innerHTML = `
         <div class="${CSS_CLASSES.SKILL.CARD_HEADER}">
           <h3>${skill.name}</h3>
         </div>
         <div class="${CSS_CLASSES.SKILL.DESCRIPTION}">
-          ${descriptions[skill.id] || skill.description}
+          ${skill.description} <!-- Use description from model -->
         </div>
         <div class="${CSS_CLASSES.SKILL.EFFECTS}">
           <div class="${CSS_CLASSES.SKILL.EFFECT}">
@@ -653,13 +647,20 @@ export class PassiveSkillMenu {
     this.decreaseSkillPoints(availablePoints);
     
     // Upgrade the skill in the model
-    passiveSkillModel.upgradeSkill(skillId);
+    const upgraded = passiveSkillModel.upgradeSkill(skillId);
     
     // Update UI
     this.updateSkillValuesFromModel();
     this.update();
     
+    // Emit event if upgrade was successful
+    if (upgraded) {
+      GameEvents.emit(EVENTS.PASSIVE_SKILL_UPGRADED, skillId);
+      logger.debug(`Emitted PASSIVE_SKILL_UPGRADED event for ${skillId}`);
+    }
+
     // Apply the upgrades to the player immediately if game is active
+    // Note: This might become redundant if Player listens to the event, but keep for now.
     if (this.game.isRunning()) {
       this.game.applyPurchasedPassiveSkills();
     }

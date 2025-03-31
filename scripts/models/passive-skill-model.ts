@@ -74,6 +74,36 @@ export class PassiveSkillModel {
           displayValue: '+0%',
           incrementAmount: 5 // +5% per level
         });
+
+        // Health Pool Increase
+        this.skills.set('increased-health-pool', {
+          id: 'increased-health-pool',
+          name: 'Increased Health Pool',
+          description: 'Increases your maximum health.',
+          value: 0,
+          displayValue: '+0%',
+          incrementAmount: 10 // +10% per level
+        });
+
+        // Movement Speed Increase
+        this.skills.set('increased-movement-speed', {
+          id: 'increased-movement-speed',
+          name: 'Increased Movement Speed',
+          description: 'Increases your movement speed.',
+          value: 0,
+          displayValue: '+0%',
+          incrementAmount: 10 // +10% per level
+        });
+
+        // Cooldown Reduction
+        this.skills.set('cooldown-reduction', {
+          id: 'cooldown-reduction',
+          name: 'Cooldown Reduction',
+          description: 'Reduces the cooldown of your abilities.',
+          value: 0,
+          displayValue: '+0%',
+          incrementAmount: 10 // +10% per level
+        });
         
         logger.debug('Default skills initialized successfully');
       },
@@ -315,6 +345,9 @@ export class PassiveSkillModel {
         processSkill('increased-attack-damage', 'increased-attack-damage-value');
         processSkill('increased-attack-speed', 'increased-attack-speed-value');
         processSkill('life-steal', 'life-steal-value');
+        processSkill('increased-health-pool', 'increased-health-pool-value');
+        processSkill('increased-movement-speed', 'increased-movement-speed-value');
+        processSkill('cooldown-reduction', 'cooldown-reduction-value');
         
         return true;
       },
@@ -353,6 +386,9 @@ export class PassiveSkillModel {
         addSkillToData('increased-attack-damage', 'increased-attack-damage-value');
         addSkillToData('increased-attack-speed', 'increased-attack-speed-value');
         addSkillToData('life-steal', 'life-steal-value');
+        addSkillToData('increased-health-pool', 'increased-health-pool-value');
+        addSkillToData('increased-movement-speed', 'increased-movement-speed-value');
+        addSkillToData('cooldown-reduction', 'cooldown-reduction-value');
         
         // Save to storage
         const success = savePassiveSkills(skillData);

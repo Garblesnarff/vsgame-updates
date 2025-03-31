@@ -7,6 +7,7 @@ import { BloodLance } from "./blood-lance";
 import { NightShield } from "./night-shield";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
+import passiveSkillModel from "../models/passive-skill-model"; // Import passive skill model
 
 
 /**
@@ -15,6 +16,7 @@ import { Enemy } from "../entities/enemies/base-enemy";
 export class AbilityManager {
   player: Player;
   abilities: Map<string, Ability>;
+  private baseCooldowns: Map<string, number> = new Map(); // Store base cooldowns for CDR calculation
 
   /**
    * Create a new ability manager
@@ -26,6 +28,8 @@ export class AbilityManager {
 
     // Initialize abilities
     this.initializeAbilities();
+    // Store base cooldowns after initialization
+    this.storeBaseCooldowns();
   }
 
   /**
@@ -55,6 +59,43 @@ export class AbilityManager {
       "nightShield",
       new NightShield(this.player, CONFIG.ABILITIES.NIGHT_SHIELD)
     );
+  }
+
+  /**
+   * Stores the initial cooldown for each ability.
+   * This is needed to correctly apply percentage-based cooldown reduction.
+   */
+  private storeBaseCooldowns(): void {
+    this.baseCooldowns.clear(); // Clear existing before storing
+    for (const [name, ability] of this.abilities.entries()) {
+      // Assuming 'cooldown' property exists on Ability base or is accessed via config
+      // Need to check Ability base class or specific ability implementations if this fails
+      const baseCooldown = ability.cooldown; // Or fetch from CONFIG if stored there
+      if (typeof baseCooldown === 'number') {
+        this.baseCooldowns.set(name, baseCooldown);
+      } else {
+        console.warn(`Ability ${name} does not have a numeric cooldown property to store. Attempting fallback via CONFIG.`);
+        // Fallback: Explicitly check known ability names from CONFIG
+        let configCooldown: number | undefined;
+        switch (name) {
+          case 'bloodDrain': configCooldown = CONFIG.ABILITIES.BLOOD_DRAIN.COOLDOWN; break;
+          case 'batSwarm': configCooldown = CONFIG.ABILITIES.BAT_SWARM.COOLDOWN; break;
+          case 'shadowDash': configCooldown = CONFIG.ABILITIES.SHADOW_DASH.COOLDOWN; break;
+          case 'bloodLance': configCooldown = CONFIG.ABILITIES.BLOOD_LANCE.COOLDOWN; break;
+          case 'nightShield': configCooldown = CONFIG.ABILITIES.NIGHT_SHIELD.COOLDOWN; break;
+        }
+
+        if (typeof configCooldown === 'number') {
+           this.baseCooldowns.set(name, configCooldown);
+           // Optionally update the ability instance's cooldown if it was missing/incorrect
+           // ability.cooldown = configCooldown;
+           console.debug(`Stored base cooldown for ${name} from CONFIG: ${configCooldown}`);
+        } else {
+           console.error(`Could not determine base cooldown for ability: ${name} from instance or CONFIG.`);
+        }
+      }
+    }
+    console.debug('Stored base cooldowns for abilities:', this.baseCooldowns);
   }
 
   /**
@@ -178,7 +219,32 @@ unlockAbility(abilityName: string): boolean {
       return false;
     }
 
-    return ability.upgrade();
+    const success = ability.upgrade();
+    // Re-apply CDR after upgrade in case cooldown changed
+    if (success) {
+       const cdrBonus = passiveSkillModel.getSkillValue('cooldown-reduction');
+       const cdrMultiplier = 1 - (cdrBonus / 100);
+       this.applyCooldownReduction(cdrMultiplier);
+    }
+    return success;
+  }
+
+  /**
+   * Applies a cooldown reduction multiplier to all abilities.
+   * @param cdrMultiplier - The multiplier (e.g., 0.9 for 10% CDR).
+   */
+  applyCooldownReduction(cdrMultiplier: number): void {
+    console.debug(`Applying CDR multiplier: ${cdrMultiplier} to abilities.`);
+    for (const [name, ability] of this.abilities.entries()) {
+      const baseCooldown = this.baseCooldowns.get(name);
+      if (typeof baseCooldown === 'number') {
+        // Apply multiplier, ensuring a minimum cooldown (e.g., 50ms or 0)
+        ability.cooldown = Math.max(50, baseCooldown * cdrMultiplier);
+        // console.debug(`Ability ${name} cooldown updated: ${baseCooldown} * ${cdrMultiplier} = ${ability.cooldown}`);
+      } else {
+        console.warn(`Cannot apply CDR to ability ${name}: Base cooldown not stored.`);
+      }
+    }
   }
 
   /**
@@ -213,9 +279,11 @@ unlockAbility(abilityName: string): boolean {
       ability.destroy();
     }
 
-    // Clear the current abilities map and reinitialize
+    // Clear the current abilities map and base cooldowns, then reinitialize
     this.abilities.clear();
+    this.baseCooldowns.clear();
     this.initializeAbilities();
+    this.storeBaseCooldowns(); // Re-store base cooldowns after reinitialization
   }
 }
 

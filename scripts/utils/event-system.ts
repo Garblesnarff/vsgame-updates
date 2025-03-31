@@ -409,6 +409,7 @@ export const EVENTS = {
   ABILITY_USE: "ability:use",
   ABILITY_UPGRADE: "ability:upgrade",
   ABILITY_UNLOCK: "ability:unlock",
+  PASSIVE_SKILL_UPGRADED: "passiveSkill:upgraded", // Event for passive skill upgrade
 
   // UI events
   UI_SKILL_MENU_OPEN: "ui:skillMenuOpen",
