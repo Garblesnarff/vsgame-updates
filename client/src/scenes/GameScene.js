@@ -1,8 +1,6 @@
 import Phaser from 'phaser';
 import CONFIG from '../../scripts/config'; // Adjust path as needed
-
-// Placeholder for Player class/object - Assuming it will be imported or defined elsewhere
-// import Player from '../../scripts/entities/player'; 
+import Player from '../entities/Player'; // Import the Player class
 
 export default class GameScene extends Phaser.Scene {
     constructor() {
@@ -14,7 +12,12 @@ export default class GameScene extends Phaser.Scene {
 
     preload() {
         // Load assets here (player sprite, enemy sprites, background, etc.)
-        this.load.image('player', 'client/assets/images/player/player.png'); // Uncommented to load player asset
+        // Corrected path to align with webpack output/serving structure
+        this.load.spritesheet('vampire', 'assets/images/player/vampire_character.png', {
+            frameWidth: 32,  // Each frame is 32 pixels wide
+            frameHeight: 32, // Each frame is 32 pixels high
+            // Adjust these values based on the actual sprite dimensions
+        });
         // Example: this.load.image('background', 'client/assets/images/background.png'); // Placeholder for a large background
         this.load.image('basic_enemy', 'client/assets/images/enemies/basic/basic_character_sheet.png'); // Example enemy asset
     }
@@ -37,13 +40,12 @@ export default class GameScene extends Phaser.Scene {
         // this.add.image(CONFIG.WORLD_WIDTH / 2, CONFIG.WORLD_HEIGHT / 2, 'background').setScrollFactor(1);
 
         // --- Player Setup ---
-        // Placeholder: Create the player instance 
-        // This assumes you have a Player class that handles its own physics sprite
-        // Example: this.player = new Player(this, CONFIG.WORLD_WIDTH / 2, CONFIG.WORLD_HEIGHT / 2); 
-        // For now, let's add a simple placeholder sprite if no Player class exists yet
-        this.player = this.physics.add.sprite(CONFIG.WORLD_WIDTH / 2, CONFIG.WORLD_HEIGHT / 2, 'player'); // Use a loaded player asset key
-        this.player.setCollideWorldBounds(true); // Make player collide with world bounds
-        console.log("Player placeholder created and set to collide with world bounds.");
+        // Create the player using our Player class
+        this.player = new Player(this, CONFIG.WORLD_WIDTH / 2, CONFIG.WORLD_HEIGHT / 2);
+        
+        // Start with idle animation
+        this.player.anims.play('player-idle', true);
+        console.log("Player created and animations initialized.");
 
         // --- Camera Setup ---
         // Set the camera boundaries to match the world
@@ -76,26 +78,20 @@ export default class GameScene extends Phaser.Scene {
 
     update(time, delta) {
         // --- Player Update ---
-        // Placeholder: Update player movement based on input
         if (this.player && this.cursors) {
-            this.player.setVelocity(0);
-
-            if (this.cursors.left.isDown) {
-                this.player.setVelocityX(-CONFIG.PLAYER.SPEED * 100); // Adjust speed scaling as needed
-            } else if (this.cursors.right.isDown) {
-                this.player.setVelocityX(CONFIG.PLAYER.SPEED * 100);
-            }
-
-            if (this.cursors.up.isDown) {
-                this.player.setVelocityY(-CONFIG.PLAYER.SPEED * 100);
-            } else if (this.cursors.down.isDown) {
-                this.player.setVelocityY(CONFIG.PLAYER.SPEED * 100);
-            }
+            // Update player with cursor input
+            this.player.update(this.cursors, time, delta);
         }
 
         // --- System Updates ---
         // Placeholder: Update other systems
         // Example: this.spawnSystem.update(time, delta); // Pass time and delta
+    }
+
+    // Create animations for enemies (player animations are handled in Player class)
+    createEnemyAnimations() {
+        // Placeholder for enemy animations
+        // Will be implemented when we add enemies
     }
 
     // Placeholder collision handler
