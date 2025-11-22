@@ -2,6 +2,7 @@ import CONFIG from "../config";
 import { Enemy } from "../entities/enemies/base-enemy";
 import { BaseEntity } from "./base-entity";
 import { createLogger } from "../utils/logger";
+import { Poolable } from "../types/types";
 
 const logger = createLogger('Projectile');
 
@@ -29,7 +30,7 @@ export interface ProjectileOptions {
 /**
  * Projectile class for player attacks and abilities
  */
-export class Projectile extends BaseEntity {
+export class Projectile extends BaseEntity implements Poolable<ProjectileOptions> {
   // DOM elements
   // DOM elements inherited from BaseEntity
 
@@ -54,11 +55,18 @@ export class Projectile extends BaseEntity {
   /**
    * Create a new projectile
    * @param gameContainer - DOM element containing the game
-   * @param options - Projectile options
    */
-  constructor(gameContainer: HTMLElement, options: ProjectileOptions) {
-    super(gameContainer, options.isBloodLance ? `bloodlance_${Date.now()}` : `projectile_${Date.now()}`);
+  constructor(gameContainer: HTMLElement) {
+    super(gameContainer);
+    this.hitEnemies = new Set<string>();
+    // Create DOM element
+    this.element = document.createElement("div");
+    this.gameContainer.appendChild(this.element);
 
+    this.reset();
+  }
+
+  init(options: ProjectileOptions): void {
     // Position and movement
     this.x = options.x || 0;
     this.y = options.y || 0;
@@ -75,10 +83,9 @@ export class Projectile extends BaseEntity {
     this.pierce = options.pierce || 3;
     this.pierceCount = options.pierceCount || 0;
     this.healAmount = options.healAmount || 0;
-    this.hitEnemies = options.hitEnemies || new Set<string>();
+    this.hitEnemies.clear();
 
     // Create DOM element
-    this.element = document.createElement("div");
     this.element.className = options.className || "projectile";
 
     // Special styling for different projectile types
@@ -97,12 +104,32 @@ export class Projectile extends BaseEntity {
 
     // Position element
     this.updatePosition();
-
-    // Add to game container
-    this.gameContainer.appendChild(this.element);
+    this.element.style.display = 'block';
     
     // Initialize the projectile
     this.initialize();
+  }
+
+  reset(): void {
+    this.x = 0;
+    this.y = 0;
+    this.vx = 0;
+    this.vy = 0;
+    this.damage = 0;
+    this.isAutoAttack = false;
+    this.isBloodLance = false;
+    this.isEnemyProjectile = false;
+    this.pierce = 0;
+    this.pierceCount = 0;
+    this.healAmount = 0;
+    if(this.hitEnemies) this.hitEnemies.clear();
+
+    if(this.element) {
+      this.element.style.display = 'none';
+      this.element.style.transform = '';
+      this.element.className = 'projectile';
+      this.element.style.backgroundColor = '';
+    }
   }
 
   /**

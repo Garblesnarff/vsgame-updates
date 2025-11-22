@@ -1,4 +1,4 @@
-import { Enemy } from './base-enemy';
+import { Enemy, EnemyOptions } from './base-enemy';
 import CONFIG from '../../config';
 
 /**
@@ -23,16 +23,18 @@ export class FastSwarmer extends Enemy {
   /**
    * Create a new Fast Swarmer enemy
    * @param gameContainer - DOM element containing the game
-   * @param playerLevel - Current level of the player
-   * @param swarmId - Optional identifier for the swarm this enemy belongs to
    */
-  constructor(gameContainer: HTMLElement, playerLevel: number, swarmId?: string) {
+  constructor(gameContainer: HTMLElement) {
     // Call base enemy constructor
-    super(gameContainer, playerLevel);
+    super(gameContainer);
     
     // Add fast swarmer class for specific styling
     this.element.classList.add('fast-swarmer');
-    
+  }
+
+  init(options: EnemyOptions): void {
+      super.init(options);
+      const { playerLevel, swarmId } = options;
     // Set swarm identifier
     this.swarmId = swarmId || `swarm_${Date.now()}`;
     

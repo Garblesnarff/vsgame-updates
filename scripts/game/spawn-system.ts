@@ -10,6 +10,7 @@ import {
 } from "../entities/enemies";
 import CONFIG from "../config";
 import { GameEvents, EVENTS } from "../utils/event-system";
+import { Game } from "../game/game";
 
 /**
  * Enemy spawn system
@@ -34,14 +35,14 @@ export class SpawnSystem {
   bruteSpawnLevels: number[];
   bruteSpawnCount: Map<number, number>;
   spawnedBrutesCount: number;
-  game: any; // Reference to the game object for adding enemies
+  game: Game; // Reference to the game object for adding enemies
 
   /**
    * Create a new spawn system
    * @param gameContainer - DOM element for the game container
    * @param game - Reference to the game object
    */
-  constructor(gameContainer: HTMLElement, game?: any) {
+  constructor(gameContainer: HTMLElement, game: Game) {
     this.gameContainer = gameContainer;
     this.game = game;
     this.lastSpawnTime = 0;
@@ -147,8 +148,12 @@ export class SpawnSystem {
    * @param playerLevel - Current player level
    * @returns Regular enemy
    */
-  spawnRegularEnemy(playerLevel: number): Enemy {
-    const enemy = new BasicEnemy(this.gameContainer, playerLevel);
+  spawnRegularEnemy(playerLevel: number): Enemy | null {
+    const pool = this.game.enemyPools.get('basic');
+    if(!pool) return null;
+
+    const enemy = pool.acquire();
+    enemy.init({playerLevel});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, enemy, 'basicEnemy');
     return enemy;
   }
@@ -158,8 +163,12 @@ export class SpawnSystem {
    * @param playerLevel - Current player level
    * @returns Vampire Hunter enemy
    */
-  spawnVampireHunter(playerLevel: number): VampireHunter {
-    const hunter = new VampireHunter(this.gameContainer, playerLevel);
+  spawnVampireHunter(playerLevel: number): VampireHunter | null {
+    const pool = this.game.enemyPools.get('vampireHunter');
+    if(!pool) return null;
+
+    const hunter = pool.acquire() as VampireHunter;
+    hunter.init({playerLevel});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, hunter, 'vampireHunter');
     return hunter;
   }
@@ -169,7 +178,10 @@ export class SpawnSystem {
    * @param playerLevel - Current level of the player
    * @returns First Fast Swarmer in the group
    */
-  spawnSwarm(playerLevel: number): FastSwarmer {
+  spawnSwarm(playerLevel: number): FastSwarmer | null {
+    const pool = this.game.enemyPools.get('fastSwarmer');
+    if (!pool) return null;
+
     // Generate a unique swarm ID to group these enemies
     const swarmId = `swarm_${Date.now()}`;
     
@@ -190,7 +202,8 @@ export class SpawnSystem {
     const firstSwarmerY = centerY + Math.sin(angle) * spawnRadius;
     
     // Create first swarmer and manually set position
-    const firstSwarmer = new FastSwarmer(this.gameContainer, playerLevel, swarmId);
+    const firstSwarmer = pool.acquire() as FastSwarmer;
+    firstSwarmer.init({playerLevel, swarmId});
     firstSwarmer.x = firstSwarmerX;
     firstSwarmer.y = firstSwarmerY;
     firstSwarmer.updatePosition();
@@ -208,7 +221,8 @@ export class SpawnSystem {
         const swarmY = centerY + Math.sin(swarmAngle) * spawnRadius;
         
         // Create swarmer with the same swarm ID for potential coordination
-        const swarmer = new FastSwarmer(this.gameContainer, playerLevel, swarmId);
+        const swarmer = pool.acquire() as FastSwarmer;
+        swarmer.init({playerLevel, swarmId});
         swarmer.x = swarmX;
         swarmer.y = swarmY;
         swarmer.updatePosition();
@@ -232,8 +246,12 @@ export class SpawnSystem {
    * @param playerLevel - Current player level
    * @returns Tanky Brute enemy
    */
-  spawnTankyBrute(playerLevel: number): TankyBrute {
-    const brute = new TankyBrute(this.gameContainer, playerLevel);
+  spawnTankyBrute(playerLevel: number): TankyBrute | null {
+    const pool = this.game.enemyPools.get('tankyBrute');
+    if (!pool) return null;
+
+    const brute = pool.acquire() as TankyBrute;
+    brute.init({playerLevel});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, brute, 'tankyBrute');
     return brute;
   }
@@ -243,8 +261,12 @@ export class SpawnSystem {
    * @param playerLevel - Current player level
    * @returns Silver Mage enemy
    */
-  spawnSilverMage(playerLevel: number): SilverMage {
-    const silverMage = new SilverMage(this.gameContainer, playerLevel);
+  spawnSilverMage(playerLevel: number): SilverMage | null {
+    const pool = this.game.enemyPools.get('silverMage');
+    if (!pool) return null;
+
+    const silverMage = pool.acquire() as SilverMage;
+    silverMage.init({playerLevel});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, silverMage, 'silverMage');
     return silverMage;
   }
@@ -254,8 +276,12 @@ export class SpawnSystem {
    * @param playerLevel - Current player level
    * @returns Holy Priest enemy
    */
-  spawnHolyPriest(playerLevel: number): HolyPriest {
-    const holyPriest = new HolyPriest(this.gameContainer, playerLevel);
+  spawnHolyPriest(playerLevel: number): HolyPriest | null {
+    const pool = this.game.enemyPools.get('holyPriest');
+    if (!pool) return null;
+
+    const holyPriest = pool.acquire() as HolyPriest;
+    holyPriest.init({playerLevel});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, holyPriest, 'holyPriest');
     return holyPriest;
   }
@@ -265,8 +291,12 @@ export class SpawnSystem {
    * @param playerLevel - Current player level
    * @returns Vampire Scout enemy
    */
-  spawnVampireScout(playerLevel: number): VampireScout {
-    const vampireScout = new VampireScout(this.gameContainer, playerLevel);
+  spawnVampireScout(playerLevel: number): VampireScout | null {
+    const pool = this.game.enemyPools.get('vampireScout');
+    if (!pool) return null;
+
+    const vampireScout = pool.acquire() as VampireScout;
+    vampireScout.init({playerLevel});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, vampireScout, 'vampireScout');
     return vampireScout;
   }
