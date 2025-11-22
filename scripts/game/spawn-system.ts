@@ -149,7 +149,7 @@ export class SpawnSystem {
    * @returns Regular enemy
    */
   spawnRegularEnemy(playerLevel: number): Enemy | null {
-    const pool = this.game.enemyPools.get('basic');
+    const pool = this.game.enemyPools.get('basicEnemy');
     if(!pool) return null;
 
     const enemy = pool.acquire();

@@ -30,6 +30,7 @@ import passiveSkillModel from "../models/passive-skill-model";
 import stateStore from "./state-store";
 import { DOM_IDS, CSS_CLASSES, SELECTORS } from "../constants/dom-elements";
 import { ObjectPool } from "../utils/object-pool";
+import { SpatialGrid } from "./spatial-grid";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
@@ -44,6 +45,7 @@ export class Game {
   // Game state
   gameTime: number = 0;
   enemies: Enemy[] = [];
+  enemiesToRemove: Set<Enemy> = new Set();
   projectiles: Projectile[] = [];
   drops: Drop[] = []; // <-- Add array to hold active drops
 
@@ -61,6 +63,7 @@ export class Game {
   levelSystem: LevelSystem;
   passiveSkillMenu: PassiveSkillMenu;
   bossSpawnSystem: any; // Will be initialized by boss-system-integration
+  spatialGrid: SpatialGrid<Enemy | Projectile>;
 
   // Player
   player: Player;
@@ -128,9 +131,13 @@ export class Game {
       } 
       // Handle player projectiles (they only collide with enemies)
       else {
+        const candidates = this.spatialGrid.retrieve(projectile);
         // Check collision with enemies
-        for (let j = this.enemies.length - 1; j >= 0; j--) {
-          const enemy = this.enemies[j];
+        for (const candidate of candidates) {
+          if (!(candidate instanceof Enemy)) continue; // It's a projectile, skip
+          const enemy = candidate as Enemy;
+
+          if (enemy.health <= 0) continue; // Skip dead enemies
 
           if (projectile.collidesWith(enemy)) {
             // Create blood particles
@@ -166,7 +173,7 @@ export class Game {
               } else {
                 enemy.cleanup(this.player);
               }
-              this.enemies.splice(j, 1);
+              this.enemiesToRemove.add(enemy);
 
               // Emit enemy death event
               GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
@@ -229,25 +236,27 @@ export class Game {
     this.projectilePool.prewarm(100);
 
     this.enemyPools = new Map<string, ObjectPool<Enemy>>();
-    this.enemyPools.set('basic', new ObjectPool(() => new BasicEnemy(this.gameContainer)));
-    this.enemyPools.get('basic')?.prewarm(50);
-    this.enemyPools.set('vampireHunter', new ObjectPool(() => new VampireHunter(this.gameContainer)));
-    this.enemyPools.get('vampireHunter')?.prewarm(10);
-    this.enemyPools.set('fastSwarmer', new ObjectPool(() => new FastSwarmer(this.gameContainer)));
-    this.enemyPools.get('fastSwarmer')?.prewarm(20);
-    this.enemyPools.set('tankyBrute', new ObjectPool(() => new TankyBrute(this.gameContainer)));
-    this.enemyPools.get('tankyBrute')?.prewarm(5);
-    this.enemyPools.set('silverMage', new ObjectPool(() => new SilverMage(this.gameContainer)));
-    this.enemyPools.get('silverMage')?.prewarm(5);
-    this.enemyPools.set('holyPriest', new ObjectPool(() => new HolyPriest(this.gameContainer)));
-    this.enemyPools.get('holyPriest')?.prewarm(5);
-    this.enemyPools.set('vampireScout', new ObjectPool(() => new VampireScout(this.gameContainer)));
-    this.enemyPools.get('vampireScout')?.prewarm(5);
+    const enemyTypes = [
+        { key: 'basicEnemy', type: BasicEnemy, prewarm: 50 },
+        { key: 'vampireHunter', type: VampireHunter, prewarm: 10 },
+        { key: 'fastSwarmer', type: FastSwarmer, prewarm: 20 },
+        { key: 'tankyBrute', type: TankyBrute, prewarm: 5 },
+        { key: 'silverMage', type: SilverMage, prewarm: 5 },
+        { key: 'holyPriest', type: HolyPriest, prewarm: 5 },
+        { key: 'vampireScout', type: VampireScout, prewarm: 5 }
+    ];
+
+    for (const { key, type, prewarm } of enemyTypes) {
+        const pool = new ObjectPool(() => new type(this.gameContainer));
+        pool.prewarm(prewarm);
+        this.enemyPools.set(key, pool);
+    }
 
 
     // Create game systems
     this.gameLoop = new GameLoop();
     this.inputHandler = new InputHandler(this);
+    this.spatialGrid = new SpatialGrid(CONFIG.WORLD_WIDTH, CONFIG.WORLD_HEIGHT, 100);
     this.spawnSystem = new SpawnSystem(this.gameContainer, this);
     // Set game reference for the spawn system so it can add enemies
     this.spawnSystem.setGameReference(this);
@@ -337,18 +346,15 @@ export class Game {
       
       // Create enemy based on the type (currently only basic type is implemented)
       let enemy: Enemy | undefined;
-      const enemyType = enemyTypes[0] || 'basic';
+      let enemyType = enemyTypes[0] || 'basic';
+      if (enemyType === 'basic') enemyType = 'basicEnemy'; // Ensure consistency
       const pool = this.enemyPools.get(enemyType);
       
       if (pool) {
         enemy = pool.acquire();
         enemy.init({ playerLevel });
       } else {
-        // Fallback to old behavior if pool not found
-        if (enemyType === 'basic') {
-            enemy = new BasicEnemy(this.gameContainer);
-            enemy.init({playerLevel});
-        }
+        logger.warn(`No object pool found for enemy type: ${enemyType}.`);
       }
       
       if(enemy) {
@@ -440,6 +446,15 @@ export class Game {
     // Update game time
     this.gameTime += deltaTime;
 
+    // Clear and repopulate the spatial grid
+    this.spatialGrid.clear();
+    for (const enemy of this.enemies) {
+        this.spatialGrid.insert(enemy);
+    }
+    for (const projectile of this.projectiles) {
+        this.spatialGrid.insert(projectile);
+    }
+
     // Update player using lifecycle method
     this.player.update(deltaTime, this.inputHandler.getKeys());
 
@@ -505,6 +520,12 @@ export class Game {
         this.enemies.push(boss);
         console.log(`GAME: Boss added to enemies array`);
       }
+    }
+
+    // Remove enemies that were marked for removal
+    if (this.enemiesToRemove.size > 0) {
+      this.enemies = this.enemies.filter(enemy => !this.enemiesToRemove.has(enemy));
+      this.enemiesToRemove.clear();
     }
   }
 
