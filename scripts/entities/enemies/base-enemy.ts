@@ -3,6 +3,7 @@ import { GameEvents, EVENTS } from "../../utils/event-system";
 import { BaseEntity } from "../base-entity";
 import { createLogger } from "../../utils/logger";
 import { Poolable } from "../../types/types";
+import { EnemyConfig } from "../../config";
 
 const logger = createLogger('Enemy');
 
@@ -14,12 +15,15 @@ export type ParticleCreationFunction = (x: number, y: number, count: number) => 
 export interface EnemyOptions {
     playerLevel: number;
     swarmId?: string;
+    config: EnemyConfig;
+    poolKey: string;
 }
 
 /**
  * Base Enemy class representing monsters that attack the player
  */
 export class Enemy extends BaseEntity implements Poolable<EnemyOptions> {
+  poolKey: string;
   // DOM elements (element is inherited from BaseEntity)
   healthBarContainer: HTMLElement;
   healthBar: HTMLElement;
@@ -66,19 +70,23 @@ export class Enemy extends BaseEntity implements Poolable<EnemyOptions> {
   }
 
   init(options: EnemyOptions): void {
-    const { playerLevel } = options;
+    const { playerLevel, config, poolKey } = options;
     this.id = `enemy_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    this.poolKey = poolKey;
     // Position and dimensions
-    this.width = CONFIG.ENEMY.BASE.WIDTH;
-    this.height = CONFIG.ENEMY.BASE.HEIGHT;
+    this.width = config.width;
+    this.height = config.height;
     this.x = 0;
     this.y = 0;
 
     // Stats scaled by player level
-    this.speed = 1 + Math.random() * playerLevel * 0.2;
-    this.health = CONFIG.ENEMY.BASE.BASE_HEALTH + playerLevel * 10;
+    this.speed = config.speed + Math.random() * playerLevel * 0.2;
+    this.health = config.baseHealth + playerLevel * 10;
     this.maxHealth = this.health;
-    this.damage = CONFIG.ENEMY.BASE.BASE_DAMAGE + playerLevel;
+    this.damage = config.baseDamage + playerLevel;
+
+    // Set sprite
+    this.element.className = `enemy ${config.sprite}`;
 
     // Determine spawn position (outside screen)
     this.setSpawnPosition();
@@ -100,6 +108,7 @@ export class Enemy extends BaseEntity implements Poolable<EnemyOptions> {
       this.maxHealth = 0;
       this.damage = 0;
       this.isCollidingWithPlayer = false;
+      this.poolKey = '';
 
       if(this.element) {
           this.element.style.display = 'none';

@@ -86,10 +86,17 @@ interface SpawnRatesConfig {
   BASE_SWARM_SIZE: number;
 }
 
-/**
- * Enemy configuration interface
- */
-interface EnemyConfig {
+export interface EnemyConfig {
+    width: number;
+    height: number;
+    baseHealth: number;
+    baseDamage: number;
+    speed: number;
+    sprite: string; // e.g., 'basic-enemy', 'vampire-hunter'
+    behavior?: string; // e.g., 'ranged', 'swarm'
+}
+
+interface EnemyConfigs {
   BASE: BaseEnemyConfig;
   VAMPIRE_HUNTER: VampireHunterConfig;
   FAST_SWARMER: FastSwarmerConfig;
@@ -221,7 +228,7 @@ interface GameConfig {
   SCREEN_HEIGHT: number; // Added for potential UI use
   SPAWN_RATE: number;
   PLAYER: PlayerConfig;
-  ENEMY: EnemyConfig;
+  ENEMY: EnemyConfigs;
   LEVEL: LevelConfig;
   ABILITIES: AbilitiesConfig;
   UI: UIConfig;

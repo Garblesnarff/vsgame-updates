@@ -1,11 +1,10 @@
-import { BaseEntity } from '../entities/base-entity';
 import CONFIG from '../config';
 
 /**
  * SpatialGrid class for optimizing collision detection.
  * Divides the game world into a grid and stores entities in cells.
  */
-export class SpatialGrid<T extends BaseEntity> {
+export class SpatialGrid<T extends { x: number; y: number; width: number; height: number }> {
   private cells: Map<string, T[]>;
   private cellSize: number;
   private width: number;

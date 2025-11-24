@@ -31,6 +31,7 @@ import stateStore from "./state-store";
 import { DOM_IDS, CSS_CLASSES, SELECTORS } from "../constants/dom-elements";
 import { ObjectPool } from "../utils/object-pool";
 import { SpatialGrid } from "./spatial-grid";
+import { ENEMY_CONFIGS } from "../config/enemy-configs";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
@@ -166,8 +167,7 @@ export class Game {
             
             if (enemyDied) {
               // Enemy died
-              const enemyType = enemy.constructor.name;
-              const pool = this.enemyPools.get(enemyType.charAt(0).toLowerCase() + enemyType.slice(1));
+              const pool = this.enemyPools.get(enemy.poolKey);
               if (pool) {
                 pool.release(enemy);
               } else {
@@ -177,6 +177,12 @@ export class Game {
 
               // Emit enemy death event
               GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+
+              // --- Add Drop Chance Logic ---
+              if (Math.random() < CONFIG.DROPS.ENEMY_DROP_CHANCE) {
+                this.spawnDrop(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+              }
+              // --- End Drop Chance Logic ---
 
               // Add kill to player and check for level up
               if (this.levelSystem.addKill()) {
@@ -346,13 +352,19 @@ export class Game {
       
       // Create enemy based on the type (currently only basic type is implemented)
       let enemy: Enemy | undefined;
-      let enemyType = enemyTypes[0] || 'basic';
-      if (enemyType === 'basic') enemyType = 'basicEnemy'; // Ensure consistency
+      const enemyType = enemyTypes[0] || 'basicEnemy';
       const pool = this.enemyPools.get(enemyType);
       
       if (pool) {
         enemy = pool.acquire();
-        enemy.init({ playerLevel });
+        const config = ENEMY_CONFIGS[enemyType];
+        if (config) {
+            enemy.init({ playerLevel, config, poolKey: enemyType });
+        } else {
+            logger.warn(`No config found for enemy type: ${enemyType}.`);
+            pool.release(enemy);
+            enemy = undefined;
+        }
       } else {
         logger.warn(`No object pool found for enemy type: ${enemyType}.`);
       }
@@ -627,8 +639,7 @@ export class Game {
 
       // Check if enemy is far out of bounds (cleanup)
       if (enemy.isOutOfBounds()) {
-        const enemyType = enemy.constructor.name;
-        const pool = this.enemyPools.get(enemyType.charAt(0).toLowerCase() + enemyType.slice(1));
+        const pool = this.enemyPools.get(enemy.poolKey);
         if (pool) {
             pool.release(enemy);
         } else {

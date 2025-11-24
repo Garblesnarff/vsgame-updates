@@ -37,6 +37,8 @@ export class Projectile extends BaseEntity implements Poolable<ProjectileOptions
   // Position and movement
   x: number;
   y: number;
+  width: number;
+  height: number;
   vx: number;
   vy: number;
 
@@ -70,6 +72,8 @@ export class Projectile extends BaseEntity implements Poolable<ProjectileOptions
     // Position and movement
     this.x = options.x || 0;
     this.y = options.y || 0;
+    this.width = 5;
+    this.height = 5;
     this.vx = options.vx || 0;
     this.vy = options.vy || 0;
 
@@ -113,6 +117,8 @@ export class Projectile extends BaseEntity implements Poolable<ProjectileOptions
   reset(): void {
     this.x = 0;
     this.y = 0;
+    this.width = 0;
+    this.height = 0;
     this.vx = 0;
     this.vy = 0;
     this.damage = 0;

@@ -11,6 +11,7 @@ import {
 import CONFIG from "../config";
 import { GameEvents, EVENTS } from "../utils/event-system";
 import { Game } from "../game/game";
+import { ENEMY_CONFIGS } from "../config/enemy-configs";
 
 /**
  * Enemy spawn system
@@ -153,7 +154,7 @@ export class SpawnSystem {
     if(!pool) return null;
 
     const enemy = pool.acquire();
-    enemy.init({playerLevel});
+    enemy.init({playerLevel, config: ENEMY_CONFIGS['basicEnemy'], poolKey: 'basicEnemy'});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, enemy, 'basicEnemy');
     return enemy;
   }
@@ -168,7 +169,7 @@ export class SpawnSystem {
     if(!pool) return null;
 
     const hunter = pool.acquire() as VampireHunter;
-    hunter.init({playerLevel});
+    hunter.init({playerLevel, config: ENEMY_CONFIGS['vampireHunter'], poolKey: 'vampireHunter'});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, hunter, 'vampireHunter');
     return hunter;
   }
@@ -203,7 +204,7 @@ export class SpawnSystem {
     
     // Create first swarmer and manually set position
     const firstSwarmer = pool.acquire() as FastSwarmer;
-    firstSwarmer.init({playerLevel, swarmId});
+    firstSwarmer.init({playerLevel, swarmId, config: ENEMY_CONFIGS['fastSwarmer'], poolKey: 'fastSwarmer'});
     firstSwarmer.x = firstSwarmerX;
     firstSwarmer.y = firstSwarmerY;
     firstSwarmer.updatePosition();
@@ -222,7 +223,7 @@ export class SpawnSystem {
         
         // Create swarmer with the same swarm ID for potential coordination
         const swarmer = pool.acquire() as FastSwarmer;
-        swarmer.init({playerLevel, swarmId});
+        swarmer.init({playerLevel, swarmId, config: ENEMY_CONFIGS['fastSwarmer'], poolKey: 'fastSwarmer'});
         swarmer.x = swarmX;
         swarmer.y = swarmY;
         swarmer.updatePosition();
@@ -251,7 +252,7 @@ export class SpawnSystem {
     if (!pool) return null;
 
     const brute = pool.acquire() as TankyBrute;
-    brute.init({playerLevel});
+    brute.init({playerLevel, config: ENEMY_CONFIGS['tankyBrute'], poolKey: 'tankyBrute'});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, brute, 'tankyBrute');
     return brute;
   }
@@ -266,7 +267,7 @@ export class SpawnSystem {
     if (!pool) return null;
 
     const silverMage = pool.acquire() as SilverMage;
-    silverMage.init({playerLevel});
+    silverMage.init({playerLevel, config: ENEMY_CONFIGS['silverMage'], poolKey: 'silverMage'});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, silverMage, 'silverMage');
     return silverMage;
   }
@@ -281,7 +282,7 @@ export class SpawnSystem {
     if (!pool) return null;
 
     const holyPriest = pool.acquire() as HolyPriest;
-    holyPriest.init({playerLevel});
+    holyPriest.init({playerLevel, config: ENEMY_CONFIGS['holyPriest'], poolKey: 'holyPriest'});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, holyPriest, 'holyPriest');
     return holyPriest;
   }
@@ -296,7 +297,7 @@ export class SpawnSystem {
     if (!pool) return null;
 
     const vampireScout = pool.acquire() as VampireScout;
-    vampireScout.init({playerLevel});
+    vampireScout.init({playerLevel, config: ENEMY_CONFIGS['vampireScout'], poolKey: 'vampireScout'});
     GameEvents.emit(EVENTS.ENEMY_SPAWN, vampireScout, 'vampireScout');
     return vampireScout;
   }
