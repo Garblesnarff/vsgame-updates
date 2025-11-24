@@ -1,5 +1,3 @@
-import CONFIG from '../config';
-
 /**
  * SpatialGrid class for optimizing collision detection.
  * Divides the game world into a grid and stores entities in cells.
@@ -7,10 +5,6 @@ import CONFIG from '../config';
 export class SpatialGrid<T extends { x: number; y: number; width: number; height: number }> {
   private cells: Map<string, T[]>;
   private cellSize: number;
-  private width: number;
-  private height: number;
-  private cols: number;
-  private rows: number;
 
   /**
    * Creates a new SpatialGrid.
@@ -18,12 +12,8 @@ export class SpatialGrid<T extends { x: number; y: number; width: number; height
    * @param height The height of the game world.
    * @param cellSize The size of each cell in the grid.
    */
-  constructor(width: number, height: number, cellSize: number) {
-    this.width = width;
-    this.height = height;
+  constructor(_width: number, _height: number, cellSize: number) {
     this.cellSize = cellSize;
-    this.cols = Math.ceil(width / cellSize);
-    this.rows = Math.ceil(height / cellSize);
     this.cells = new Map<string, T[]>();
   }
 

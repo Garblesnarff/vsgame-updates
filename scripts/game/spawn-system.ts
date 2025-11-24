@@ -1,8 +1,7 @@
-import { 
-  Enemy, 
-  BasicEnemy,
-  VampireHunter, 
-  FastSwarmer, 
+import {
+  Enemy,
+  VampireHunter,
+  FastSwarmer,
   TankyBrute,
   SilverMage,
   HolyPriest,

@@ -46,11 +46,10 @@ export class SilverMage extends Enemy {
   /**
    * Create a new Silver Mage enemy
    * @param gameContainer - DOM element containing the game
-   * @param playerLevel - Current level of the player
    */
-  constructor(gameContainer: HTMLElement, playerLevel: number) {
+  constructor(gameContainer: HTMLElement) {
     // Call base enemy constructor
-    super(gameContainer, playerLevel);
+    super(gameContainer);
     
     // Add silver mage class for specific styling
     this.element.classList.add('silver-mage');
@@ -59,14 +58,8 @@ export class SilverMage extends Enemy {
     this.element.style.backgroundColor = "#87CEFA"; // Blue-silver color
     this.element.style.border = "2px solid white"; // Glowing white outline
     this.element.style.borderRadius = "40%"; // Rounded shape
-    
-    // Set stats based on the plan
-    this.health = 80 + playerLevel * 10; // 1.5x basic enemy health
-    this.maxHealth = this.health;
-    this.damage = 3 + playerLevel * 0.5; // Direct contact damage
-    this.speed = 0.8 + Math.random() * playerLevel * 0.1; // 0.8x basic enemy speed
-    
-    // Silver Mage specific properties
+
+    // Silver Mage specific properties (initialized with defaults, will be set in init())
     this.zoneCastCooldown = 3000 + Math.random() * 2000; // 3-5 seconds
     this.lastCastTime = 0;
     this.teleportDistance = 150; // Teleport distance when player is too close
@@ -77,7 +70,7 @@ export class SilverMage extends Enemy {
     this.chargeUpTime = 1000; // 1 second charge-up animation
     this.isCharging = false;
     this.chargeStartTime = 0;
-    this.zoneDamage = 5 + playerLevel * 0.5; // 5 damage per second, scaled with level
+    this.zoneDamage = 5; // 5 damage per second (scaled in init())
     this.maxActiveZones = 3; // Maximum 3 active zones per Silver Mage
     
     // Add visual indicator for mage

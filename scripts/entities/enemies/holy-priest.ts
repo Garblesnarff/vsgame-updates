@@ -63,11 +63,10 @@ export class HolyPriest extends Enemy {
     /**
      * Create a new Holy Priest enemy
      * @param gameContainer - DOM element containing the game
-     * @param playerLevel - Current level of the player
      */
-    constructor(gameContainer: HTMLElement, playerLevel: number) {
+    constructor(gameContainer: HTMLElement) {
         // Call base enemy constructor
-        super(gameContainer, playerLevel);
+        super(gameContainer);
         
         // Ensure the priest spawns fully on screen by setting position again
         this.setSpawnPosition();
@@ -80,25 +79,15 @@ export class HolyPriest extends Enemy {
         this.element.style.border = "2px solid #ffd700"; // Gold border
         this.element.style.borderRadius = "40%"; // Rounded shape
 
-        // Set stats based on the plan
-        this.health = 100 + playerLevel * 15; // 2x basic enemy health
-        this.maxHealth = this.health;
-        this.damage = 0; // No contact damage
-        this.speed = 0.6 + Math.random() * playerLevel * 0.05; // 0.6x basic enemy speed
-        
-        // Ensure width and height are set explicitly
-        this.width = CONFIG.ENEMY.BASE.WIDTH;
-        this.height = CONFIG.ENEMY.BASE.HEIGHT;
-
-        // Holy Priest specific properties
+        // Holy Priest specific properties (initialized with defaults, will be set in init())
         this.healingAuraRange = 150; // Radius of healing aura
-        this.healingAmount = 2 + playerLevel * 0.2; // Health restored per second
+        this.healingAmount = 2; // Health restored per second (scaled in init())
         this.holyShieldCooldown = 8000; // 8 seconds between shields
         this.lastShieldTime = 0;
         this.activeShields = new Map();
         this.shieldDamageReduction = 0.3; // 30% damage reduction
         this.shieldDuration = 5000; // 5 seconds duration
-        this.holyBurstDamage = 50 + playerLevel * 5; // Burst damage
+        this.holyBurstDamage = 50; // Burst damage (scaled in init())
         this.holyBurstCooldown = 10000; // 10 seconds cooldown
         this.holyBurstRange = 50; // Burst radius
         this.lastBurstTime = 0;

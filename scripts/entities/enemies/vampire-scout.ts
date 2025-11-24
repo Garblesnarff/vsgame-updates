@@ -41,11 +41,10 @@ export class VampireScout extends Enemy {
     /**
      * Create a new Vampire Scout enemy
      * @param gameContainer - DOM element containing the game
-     * @param playerLevel - Current level of the player
      */
-    constructor(gameContainer: HTMLElement, playerLevel: number) {
+    constructor(gameContainer: HTMLElement) {
         // Call base enemy constructor
-        super(gameContainer, playerLevel);
+        super(gameContainer);
         
         // Add vampire scout class for specific styling
         this.element.classList.add('vampire-scout');
@@ -55,14 +54,8 @@ export class VampireScout extends Enemy {
         this.element.style.border = "1px solid #c0392b"; // Red border
         this.element.style.borderRadius = "40%"; // Rounded shape
         this.element.style.boxShadow = "0 0 5px #c0392b"; // Red glow
-        
-        // Set stats based on the plan
-        this.health = 40 + playerLevel * 5; // 0.8x basic enemy health
-        this.maxHealth = this.health;
-        this.damage = 3 + playerLevel * 0.5; // Direct contact damage
-        this.speed = 2.5 + Math.random() * playerLevel * 0.15; // 2.5x basic enemy speed
-        
-        // Vampire Scout specific properties
+
+        // Vampire Scout specific properties (initialized with defaults, will be set in init())
         this.markCooldown = 10000; // 10 seconds between marks
         this.lastMarkTime = 0 - (3000 + Math.random() * 2000); // Start with random offset
         this.markChannelTime = 1000; // 1 second to channel mark
@@ -79,7 +72,7 @@ export class VampireScout extends Enemy {
         this.lastDashTime = 0 - (Math.random() * 1000); // Start with random offset
         this.summonCooldown = 20000; // 20 seconds between summons
         this.lastSummonTime = 0;
-        this.summonCount = Math.max(1, Math.floor(playerLevel / 3)); // More summons at higher levels
+        this.summonCount = 1; // More summons at higher levels (scaled in init())
         
         // Add red eyes
         this.addRedEyes();

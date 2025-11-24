@@ -41,7 +41,7 @@ export class Boss extends Enemy {
   
   constructor(gameContainer: HTMLElement, playerLevel: number) {
     // Call parent constructor
-    super(gameContainer, playerLevel);
+    super(gameContainer);
     
     // Set base boss properties
     this.name = "Boss";

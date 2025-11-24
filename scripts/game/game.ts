@@ -189,12 +189,6 @@ export class Game {
                 // Level up was handled by the callback
               }
 
-              // --- Add Drop Chance Logic ---
-              if (Math.random() < CONFIG.DROPS.ENEMY_DROP_CHANCE) {
-                this.spawnDrop(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-              }
-              // --- End Drop Chance Logic ---
-
             } else {
               // Emit enemy damage event
               GameEvents.emit(EVENTS.ENEMY_DAMAGE, enemy, projectile.damage);

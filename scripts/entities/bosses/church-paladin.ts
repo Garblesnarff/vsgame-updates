@@ -1881,7 +1881,15 @@ export class ChurchPaladin extends Boss {
      */
     summonAcolyte(player: any, enemies?: Enemy[]): void {
         // Create Holy Priest enemy
-        const acolyte = new HolyPriest(this.gameContainer, player.level || 1);
+        const acolyte = new HolyPriest(this.gameContainer);
+
+        // Initialize with config (pooling pattern)
+        const { ENEMY_CONFIGS } = require('../../config/enemy-configs');
+        acolyte.init({
+            playerLevel: player.level || 1,
+            config: ENEMY_CONFIGS.holyPriest,
+            poolKey: 'holyPriest'
+        });
 
         // Position around boss
         const angle = Math.random() * Math.PI * 2;
