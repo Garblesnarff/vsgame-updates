@@ -8,6 +8,11 @@ import { Drop } from "../entities/drop"; // <-- Import Drop type
 import { DropType } from "../types/drop-types"; // <-- Import DropType enum
 import { VampireHunter } from "../entities/enemies/vampire-hunter";
 import { BasicEnemy } from "../entities/enemies/basic-enemy";
+import { FastSwarmer } from "../entities/enemies/fast-swarmer";
+import { TankyBrute } from "../entities/enemies/tanky-brute";
+import { SilverMage } from "../entities/enemies/silver-mage";
+import { HolyPriest } from "../entities/enemies/holy-priest";
+import { VampireScout } from "../entities/enemies/vampire-scout";
 import { GameLoop } from "./game-loop";
 import { InputHandler } from "./input-handler";
 import { SpawnSystem } from "./spawn-system";
@@ -24,6 +29,9 @@ import { ILevelSystem } from "../types/player-types";
 import passiveSkillModel from "../models/passive-skill-model";
 import stateStore from "./state-store";
 import { DOM_IDS, CSS_CLASSES, SELECTORS } from "../constants/dom-elements";
+import { ObjectPool } from "../utils/object-pool";
+import { SpatialGrid } from "./spatial-grid";
+import { ENEMY_CONFIGS } from "../config/enemy-configs";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
@@ -38,8 +46,13 @@ export class Game {
   // Game state
   gameTime: number = 0;
   enemies: Enemy[] = [];
+  enemiesToRemove: Set<Enemy> = new Set();
   projectiles: Projectile[] = [];
   drops: Drop[] = []; // <-- Add array to hold active drops
+
+  // Object Pools
+  projectilePool: ObjectPool<Projectile>;
+  enemyPools: Map<string, ObjectPool<Enemy>>;
 
   // Game systems
   gameLoop: GameLoop;
@@ -51,6 +64,7 @@ export class Game {
   levelSystem: LevelSystem;
   passiveSkillMenu: PassiveSkillMenu;
   bossSpawnSystem: any; // Will be initialized by boss-system-integration
+  spatialGrid: SpatialGrid<Enemy | Projectile>;
 
   // Player
   player: Player;
@@ -79,7 +93,7 @@ export class Game {
 
       // Check if projectile is out of bounds
       if (projectile.isOutOfBounds()) {
-        projectile.cleanup();
+        this.projectilePool.release(projectile);
         this.projectiles.splice(i, 1);
         continue;
       }
@@ -118,9 +132,13 @@ export class Game {
       } 
       // Handle player projectiles (they only collide with enemies)
       else {
+        const candidates = this.spatialGrid.retrieve(projectile);
         // Check collision with enemies
-        for (let j = this.enemies.length - 1; j >= 0; j--) {
-          const enemy = this.enemies[j];
+        for (const candidate of candidates) {
+          if (!(candidate instanceof Enemy)) continue; // It's a projectile, skip
+          const enemy = candidate as Enemy;
+
+          if (enemy.health <= 0) continue; // Skip dead enemies
 
           if (projectile.collidesWith(enemy)) {
             // Create blood particles
@@ -149,11 +167,22 @@ export class Game {
             
             if (enemyDied) {
               // Enemy died
-              enemy.cleanup(this.player);
-              this.enemies.splice(j, 1);
+              const pool = this.enemyPools.get(enemy.poolKey);
+              if (pool) {
+                pool.release(enemy);
+              } else {
+                enemy.cleanup(this.player);
+              }
+              this.enemiesToRemove.add(enemy);
 
               // Emit enemy death event
               GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+
+              // --- Add Drop Chance Logic ---
+              if (Math.random() < CONFIG.DROPS.ENEMY_DROP_CHANCE) {
+                this.spawnDrop(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+              }
+              // --- End Drop Chance Logic ---
 
               // Add kill to player and check for level up
               if (this.levelSystem.addKill()) {
@@ -192,7 +221,7 @@ export class Game {
 
       // Remove projectile if needed
       if (shouldRemoveProjectile) {
-        projectile.cleanup();
+        this.projectilePool.release(projectile);
         this.projectiles.splice(i, 1);
       }
     }
@@ -208,10 +237,33 @@ export class Game {
     // Update state store with game state
     stateStore.game.state.set(GameState.LOADING);
 
+    // Create object pools
+    this.projectilePool = new ObjectPool(() => new Projectile(this.gameContainer));
+    this.projectilePool.prewarm(100);
+
+    this.enemyPools = new Map<string, ObjectPool<Enemy>>();
+    const enemyTypes = [
+        { key: 'basicEnemy', type: BasicEnemy, prewarm: 50 },
+        { key: 'vampireHunter', type: VampireHunter, prewarm: 10 },
+        { key: 'fastSwarmer', type: FastSwarmer, prewarm: 20 },
+        { key: 'tankyBrute', type: TankyBrute, prewarm: 5 },
+        { key: 'silverMage', type: SilverMage, prewarm: 5 },
+        { key: 'holyPriest', type: HolyPriest, prewarm: 5 },
+        { key: 'vampireScout', type: VampireScout, prewarm: 5 }
+    ];
+
+    for (const { key, type, prewarm } of enemyTypes) {
+        const pool = new ObjectPool(() => new type(this.gameContainer));
+        pool.prewarm(prewarm);
+        this.enemyPools.set(key, pool);
+    }
+
+
     // Create game systems
     this.gameLoop = new GameLoop();
     this.inputHandler = new InputHandler(this);
-    this.spawnSystem = new SpawnSystem(this.gameContainer);
+    this.spatialGrid = new SpatialGrid(CONFIG.WORLD_WIDTH, CONFIG.WORLD_HEIGHT, 100);
+    this.spawnSystem = new SpawnSystem(this.gameContainer, this);
     // Set game reference for the spawn system so it can add enemies
     this.spawnSystem.setGameReference(this);
     this.particleSystem = new ParticleSystem(this.gameContainer);
@@ -299,23 +351,33 @@ export class Game {
       const y = data.position.y + Math.sin(angle) * distance;
       
       // Create enemy based on the type (currently only basic type is implemented)
-      let enemy: Enemy;
+      let enemy: Enemy | undefined;
+      const enemyType = enemyTypes[0] || 'basicEnemy';
+      const pool = this.enemyPools.get(enemyType);
       
-      if (enemyTypes.includes('basic')) {
-        enemy = new BasicEnemy(this.gameContainer, playerLevel);
+      if (pool) {
+        enemy = pool.acquire();
+        const config = ENEMY_CONFIGS[enemyType];
+        if (config) {
+            enemy.init({ playerLevel, config, poolKey: enemyType });
+        } else {
+            logger.warn(`No config found for enemy type: ${enemyType}.`);
+            pool.release(enemy);
+            enemy = undefined;
+        }
       } else {
-        // Default to basic enemy if type is not recognized
-        enemy = new BasicEnemy(this.gameContainer, playerLevel);
+        logger.warn(`No object pool found for enemy type: ${enemyType}.`);
       }
       
-      // Set enemy position
-      enemy.x = x;
-      enemy.y = y;
-      enemy.updatePosition();
-      
-      // Initialize and add to game
-      enemy.initialize();
-      this.enemies.push(enemy);
+      if(enemy) {
+        // Set enemy position
+        enemy.x = x;
+        enemy.y = y;
+        enemy.updatePosition();
+
+        // Initialize and add to game
+        this.enemies.push(enemy);
+      }
       
       // Emit spawn event
       GameEvents.emit(EVENTS.ENEMY_SPAWN, enemy, 'summonedEnemy');
@@ -396,6 +458,15 @@ export class Game {
     // Update game time
     this.gameTime += deltaTime;
 
+    // Clear and repopulate the spatial grid
+    this.spatialGrid.clear();
+    for (const enemy of this.enemies) {
+        this.spatialGrid.insert(enemy);
+    }
+    for (const projectile of this.projectiles) {
+        this.spatialGrid.insert(projectile);
+    }
+
     // Update player using lifecycle method
     this.player.update(deltaTime, this.inputHandler.getKeys());
 
@@ -461,6 +532,12 @@ export class Game {
         this.enemies.push(boss);
         console.log(`GAME: Boss added to enemies array`);
       }
+    }
+
+    // Remove enemies that were marked for removal
+    if (this.enemiesToRemove.size > 0) {
+      this.enemies = this.enemies.filter(enemy => !this.enemiesToRemove.has(enemy));
+      this.enemiesToRemove.clear();
     }
   }
 
@@ -562,7 +639,12 @@ export class Game {
 
       // Check if enemy is far out of bounds (cleanup)
       if (enemy.isOutOfBounds()) {
-        enemy.cleanup(this.player);
+        const pool = this.enemyPools.get(enemy.poolKey);
+        if (pool) {
+            pool.release(enemy);
+        } else {
+            enemy.cleanup(this.player);
+        }
         this.enemies.splice(i, 1);
         continue;
       }
@@ -737,7 +819,8 @@ export class Game {
    * @returns The created projectile
    */
   createProjectile(options: ProjectileOptions): Projectile {
-    const projectile = new Projectile(this.gameContainer, options);
+    const projectile = this.projectilePool.acquire();
+    projectile.init(options);
     this.projectiles.push(projectile);
     return projectile;
   }
@@ -1160,13 +1243,19 @@ logger.info('Cleaning up all game entities');
 
 // Clean up enemies
 for (const enemy of this.enemies) {
-  enemy.cleanup();
+    const enemyType = enemy.constructor.name;
+    const pool = this.enemyPools.get(enemyType.charAt(0).toLowerCase() + enemyType.slice(1));
+    if (pool) {
+        pool.release(enemy);
+    } else {
+        enemy.cleanup();
+    }
 }
 this.enemies = [];
 
 // Clean up projectiles
 for (const projectile of this.projectiles) {
-  projectile.cleanup();
+    this.projectilePool.release(projectile);
 }
   this.projectiles = [];
 

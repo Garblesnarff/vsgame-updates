@@ -1,4 +1,4 @@
-import { Enemy } from './base-enemy';
+import { Enemy, EnemyOptions } from './base-enemy';
 import CONFIG from '../../config';
 import { GameEvents, EVENTS } from '../../utils/event-system';
 
@@ -21,42 +21,17 @@ export class TankyBrute extends Enemy {
   /**
    * Create a new Tanky Brute enemy
    * @param gameContainer - DOM element containing the game
-   * @param playerLevel - Current level of the player
    */
-  constructor(gameContainer: HTMLElement, playerLevel: number) {
+  constructor(gameContainer: HTMLElement) {
     // Call base enemy constructor
-    super(gameContainer, playerLevel);
-    
-    // Add tanky brute class for specific styling
-    this.element.classList.add('tanky-brute');
-    
-    // Override size and appearance - make it larger
-    const sizeMultiplier = CONFIG.ENEMY.TANKY_BRUTE.SIZE_MULTIPLIER;
-    this.width = CONFIG.ENEMY.TANKY_BRUTE.WIDTH * sizeMultiplier;
-    this.height = CONFIG.ENEMY.TANKY_BRUTE.HEIGHT * sizeMultiplier;
-    this.element.style.width = this.width + "px";
-    this.element.style.height = this.height + "px";
-    this.element.style.backgroundColor = "#6a0dad"; // Purple color
-    this.element.style.borderRadius = "5px"; // Keep square-ish shape but with rounded corners
-    
-    // Set unique stats for Tanky Brute
-    const levelMultiplier = 1 + (playerLevel * 0.2);
-    const healthMultiplier = CONFIG.ENEMY.TANKY_BRUTE.HEALTH_MULTIPLIER;
-    const damageMultiplier = CONFIG.ENEMY.TANKY_BRUTE.DAMAGE_MULTIPLIER;
-    const speedMultiplier = CONFIG.ENEMY.TANKY_BRUTE.SPEED_MULTIPLIER;
-    
-    this.health = CONFIG.ENEMY.TANKY_BRUTE.BASE_HEALTH * healthMultiplier * levelMultiplier;
-    this.maxHealth = this.health;
-    this.damage = CONFIG.ENEMY.TANKY_BRUTE.BASE_DAMAGE * damageMultiplier * levelMultiplier;
-    this.speed = speedMultiplier + playerLevel * 0.05;
+    super(gameContainer);
     
     // Slam attack properties
     this.slamAttackCooldown = CONFIG.ENEMY.TANKY_BRUTE.SLAM_ATTACK_COOLDOWN;
     this.lastSlamAttack = -this.slamAttackCooldown; // Enable slam soon after spawn
     this.slamAttackRadius = CONFIG.ENEMY.TANKY_BRUTE.SLAM_ATTACK_RADIUS;
     this.slamAttackDamage = CONFIG.ENEMY.TANKY_BRUTE.BASE_DAMAGE * 
-                            CONFIG.ENEMY.TANKY_BRUTE.SLAM_ATTACK_DAMAGE_MULTIPLIER * 
-                            levelMultiplier;
+                            CONFIG.ENEMY.TANKY_BRUTE.SLAM_ATTACK_DAMAGE_MULTIPLIER;
     
     // Charging state for slam attack
     this.isCharging = false;
@@ -79,6 +54,13 @@ export class TankyBrute extends Enemy {
     // Add visual indicator for special enemy
     this.addBruteIndicator();
   }
+
+  init(options: EnemyOptions): void {
+      super.init(options);
+      const { playerLevel } = options;
+      const levelMultiplier = 1 + (playerLevel * 0.2);
+      this.slamAttackDamage = this.damage * CONFIG.ENEMY.TANKY_BRUTE.SLAM_ATTACK_DAMAGE_MULTIPLIER * levelMultiplier;
+  }
   
   /**
    * Add a visual indicator that this is a special brute enemy
@@ -88,6 +70,14 @@ export class TankyBrute extends Enemy {
     const indicator = document.createElement('div');
     indicator.className = 'brute-crown';
     this.element.appendChild(indicator);
+  }
+
+  reset(): void {
+    super.reset();
+    const indicator = this.element.querySelector('.brute-crown');
+    if (indicator) {
+      indicator.remove();
+    }
   }
   
   /**

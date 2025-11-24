@@ -2,6 +2,8 @@ import CONFIG from "../../config";
 import { GameEvents, EVENTS } from "../../utils/event-system";
 import { BaseEntity } from "../base-entity";
 import { createLogger } from "../../utils/logger";
+import { Poolable } from "../../types/types";
+import { EnemyConfig } from "../../config";
 
 const logger = createLogger('Enemy');
 
@@ -10,10 +12,18 @@ const logger = createLogger('Enemy');
  */
 export type ParticleCreationFunction = (x: number, y: number, count: number) => void;
 
+export interface EnemyOptions {
+    playerLevel: number;
+    swarmId?: string;
+    config: EnemyConfig;
+    poolKey: string;
+}
+
 /**
  * Base Enemy class representing monsters that attack the player
  */
-export class Enemy extends BaseEntity {
+export class Enemy extends BaseEntity implements Poolable<EnemyOptions> {
+  poolKey: string;
   // DOM elements (element is inherited from BaseEntity)
   healthBarContainer: HTMLElement;
   healthBar: HTMLElement;
@@ -36,27 +46,9 @@ export class Enemy extends BaseEntity {
   /**
    * Create a new enemy
    * @param gameContainer - DOM element containing the game
-   * @param playerLevel - Current level of the player
    */
-  constructor(gameContainer: HTMLElement, playerLevel: number) {
-    super(gameContainer, `enemy_${Date.now()}_${Math.floor(Math.random() * 1000)}`);
-
-    // Position and dimensions
-    this.width = CONFIG.ENEMY.BASE.WIDTH;
-    this.height = CONFIG.ENEMY.BASE.HEIGHT;
-    this.x = 0;
-    this.y = 0;
-
-    // Stats scaled by player level
-    this.speed = 1 + Math.random() * playerLevel * 0.2;
-    this.health = CONFIG.ENEMY.BASE.BASE_HEALTH + playerLevel * 10;
-    this.maxHealth = this.health;
-    this.damage = CONFIG.ENEMY.BASE.BASE_DAMAGE + playerLevel;
-
-    // ID is already assigned by BaseEntity constructor
-
-    // Determine spawn position (outside screen)
-    this.setSpawnPosition();
+  constructor(gameContainer: HTMLElement) {
+    super(gameContainer);
 
     // Create DOM elements
     this.element = document.createElement("div");
@@ -71,14 +63,57 @@ export class Enemy extends BaseEntity {
     this.healthBarContainer.appendChild(this.healthBar);
     this.element.appendChild(this.healthBarContainer);
 
-    // Position elements
-    this.updatePosition();
-
     // Add to game container
     this.gameContainer.appendChild(this.element);
-    
+
+    this.reset();
+  }
+
+  init(options: EnemyOptions): void {
+    const { playerLevel, config, poolKey } = options;
+    this.id = `enemy_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    this.poolKey = poolKey;
+    // Position and dimensions
+    this.width = config.width;
+    this.height = config.height;
+    this.x = 0;
+    this.y = 0;
+
+    // Stats scaled by player level
+    this.speed = config.speed + Math.random() * playerLevel * 0.2;
+    this.health = config.baseHealth + playerLevel * 10;
+    this.maxHealth = this.health;
+    this.damage = config.baseDamage + playerLevel;
+
+    // Set sprite
+    this.element.className = `enemy ${config.sprite}`;
+
+    // Determine spawn position (outside screen)
+    this.setSpawnPosition();
+
+    // Position elements
+    this.updatePosition();
+    this.updateHealthBar();
+    this.element.style.display = 'block';
+
     // Initialize the enemy
     this.initialize();
+  }
+
+  reset(): void {
+      this.x = -1000;
+      this.y = -1000;
+      this.speed = 0;
+      this.health = 0;
+      this.maxHealth = 0;
+      this.damage = 0;
+      this.isCollidingWithPlayer = false;
+      this.poolKey = '';
+
+      if(this.element) {
+          this.element.style.display = 'none';
+      }
+      this.updatePosition();
   }
 
   /**
