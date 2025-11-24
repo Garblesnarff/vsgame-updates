@@ -1,4 +1,4 @@
-import { Enemy } from './base-enemy';
+import { Enemy, EnemyOptions } from './base-enemy';
 import CONFIG from '../../config';
 import { GameEvents, EVENTS } from '../../utils/event-system';
 import { createLogger } from '../../utils/logger';
@@ -28,37 +28,22 @@ export class VampireHunter extends Enemy {
   /**
    * Create a new Vampire Hunter enemy
    * @param gameContainer - DOM element containing the game
-   * @param playerLevel - Current level of the player
    */
-  constructor(gameContainer: HTMLElement, playerLevel: number) {
+  constructor(gameContainer: HTMLElement) {
     // Call base enemy constructor
-    super(gameContainer, playerLevel);
-    
-    // Add vampire hunter class for specific styling
-    this.element.classList.add('vampire-hunter');
-    
-    // Override visual appearance
-    this.element.style.backgroundColor = "#a05000"; // Brown/amber color
-    this.element.style.borderRadius = "0"; // Square shape to distinguish from basic enemies
-    
-    // Set unique stats for Vampire Hunter
-    this.health = CONFIG.ENEMY.VAMPIRE_HUNTER.BASE_HEALTH * 0.8 + playerLevel * 8; // Medium health
-    this.maxHealth = this.health;
-    this.damage = CONFIG.ENEMY.VAMPIRE_HUNTER.BASE_DAMAGE * 0.7 + playerLevel * 0.7; // Less direct damage
-    this.speed = 0.8 + Math.random() * playerLevel * 0.1; // Slower than basic enemies
+    super(gameContainer);
     
     // Ranged attack properties
     this.projectileCooldown = CONFIG.ENEMY.VAMPIRE_HUNTER.PROJECTILE_COOLDOWN;
     this.lastFired = 0;
-    this.detectionRadius = CONFIG.ENEMY.VAMPIRE_HUNTER.DETECTION_RADIUS + playerLevel * 5;
+    this.detectionRadius = CONFIG.ENEMY.VAMPIRE_HUNTER.DETECTION_RADIUS;
     this.aimingTime = 700; // Time spent aiming before firing
     this.isAiming = false; 
     this.aimStartTime = 0;
     this.preferredDistance = CONFIG.ENEMY.VAMPIRE_HUNTER.PREFERRED_DISTANCE;
     this.projectileSpeed = CONFIG.ENEMY.VAMPIRE_HUNTER.PROJECTILE_SPEED;
     this.projectileDamage = CONFIG.ENEMY.VAMPIRE_HUNTER.BASE_DAMAGE * 
-                           CONFIG.ENEMY.VAMPIRE_HUNTER.PROJECTILE_DAMAGE_MULTIPLIER + 
-                           playerLevel * 1.5;
+                           CONFIG.ENEMY.VAMPIRE_HUNTER.PROJECTILE_DAMAGE_MULTIPLIER;
     
     // Initial state
     this.state = 'patrol';
@@ -68,6 +53,13 @@ export class VampireHunter extends Enemy {
     
     // Set the initial aim visual state
     this.setAimingVisual(false);
+  }
+
+  init(options: EnemyOptions): void {
+    super.init(options);
+    const { playerLevel } = options;
+    this.projectileDamage = this.damage * CONFIG.ENEMY.VAMPIRE_HUNTER.PROJECTILE_DAMAGE_MULTIPLIER + playerLevel * 1.5;
+    this.detectionRadius = CONFIG.ENEMY.VAMPIRE_HUNTER.DETECTION_RADIUS + playerLevel * 5;
   }
   
   /**

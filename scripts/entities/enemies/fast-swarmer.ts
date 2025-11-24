@@ -1,4 +1,4 @@
-import { Enemy } from './base-enemy';
+import { Enemy, EnemyOptions } from './base-enemy';
 import CONFIG from '../../config';
 
 /**
@@ -23,29 +23,22 @@ export class FastSwarmer extends Enemy {
   /**
    * Create a new Fast Swarmer enemy
    * @param gameContainer - DOM element containing the game
-   * @param playerLevel - Current level of the player
-   * @param swarmId - Optional identifier for the swarm this enemy belongs to
    */
-  constructor(gameContainer: HTMLElement, playerLevel: number, swarmId?: string) {
+  constructor(gameContainer: HTMLElement) {
     // Call base enemy constructor
-    super(gameContainer, playerLevel);
+    super(gameContainer);
     
     // Add fast swarmer class for specific styling
     this.element.classList.add('fast-swarmer');
-    
+  }
+
+  init(options: EnemyOptions): void {
+      super.init(options);
+      const { playerLevel, swarmId } = options;
     // Set swarm identifier
     this.swarmId = swarmId || `swarm_${Date.now()}`;
     
-    // Override size and appearance - make them smaller and more bat-like
-    const sizeMultiplier = CONFIG.ENEMY.FAST_SWARMER.SIZE_MULTIPLIER;
-    this.width = CONFIG.ENEMY.FAST_SWARMER.WIDTH * sizeMultiplier;
-    this.height = CONFIG.ENEMY.FAST_SWARMER.HEIGHT * sizeMultiplier;
-    (this.element.style as HTMLElement["style"]).width = this.width + "px";
-    (this.element.style as HTMLElement["style"]).height = this.height + "px";
-    (this.element.style as HTMLElement["style"]).backgroundColor = "#660066"; // More bat-like purple color
-    (this.element.style as HTMLElement["style"]).borderRadius = "50% 5px 50% 5px"; // Bat-like shape
-    
-  // Add simple bat wings
+    // Add simple bat wings
     const wingLeft = document.createElement('div');
     wingLeft.className = 'swarmer-wing left';
     
@@ -54,18 +47,7 @@ export class FastSwarmer extends Enemy {
     
     this.element.appendChild(wingLeft);
     this.element.appendChild(wingRight);
-    
-    // Set unique stats for Fast Swarmer
-    const healthMultiplier = CONFIG.ENEMY.FAST_SWARMER.HEALTH_MULTIPLIER;
-    const damageMultiplier = CONFIG.ENEMY.FAST_SWARMER.DAMAGE_MULTIPLIER;
-    const speedMultiplier = CONFIG.ENEMY.FAST_SWARMER.SPEED_MULTIPLIER;
-    
-    this.health = CONFIG.ENEMY.FAST_SWARMER.BASE_HEALTH * healthMultiplier + playerLevel * 3;
-    this.maxHealth = this.health;
-    this.damage = CONFIG.ENEMY.FAST_SWARMER.BASE_DAMAGE * damageMultiplier + playerLevel * 0.5;
-    this.originalSpeed = speedMultiplier + Math.random() * playerLevel * 0.15;
-    this.speed = this.originalSpeed;
-    
+
     // Erratic movement properties (make more unpredictable)
     this.directionChangeInterval = 300 + Math.random() * 500; // Change direction more often
     this.lastDirectionChange = 0;
@@ -80,18 +62,19 @@ export class FastSwarmer extends Enemy {
     this.dodgeChance = CONFIG.ENEMY.FAST_SWARMER.DODGE_CHANCE + playerLevel * 0.015;
     
     // Burst speed properties
-    this.burstSpeed = this.originalSpeed * CONFIG.ENEMY.FAST_SWARMER.BURST_SPEED_MULTIPLIER;
+    this.burstSpeed = this.speed * CONFIG.ENEMY.FAST_SWARMER.BURST_SPEED_MULTIPLIER;
     this.isBursting = false;
     this.burstCooldown = 2000 + Math.random() * 1000; // More frequent bursts
     this.lastBurst = -this.burstCooldown; // Allow bursting soon after spawn
     
-    // Update health bar position due to smaller size
-    if (this.healthBarContainer) {
-      (this.healthBarContainer.style as HTMLElement["style"]).width = this.width + "px";
-    }
-    
     // Animate wings
     this.animateWings();
+  }
+
+  reset(): void {
+      super.reset();
+      const wings = this.element.querySelectorAll('.swarmer-wing');
+      wings.forEach(wing => wing.remove());
   }
   
   /**
