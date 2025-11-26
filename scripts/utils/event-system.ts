@@ -424,6 +424,11 @@ export const EVENTS = {
   SYSTEM_STORAGE_ERROR: "system:storageError",
   SYSTEM_RESOURCE_ERROR: "system:resourceError",
   SYSTEM_INIT_ERROR: "system:initError",
+
+  // Rendering events (for Phaser integration)
+  RENDER_SYNC: "render:sync",             // Full state sync each frame
+  PARTICLE_EMIT: "particle:emit",         // Particle effect requested
+  ABILITY_VISUAL: "ability:visual",       // Ability visual effect
 };
 
 // Export a singleton instance as default

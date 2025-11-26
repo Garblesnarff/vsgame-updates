@@ -63,10 +63,11 @@ export class FastSwarmer extends Enemy {
     
     // Burst speed properties
     this.burstSpeed = this.speed * CONFIG.ENEMY.FAST_SWARMER.BURST_SPEED_MULTIPLIER;
+    this.originalSpeed = this.speed; // Store original speed for restoring after burst/dodge
     this.isBursting = false;
     this.burstCooldown = 2000 + Math.random() * 1000; // More frequent bursts
     this.lastBurst = -this.burstCooldown; // Allow bursting soon after spawn
-    
+
     // Animate wings
     this.animateWings();
   }
@@ -75,6 +76,11 @@ export class FastSwarmer extends Enemy {
       super.reset();
       const wings = this.element.querySelectorAll('.swarmer-wing');
       wings.forEach(wing => wing.remove());
+
+      // Reset FastSwarmer-specific properties
+      this.originalSpeed = 0;
+      this.burstSpeed = 0;
+      this.isBursting = false;
   }
   
   /**

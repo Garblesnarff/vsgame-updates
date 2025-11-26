@@ -1,3 +1,35 @@
+/* ==============================================================
+   PHASER RENDERING MODE
+   DOM elements are hidden - Phaser WebGL handles all rendering
+   ============================================================== */
+
+/* Hide all game entity DOM elements (rendered by Phaser instead) */
+.player,
+.enemy,
+.basic-enemy,
+.vampire-hunter,
+.fast-swarmer,
+.tanky-brute,
+.silver-mage,
+.holy-priest,
+.vampire-scout,
+.projectile,
+.enemy-projectile,
+.blood-particle,
+.shadow-trail,
+.blood-nova,
+.bat {
+    display: none !important;
+}
+
+/* Health bars are also hidden (enemy health shown via Phaser sprite tinting) */
+.enemy-health-container,
+.enemy-health-bar {
+    display: none !important;
+}
+
+/* Original CSS below (kept for reference, overridden by above) */
+
 /* Player */
 .player {
     position: absolute;
@@ -14,6 +46,7 @@
     height: 25px;
     background-color: #cc0000;
     border-radius: 5px;
+    z-index: 9;
 }
 
 .enemy-health-container {

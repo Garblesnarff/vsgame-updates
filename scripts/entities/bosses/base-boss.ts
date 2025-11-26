@@ -46,7 +46,10 @@ export class Boss extends Enemy {
     // Set base boss properties
     this.name = "Boss";
     this.element.classList.add('boss');
-    
+
+    // Make boss visible (element is hidden by default from Enemy.reset())
+    this.element.style.display = 'block';
+
     // Phase system
     this.phase = 1;
     this.maxPhases = 1; // Override in subclasses

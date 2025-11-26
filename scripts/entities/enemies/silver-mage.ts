@@ -42,6 +42,7 @@ export class SilverMage extends Enemy {
   private chargeStartTime: number;
   private zoneDamage: number;
   private maxActiveZones: number;
+  private lastCollisionCheckTime: number; // For debouncing collision checks
 
   /**
    * Create a new Silver Mage enemy
@@ -71,8 +72,9 @@ export class SilverMage extends Enemy {
     this.isCharging = false;
     this.chargeStartTime = 0;
     this.zoneDamage = 5; // 5 damage per second (scaled in init())
-    this.maxActiveZones = 3; // Maximum 3 active zones per Silver Mage
-    
+    this.maxActiveZones = 1; // Maximum 1 active zone per Silver Mage (performance optimization)
+    this.lastCollisionCheckTime = 0; // Initialize collision check timer
+
     // Add visual indicator for mage
     this.addMageIndicator();
   }
@@ -309,14 +311,7 @@ export class SilverMage extends Enemy {
     zoneElement.style.top = (targetY - radius) + 'px';
     zoneElement.style.width = (radius * 2) + 'px';
     zoneElement.style.height = (radius * 2) + 'px';
-    zoneElement.style.borderRadius = '50%';
-    zoneElement.style.backgroundColor = 'rgba(173, 216, 230, 0.3)';
-    zoneElement.style.border = '2px solid rgba(192, 192, 192, 0.7)';
-    zoneElement.style.boxShadow = 'inset 0 0 20px rgba(255, 255, 255, 0.7)';
-    zoneElement.style.zIndex = '5';
-    
-    // Add pulsing effect
-    zoneElement.style.animation = 'zonePulse 2s infinite alternate';
+    // Note: borderRadius, backgroundColor, border, zIndex, and animation are set in CSS
     
     // Add zone to game container
     this.gameContainer.appendChild(zoneElement);
@@ -371,16 +366,16 @@ export class SilverMage extends Enemy {
       // Update visual fade
       const opacity = 0.3 * (1 - (elapsedTime / zone.duration));
       zone.element.style.backgroundColor = `rgba(173, 216, 230, ${opacity})`;
-      
-      // Check if player is in zone
-      if (player) {
+
+      // Check if player is in zone (debounced - only check every 100ms for performance)
+      if (player && (now - this.lastCollisionCheckTime) >= 100) {
         const playerCenterX = player.x + player.width / 2;
         const playerCenterY = player.y + player.height / 2;
-        
+
         const dx = playerCenterX - zone.x;
         const dy = playerCenterY - zone.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
         // If player is inside zone radius, apply damage
         if (distance < zone.radius) {
           // Apply damage (adjusted for deltaTime)
@@ -388,18 +383,23 @@ export class SilverMage extends Enemy {
             // Apply damage every 200ms while in zone
             if (now % 200 < 20) { // Check within a small window of time
               player.takeDamage(zone.damage * 0.2);
-              
+
               // Block energy regeneration
               if (player.blockEnergyRegen) {
                 player.blockEnergyRegen(200); // Block for 200ms
               }
-              
+
               // Create damage visual effect
               this.createZoneDamageEffect(player);
             }
           }
         }
       }
+    }
+
+    // Update collision check timestamp after processing all zones
+    if (player && (now - this.lastCollisionCheckTime) >= 100) {
+      this.lastCollisionCheckTime = now;
     }
   }
   

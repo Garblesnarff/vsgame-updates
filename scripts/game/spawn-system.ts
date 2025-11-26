@@ -88,6 +88,11 @@ export class SpawnSystem {
    * @returns Newly spawned enemy or null
    */
   update(gameTime: number, playerLevel: number): Enemy | null {
+    // Check enemy cap - don't spawn if at maximum
+    if (this.game.enemies && this.game.enemies.length >= CONFIG.MAX_ENEMIES) {
+      return null;
+    }
+
     // Adjust spawn rates based on player level
     this.currentSpawnRate = Math.max(
       500,
@@ -213,22 +218,27 @@ export class SpawnSystem {
     // Create additional swarmers at positions around the circle
     for (let i = 1; i < actualSwarmSize; i++) {
       const spawnDelay = i * 150; // Quicker spawn sequence (150ms between each)
-      
+
       setTimeout(() => {
+        // Check enemy cap before spawning additional swarmers
+        if (this.game.enemies && this.game.enemies.length >= CONFIG.MAX_ENEMIES) {
+          return; // Skip spawning if at cap
+        }
+
         // Calculate position around the circle
         const swarmAngle = angle + (i * (2 * Math.PI / actualSwarmSize));
         const swarmX = centerX + Math.cos(swarmAngle) * spawnRadius;
         const swarmY = centerY + Math.sin(swarmAngle) * spawnRadius;
-        
+
         // Create swarmer with the same swarm ID for potential coordination
         const swarmer = pool.acquire() as FastSwarmer;
         swarmer.init({playerLevel, swarmId, config: ENEMY_CONFIGS['fastSwarmer'], poolKey: 'fastSwarmer'});
         swarmer.x = swarmX;
         swarmer.y = swarmY;
         swarmer.updatePosition();
-        
+
         GameEvents.emit(EVENTS.ENEMY_SPAWN, swarmer, 'fastSwarmer');
-        
+
         // Add to the game's enemies array
         if (this.game && this.game.enemies) {
           this.game.enemies.push(swarmer);

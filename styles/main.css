@@ -14,7 +14,7 @@ body {
     position: relative;
     width: 100vw;
     height: 100vh;
-    overflow: auto; /* Allow scrolling within the container */
+    overflow: hidden; /* No scrolling - Phaser camera handles world navigation */
 }
 
 /* Pause overlay */

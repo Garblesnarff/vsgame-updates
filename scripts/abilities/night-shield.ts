@@ -1,6 +1,7 @@
 import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
+import GameEvents, { EVENTS } from "../utils/event-system";
 
 
 /**
@@ -175,14 +176,13 @@ export class NightShield extends Ability {
    * Create visual effect for shield absorbing damage
    */
   createShieldAbsorptionEffect(): void {
-    // Use particle system if available
-    if (this.player.game && this.player.game.particleSystem) {
-      this.player.game.particleSystem.createShieldParticles(
-        this.player.x + this.player.width / 2,
-        this.player.y + this.player.height / 2,
-        5
-      );
-    }
+    // Emit particle event for Phaser rendering
+    GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+      type: 'shield',
+      x: this.player.x + this.player.width / 2,
+      y: this.player.y + this.player.height / 2,
+      count: 5
+    });
   }
 
   /**
@@ -234,13 +234,12 @@ export class NightShield extends Ability {
 
       if (distance <= range) {
         // Create explosion particles at enemy position
-        if (this.player.game.particleSystem) {
-          this.player.game.particleSystem.createBloodParticles(
-            enemy.x + enemy.width / 2,
-            enemy.y + enemy.height / 2,
-            10
-          );
-        }
+        GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+          type: 'blood',
+          x: enemy.x + enemy.width / 2,
+          y: enemy.y + enemy.height / 2,
+          count: 10
+        });
 
         // Damage enemy
         if (enemy.takeDamage(explosionDamage)) {

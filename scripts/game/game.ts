@@ -109,11 +109,9 @@ export class Game {
           projectile.collidesWithPlayer(this.player)
         ) {
           // Create hit effect
-          this.particleSystem.createBloodParticles(
-            projectile.x,
-            projectile.y,
-            5
-          );
+          GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            type: 'blood', x: projectile.x, y: projectile.y, count: 5
+          });
 
           // Apply damage to player
           this.player.takeDamage(projectile.damage);
@@ -141,18 +139,18 @@ export class Game {
           if (enemy.health <= 0) continue; // Skip dead enemies
 
           if (projectile.collidesWith(enemy)) {
-            // Create blood particles
-            this.particleSystem.createBloodParticles(
-              projectile.x,
-              projectile.y,
-              5
-            );
+            // Create blood particles (emit to Phaser renderer)
+            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+              type: 'blood', x: projectile.x, y: projectile.y, count: 5
+            });
 
             // Apply damage to enemy and get the damage dealt
             const damageDealt = projectile.damage;
             const enemyDied = enemy.takeDamage(
               damageDealt,
-              this.particleSystem.createBloodParticles.bind(this.particleSystem),
+              (x: number, y: number, count: number) => {
+                GameEvents.emit(EVENTS.PARTICLE_EMIT, { type: 'blood', x, y, count });
+              },
               projectile.isBloodLance ? 'bloodLance' : undefined
             );
             
@@ -533,6 +531,46 @@ export class Game {
       this.enemies = this.enemies.filter(enemy => !this.enemiesToRemove.has(enemy));
       this.enemiesToRemove.clear();
     }
+
+    // Emit render sync event for Phaser rendering layer
+    GameEvents.emit(EVENTS.RENDER_SYNC, {
+      player: {
+        x: this.player.x,
+        y: this.player.y,
+        width: this.player.width,
+        height: this.player.height,
+        isAlive: this.player.isAlive,
+        isInvulnerable: this.player.isInvulnerable,
+        health: this.player.stats.getHealth(),
+        maxHealth: this.player.stats.getMaxHealth(),
+      },
+      enemies: this.enemies.map(e => ({
+        id: e.id,
+        x: e.x,
+        y: e.y,
+        width: e.width,
+        height: e.height,
+        type: e.constructor.name,
+        health: e.health,
+        maxHealth: e.maxHealth,
+      })),
+      projectiles: this.projectiles.map(p => ({
+        id: p.id,
+        x: p.x,
+        y: p.y,
+        width: p.width,
+        height: p.height,
+        isEnemyProjectile: p.isEnemyProjectile,
+        isBloodLance: p.isBloodLance,
+      })),
+      drops: this.drops.map(d => ({
+        id: d.id,
+        x: d.x,
+        y: d.y,
+        type: d.type,
+      })),
+      gameTime: this.gameTime,
+    });
   }
 
   /**
@@ -657,12 +695,13 @@ export class Game {
 
         // Apply damage to player
         if (this.player.takeDamage(damageAmount)) {
-          // Create blood particles if damage was applied
-          this.particleSystem.createBloodParticles(
-            this.player.x + this.player.width / 2,
-            this.player.y + this.player.height / 2,
-            10
-          );
+          // Create blood particles if damage was applied (emit to Phaser renderer)
+          GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            type: 'blood',
+            x: this.player.x + this.player.width / 2,
+            y: this.player.y + this.player.height / 2,
+            count: 10
+          });
 
           // Check if player died
           if (!this.player.isAlive) {
@@ -719,11 +758,9 @@ export class Game {
           projectile.collidesWithPlayer(this.player)
         ) {
           // Create hit effect
-          this.particleSystem.createBloodParticles(
-            projectile.x,
-            projectile.y,
-            5
-          );
+          GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            type: 'blood', x: projectile.x, y: projectile.y, count: 5
+          });
 
           // Apply damage to player
           this.player.takeDamage(projectile.damage);
@@ -739,18 +776,18 @@ export class Game {
           const enemy = this.enemies[j];
 
           if (projectile.collidesWith(enemy)) {
-            // Create blood particles
-            this.particleSystem.createBloodParticles(
-              projectile.x,
-              projectile.y,
-              5
-            );
+            // Create blood particles (emit to Phaser renderer)
+            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+              type: 'blood', x: projectile.x, y: projectile.y, count: 5
+            });
 
             // Apply damage to enemy and get the damage dealt
             const damageDealt = projectile.damage;
             const enemyDied = enemy.takeDamage(
               damageDealt,
-              this.particleSystem.createBloodParticles.bind(this.particleSystem),
+              (x: number, y: number, count: number) => {
+                GameEvents.emit(EVENTS.PARTICLE_EMIT, { type: 'blood', x, y, count });
+              },
               projectile.isBloodLance ? 'bloodLance' : undefined
             );
             

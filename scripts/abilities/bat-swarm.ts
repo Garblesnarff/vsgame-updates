@@ -1,7 +1,8 @@
 import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
-import CONFIG from "../config"; // Added import for CONFIG
+import CONFIG from "../config";
+import { GameEvents, EVENTS } from "../utils/event-system";
 
 
 /**
@@ -136,14 +137,10 @@ export class BatSwarm extends Ability {
           const enemy = enemies[j];
 
           if (this.batCollidesWithEnemy(bat, enemy)) {
-            // Create blood particles
-            if (this.player.game && this.player.game.particleSystem) {
-              this.player.game.particleSystem.createBloodParticles(
-                bat.x,
-                bat.y,
-                3
-              );
-            }
+            // Create blood particles (emit to Phaser renderer)
+            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+              type: 'blood', x: bat.x, y: bat.y, count: 3
+            });
 
             // Apply direct damage to the enemy, matching original implementation
             // Original code used: enemy.health -= player.abilities.batSwarm.damage;

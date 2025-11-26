@@ -1,8 +1,6 @@
 import { Ability } from "./ability-base";
-import { Particle } from "../entities/particle";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
-
 import GameEvents, { EVENTS } from "../utils/event-system";
 
 /**
@@ -15,7 +13,6 @@ export class BloodDrain extends Ability {
   healAmount: number;
   duration: number;
   activeSince: number;
-  bloodNovas: Particle[]; // Track created blood novas
 
   /**
    * Create a new Blood Drain ability
@@ -39,7 +36,6 @@ export class BloodDrain extends Ability {
     this.healAmount = config.HEAL_AMOUNT;
     this.duration = config.DURATION;
     this.activeSince = 0;
-    this.bloodNovas = [];
   }
 
   /**
@@ -68,7 +64,6 @@ export class BloodDrain extends Ability {
   activate(): void {
     this.active = true;
     this.activeSince = Date.now();
-    this.bloodNovas = []; // Clear any previously tracked blood novas
 
     // Create visual effect for the blood drain area
     this.visualEffect = document.createElement("div");
@@ -104,15 +99,7 @@ export class BloodDrain extends Ability {
       this.visualEffect = null;
     }
 
-    // Clean up any blood novas we created
-    for (const nova of this.bloodNovas) {
-      if (nova.element && nova.element.parentNode) {
-        nova.element.parentNode.removeChild(nova.element);
-      }
-    }
-    this.bloodNovas = [];
-
-    // Clean up any blood nova elements that were missed
+    // Clean up any legacy blood nova DOM elements (Phaser handles new particles)
     const bloodNovaElements = document.querySelectorAll('.blood-nova');
     bloodNovaElements.forEach(element => {
       if (element.parentNode) {
@@ -151,22 +138,12 @@ export class BloodDrain extends Ability {
 
     // Create pulsing effect around player (occasionally)
     if (Math.random() < 0.1) {
-      // Use particle system if available through player.game
-      if (this.player.game && this.player.game.particleSystem) {
-        const nova = this.player.game.particleSystem.createBloodNova(
-          this.player.x + this.player.width / 2,
-          this.player.y + this.player.height / 2
-        );
-        this.bloodNovas.push(nova);
-      } else {
-        // Fallback to direct creation
-        const nova = Particle.createBloodNova(
-          this.player.gameContainer,
-          this.player.x + this.player.width / 2,
-          this.player.y + this.player.height / 2
-        );
-        this.bloodNovas.push(nova);
-      }
+      // Emit particle event for Phaser rendering
+      GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+        type: 'bloodNova',
+        x: this.player.x + this.player.width / 2,
+        y: this.player.y + this.player.height / 2
+      });
     }
 
     // Process enemies within range
@@ -208,11 +185,13 @@ export class BloodDrain extends Ability {
         const enemyDied = enemy.takeDamage(damage, (x: number, y: number, count: number) => {
           // Limit particle creation
           if (particlesCreated < maxParticlesPerFrame) {
-            if (this.player.game && this.player.game.particleSystem) {
-              this.player.game.particleSystem.createBloodParticles(x, y, Math.min(count, 2));
-            } else {
-              Particle.createBloodParticles(this.player.gameContainer, x, y, Math.min(count, 2));
-            }
+            // Emit particle event for Phaser rendering
+            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+              type: 'blood',
+              x: x,
+              y: y,
+              count: Math.min(count, 2)
+            });
             particlesCreated++;
           }
         });
@@ -246,20 +225,13 @@ export class BloodDrain extends Ability {
           // Create blood particles flowing from enemy to player (occasionally)
           // Reduced probability from 0.2 to 0.05 to limit particles
           if (Math.random() < 0.05 && particlesCreated < maxParticlesPerFrame) {
-            if (this.player.game && this.player.game.particleSystem) {
-              this.player.game.particleSystem.createBloodParticles(
-                enemy.x + enemy.width / 2,
-                enemy.y + enemy.height / 2,
-                1
-              );
-            } else {
-              Particle.createBloodParticles(
-                this.player.gameContainer,
-                enemy.x + enemy.width / 2,
-                enemy.y + enemy.height / 2,
-                1
-              );
-            }
+            // Emit particle event for Phaser rendering
+            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+              type: 'blood',
+              x: enemy.x + enemy.width / 2,
+              y: enemy.y + enemy.height / 2,
+              count: 1
+            });
             particlesCreated++;
           }
         }

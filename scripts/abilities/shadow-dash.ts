@@ -1,7 +1,7 @@
 import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
-import { Particle } from "../entities/particle";
+import GameEvents, { EVENTS } from "../utils/event-system";
 
 /**
  * Shadow Dash ability - Dash through enemies, becoming briefly invulnerable
@@ -152,13 +152,12 @@ export class ShadowDash extends Ability {
       const trailX = this.player.x + dashX * (i / 10);
       const trailY = this.player.y + dashY * (i / 10);
 
-      // Use particle system if available
-      if (this.player.game && this.player.game.particleSystem) {
-        this.player.game.particleSystem.createShadowTrail(trailX, trailY);
-      } else {
-        // Fallback if no particle system
-        Particle.createShadowTrail(this.player.gameContainer, trailX, trailY);
-      }
+      // Emit particle event for Phaser rendering
+      GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+        type: 'shadowTrail',
+        x: trailX,
+        y: trailY
+      });
     }
   }
 
@@ -185,9 +184,13 @@ export class ShadowDash extends Ability {
         // Apply damage
         if (
           enemy.takeDamage(damage, (x, y, count) => {
-            if (this.player.game && this.player.game.particleSystem) {
-              this.player.game.particleSystem.createBloodParticles(x, y, count);
-            }
+            // Emit particle event for Phaser rendering
+            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+              type: 'blood',
+              x: x,
+              y: y,
+              count: count
+            });
           })
         ) {
           // Enemy died

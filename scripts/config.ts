@@ -227,6 +227,8 @@ interface GameConfig {
   SCREEN_WIDTH: number; // Added for potential UI use
   SCREEN_HEIGHT: number; // Added for potential UI use
   SPAWN_RATE: number;
+  MAX_ENEMIES: number; // Hard cap on enemies for performance
+  MAX_PARTICLES: number; // Hard cap on particles for performance
   PLAYER: PlayerConfig;
   ENEMY: EnemyConfigs;
   LEVEL: LevelConfig;
@@ -266,6 +268,8 @@ export const CONFIG: GameConfig = {
   SCREEN_WIDTH: window.innerWidth, // Keep screen size for UI etc.
   SCREEN_HEIGHT: window.innerHeight,
   SPAWN_RATE: 2000, // ms between enemy spawns
+  MAX_ENEMIES: 150, // Hard cap on enemies for performance
+  MAX_PARTICLES: 300, // Hard cap on particles for performance
 
   // Player settings
   PLAYER: {

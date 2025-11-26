@@ -1,9 +1,12 @@
+import Phaser from "phaser";
 import { Game } from "./game/game";
 import { GameEvents, EVENTS } from "./utils/event-system";
 import { createLogger, LogLevel, setLogLevel } from "./utils/logger";
 import { registerGlobalErrorHandler, ErrorSeverity, ErrorCategory, tryCatch } from "./utils/error-handler";
 import { isStorageAvailable } from "./utils/persistence";
 import "./utils/init"; // Initialize game settings
+// @ts-ignore - GameScene is a JavaScript file
+import GameScene from "../client/src/scenes/GameScene";
 
 // Create a logger for the main module
 const logger = createLogger('Main');
@@ -92,6 +95,61 @@ function checkBrowserCompatibility(): void {
 }
 
 /**
+ * Initialize Phaser rendering layer
+ */
+function initializePhaserRenderer(_gameContainer: HTMLElement): Phaser.Game {
+  // Create a canvas container for Phaser - FIXED to viewport
+  const phaserContainer = document.createElement('div');
+  phaserContainer.id = 'phaser-container';
+  phaserContainer.style.position = 'fixed'; // Fixed to viewport, won't scroll
+  phaserContainer.style.top = '0';
+  phaserContainer.style.left = '0';
+  phaserContainer.style.width = '100vw';
+  phaserContainer.style.height = '100vh';
+  phaserContainer.style.pointerEvents = 'none'; // Let clicks pass through to DOM
+  phaserContainer.style.zIndex = '5'; // Above game elements, below UI overlays
+  phaserContainer.style.overflow = 'hidden';
+  document.body.appendChild(phaserContainer); // Append to body, not game container
+
+  console.log('Phaser container created with fixed positioning');
+
+  // Configure Phaser
+  const phaserConfig: Phaser.Types.Core.GameConfig = {
+    type: Phaser.AUTO, // Use WebGL if available, fallback to Canvas
+    parent: 'phaser-container',
+    width: window.innerWidth,
+    height: window.innerHeight,
+    transparent: true, // Transparent background so DOM shows through
+    physics: {
+      default: 'arcade',
+      arcade: {
+        gravity: { x: 0, y: 0 },
+        debug: false // Disable debug in all modes for performance
+      }
+    },
+    scene: [GameScene],
+    scale: {
+      mode: Phaser.Scale.RESIZE,
+      autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    render: {
+      pixelArt: true, // Better rendering for pixel art sprites
+      antialias: false
+    }
+  };
+
+  const phaserGame = new Phaser.Game(phaserConfig);
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    phaserGame.scale.resize(window.innerWidth, window.innerHeight);
+  });
+
+  logger.info('Phaser rendering layer initialized');
+  return phaserGame;
+}
+
+/**
  * Initialize the game with proper error handling
  */
 function initializeGame(): void {
@@ -99,25 +157,29 @@ function initializeGame(): void {
     () => {
       // Get the game container
       const gameContainer = document.getElementById("game-container");
-    
+
       if (!gameContainer) {
         throw new Error("Game container not found!");
       }
-    
-      // Create and initialize the game
+
+      // Initialize Phaser renderer first
+      const phaserGame = initializePhaserRenderer(gameContainer);
+
+      // Create and initialize the game logic
       const game = new Game(gameContainer);
-    
+
       // Subscribe to game events
       setupEventListeners();
-    
+
       // Start the game
       game.start();
-    
-      // Expose game instance to window for debugging (only in development)
+
+      // Expose game instances to window for debugging (only in development)
       if (process.env.NODE_ENV !== "production") {
         (window as any).vampireGame = game;
+        (window as any).phaserGame = phaserGame;
       }
-    
+
       logger.info("Vampire Survival Game initialized successfully!");
     },
     {
