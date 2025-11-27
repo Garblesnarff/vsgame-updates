@@ -498,6 +498,18 @@ export class ChurchPaladin extends Boss {
     }
 
     /**
+     * Clamp position to game boundaries
+     * @param x - X position to clamp
+     * @param y - Y position to clamp
+     * @returns [clampedX, clampedY] tuple
+     */
+    clampToGameBounds(x: number, y: number): [number, number] {
+        const clampedX = Math.max(0, Math.min(x, CONFIG.WORLD_WIDTH - this.width));
+        const clampedY = Math.max(0, Math.min(y, CONFIG.WORLD_HEIGHT - this.height));
+        return [clampedX, clampedY];
+    }
+
+    /**
      * Move towards player with optional speed multiplier.
      * @param player - Player entity
      * @param speedMultiplier - Optional speed multiplier
@@ -514,8 +526,8 @@ export class ChurchPaladin extends Boss {
         let nextX = this.x + (dx / dist) * this.speed * speedMultiplier;
         let nextY = this.y + (dy / dist) * this.speed * speedMultiplier;
 
-        // TODO: Add clamping to game boundaries if needed
-        // [nextX, nextY] = this.clampToGameBounds(nextX, nextY);
+        // Clamp to game boundaries
+        [nextX, nextY] = this.clampToGameBounds(nextX, nextY);
 
         // Apply final position
         this.x = nextX;
@@ -540,8 +552,8 @@ export class ChurchPaladin extends Boss {
         let nextX = this.x - (dx / dist) * this.speed;
         let nextY = this.y - (dy / dist) * this.speed;
 
-        // TODO: Add clamping to game boundaries if needed
-        // [nextX, nextY] = this.clampToGameBounds(nextX, nextY);
+        // Clamp to game boundaries
+        [nextX, nextY] = this.clampToGameBounds(nextX, nextY);
 
         // Apply final position
         this.x = nextX;
@@ -570,8 +582,8 @@ export class ChurchPaladin extends Boss {
         let nextX = this.x + strafeX * this.speed;
         let nextY = this.y + strafeY * this.speed;
 
-        // TODO: Add clamping to game boundaries if needed
-        // [nextX, nextY] = this.clampToGameBounds(nextX, nextY);
+        // Clamp to game boundaries
+        [nextX, nextY] = this.clampToGameBounds(nextX, nextY);
 
         // Apply final position
         this.x = nextX;
@@ -622,14 +634,14 @@ export class ChurchPaladin extends Boss {
         let nextX = this.x + (dx / dist) * this.chargeSpeed;
         let nextY = this.y + (dy / dist) * this.chargeSpeed;
 
-        // TODO: Add clamping to game boundaries if needed
-        // const [clampedX, clampedY] = this.clampToGameBounds(nextX, nextY);
-        // if (clampedX !== nextX || clampedY !== nextY) {
-        //     this.x = clampedX;
-        //     this.y = clampedY;
-        //     this.finishCharge(); // Finish charge if boundary is hit
-        //     return;
-        // }
+        // Clamp to game boundaries and finish charge if boundary is hit
+        const [clampedX, clampedY] = this.clampToGameBounds(nextX, nextY);
+        if (clampedX !== nextX || clampedY !== nextY) {
+            this.x = clampedX;
+            this.y = clampedY;
+            this.finishCharge(); // Finish charge if boundary is hit
+            return;
+        }
 
         // Apply final position
         this.x = nextX;

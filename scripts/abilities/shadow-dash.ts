@@ -11,6 +11,7 @@ export class ShadowDash extends Ability {
   distance: number;
   damage: number;
   invulnerabilityTime: number;
+  private dashTimeoutId: number = 0;
 
   /**
    * Create a new Shadow Dash ability
@@ -107,10 +108,17 @@ export class ShadowDash extends Ability {
       );
     }
 
-    // End dash after the invulnerability time
-    setTimeout(() => {
-      this.active = false;
-    }, this.invulnerabilityTime);
+    // End dash after the invulnerability time - use tracked timeout if game is available
+    if (this.player.game) {
+      this.dashTimeoutId = this.player.game.scheduleTimeout(() => {
+        this.active = false;
+      }, this.invulnerabilityTime);
+    } else {
+      // Fallback to regular timeout
+      this.dashTimeoutId = window.setTimeout(() => {
+        this.active = false;
+      }, this.invulnerabilityTime);
+    }
 
     return true;
   }
@@ -288,6 +296,19 @@ export class ShadowDash extends Ability {
    */
   getScaledInvulnerabilityTime(): number {
     return this.invulnerabilityTime + (this.level - 1) * 100;
+  }
+
+  /**
+   * Clean up ability resources
+   */
+  destroy(): void {
+    // Clear dash timeout if still pending
+    if (this.dashTimeoutId) {
+      window.clearTimeout(this.dashTimeoutId);
+      this.dashTimeoutId = 0;
+    }
+    this.active = false;
+    super.destroy();
   }
 }
 

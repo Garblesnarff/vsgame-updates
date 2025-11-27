@@ -142,9 +142,8 @@ export class BatSwarm extends Ability {
               type: 'blood', x: bat.x, y: bat.y, count: 3
             });
 
-            // Apply direct damage to the enemy, matching original implementation
-            // Original code used: enemy.health -= player.abilities.batSwarm.damage;
-            enemy.health -= this.damage;
+            // Apply scaled damage to the enemy
+            enemy.health -= this.getScaledDamage();
               
             // Update the enemy health bar
             enemy.updateHealthBar();
@@ -228,12 +227,24 @@ isBatOutOfBounds(bat: Bat): boolean {
 
   /**
    * Get damage scaled by ability level
-   * @returns Scaled damage for display purposes
+   * @returns Scaled damage
    */
   getScaledDamage(): number {
-    // For UI display purposes only
-    // This doesn't affect the actual damage calculation in update()
-    return this.damage;
+    // Scale damage with level: base + 50% per level above 1
+    return Math.floor(this.damage * (1 + (this.level - 1) * 0.5));
+  }
+
+  /**
+   * Get bat data for Phaser rendering
+   * @returns Array of bat position data
+   */
+  getBatRenderData(): Array<{ id: string; x: number; y: number; angle: number }> {
+    return this.bats.map((bat, index) => ({
+      id: `bat-${index}`,
+      x: bat.x,
+      y: bat.y,
+      angle: Math.atan2(bat.vy, bat.vx),
+    }));
   }
 
   /**

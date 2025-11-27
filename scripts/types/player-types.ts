@@ -91,9 +91,10 @@ export interface ILevelSystem {
   level: number;
   kills: number;
   killsToNextLevel: number;
-  
+
   addKill(): boolean;
   levelUp(): void;
+  forceLevelUp(): void;
   onLevelUp(callback: (level: number) => void): void;
   getLevel(): number;
   getKills(): number;

@@ -104,6 +104,9 @@ export class Player extends BaseEntity implements IPlayer {
   private markTimeoutId: number = 0;
   private energyBlockTimeoutId: number = 0; // Add this line
 
+  // Bound event handlers for cleanup
+  private boundApplyPassiveSkillBonuses: () => void;
+
   /**
    * Create a new player
    * @param gameContainer - DOM element containing the game
@@ -176,8 +179,9 @@ export class Player extends BaseEntity implements IPlayer {
     // Apply initial passive skill bonuses
     this.applyPassiveSkillBonuses();
 
-    // Listen for passive skill upgrades to re-apply bonuses
-    GameEvents.on(EVENTS.PASSIVE_SKILL_UPGRADED, this.applyPassiveSkillBonuses.bind(this));
+    // Store bound handler for cleanup and listen for passive skill upgrades
+    this.boundApplyPassiveSkillBonuses = this.applyPassiveSkillBonuses.bind(this);
+    GameEvents.on(EVENTS.PASSIVE_SKILL_UPGRADED, this.boundApplyPassiveSkillBonuses);
   }
 
   /**
@@ -1038,8 +1042,10 @@ export class Player extends BaseEntity implements IPlayer {
    * Destroy the player (backwards compatibility)
    */
   destroy(): void {
-    // Unsubscribe from passive skill upgrade event
-    GameEvents.off(EVENTS.PASSIVE_SKILL_UPGRADED, this.applyPassiveSkillBonuses.bind(this));
+    // Unsubscribe from passive skill upgrade event using stored bound handler
+    if (this.boundApplyPassiveSkillBonuses) {
+      GameEvents.off(EVENTS.PASSIVE_SKILL_UPGRADED, this.boundApplyPassiveSkillBonuses);
+    }
     this.cleanup();
   }
 }

@@ -5,7 +5,6 @@ import { BossSpawnSystem } from './boss-system';
 import { Boss } from '../entities/bosses';
 import { GameEvents, EVENTS } from '../utils/event-system';
 import { createLogger } from '../utils/logger';
-import { fixBossSpawnSystem } from './boss-system-fix';
 
 // Create a logger for this integration module
 const logger = createLogger('GameBossIntegration');
@@ -29,21 +28,18 @@ export interface GameBossProperties {
  */
 export function initializeBossSystem(game: any): void {
   logger.debug('Initializing boss system');
-  
+
   // Add boss-related properties
   game.bossSpawnSystem = new BossSpawnSystem(game.gameContainer, game);
   game.currentBoss = null;
   game.isInBossFight = false;
   game.regularSpawnRateBackup = 0;
-  
-  // Apply fixes to the boss spawn system
-  fixBossSpawnSystem(game.bossSpawnSystem);
-  
+
   // Listen for boss-related events
   GameEvents.on(EVENTS.BOSS_DEFEATED, () => {
     game.handleBossDefeated();
   });
-  
+
   logger.info('Boss system initialized');
 }
 
@@ -181,10 +177,9 @@ export function addBossMethods(game: any): void {
       this.player.abilityManager.resetAllCooldowns();
     }
     
-    // Grant player level up
+    // Grant player level up as a boss reward
     if (this.levelSystem) {
-      // Force a level up
-      this.levelSystem.forceGainExperience(this.levelSystem.getExperienceForNextLevel());
+      this.levelSystem.forceLevelUp();
     }
     
     // Grant a temporary buff (will depend on the boss type)
@@ -438,26 +433,23 @@ export function addBossMethods(game: any): void {
    * Reset boss system
    */
   game.resetBossSystem = function(): void {
-    // Reset boss spawn system
+    // Reset boss spawn system (timing is handled in reset() using CONFIG values)
     if (this.bossSpawnSystem) {
       this.bossSpawnSystem.reset();
-      
-      // Apply fixes again after reset - crucial to make boss appear at correct time
-      fixBossSpawnSystem(this.bossSpawnSystem);
-      console.log('BOSS SYSTEM: Reset completed and fixes reapplied');
+      console.log('BOSS SYSTEM: Reset completed');
     }
-    
+
     // Reset boss-related properties
     this.currentBoss = null;
     this.isInBossFight = false;
     this.regularSpawnRateBackup = 0;
-    
+
     // Clean up any leftover UI elements
     const buffContainer = document.getElementById('buff-container');
     if (buffContainer && buffContainer.parentNode) {
       buffContainer.parentNode.removeChild(buffContainer);
     }
-    
+
     logger.debug('Boss system reset');
   };
   

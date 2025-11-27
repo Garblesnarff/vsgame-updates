@@ -68,10 +68,16 @@ export class NightShield extends Ability {
     // Create shield visual element
     this.createShieldVisual();
 
-    // Set shield expiration timer
-    this.timerHandle = window.setTimeout(() => {
-      this.explodeShield();
-    }, this.duration);
+    // Set shield expiration timer - use tracked timeout if game is available
+    if (this.player.game) {
+      this.timerHandle = this.player.game.scheduleTimeout(() => {
+        this.explodeShield();
+      }, this.duration);
+    } else {
+      this.timerHandle = window.setTimeout(() => {
+        this.explodeShield();
+      }, this.duration);
+    }
 
     return true;
   }
@@ -104,6 +110,14 @@ export class NightShield extends Ability {
 
     // Add to game container
     this.player.gameContainer.appendChild(this.shieldElement);
+
+    // Emit ability visual event for Phaser rendering
+    GameEvents.emit(EVENTS.ABILITY_VISUAL, {
+      type: 'night-shield',
+      x: this.player.x + this.player.width / 2,
+      y: this.player.y + this.player.height / 2,
+      radius: 40
+    });
   }
 
   /**
@@ -258,6 +272,14 @@ export class NightShield extends Ability {
    * Create explosion visual effect
    */
   createExplosionEffect(): void {
+    // Emit ability visual event for Phaser explosion rendering
+    GameEvents.emit(EVENTS.ABILITY_VISUAL, {
+      type: 'night-shield-explosion',
+      x: this.player.x + this.player.width / 2,
+      y: this.player.y + this.player.height / 2,
+      range: this.explosionRange
+    });
+
     // Use UI manager if available
     if (this.player.game && this.player.game.uiManager) {
       this.player.game.uiManager.createShieldExplosion(
@@ -287,8 +309,12 @@ export class NightShield extends Ability {
 
     this.player.gameContainer.appendChild(explosion);
 
-    // Animate explosion
-    setTimeout(() => {
+    // Animate explosion - use tracked timeouts if game is available
+    const scheduleTimeout = this.player.game
+      ? this.player.game.scheduleTimeout.bind(this.player.game)
+      : (cb: () => void, delay: number) => window.setTimeout(cb, delay);
+
+    scheduleTimeout(() => {
       explosion.style.width = this.explosionRange * 2 + "px";
       explosion.style.height = this.explosionRange * 2 + "px";
       explosion.style.left =
@@ -298,9 +324,9 @@ export class NightShield extends Ability {
       explosion.style.opacity = "0.7";
     }, 10);
 
-    setTimeout(() => {
+    scheduleTimeout(() => {
       explosion.style.opacity = "0";
-      setTimeout(() => {
+      scheduleTimeout(() => {
         if (explosion.parentNode) {
           explosion.parentNode.removeChild(explosion);
         }
@@ -318,6 +344,9 @@ export class NightShield extends Ability {
     if (this.shieldElement && this.shieldElement.parentNode) {
       this.shieldElement.parentNode.removeChild(this.shieldElement);
     }
+
+    // Emit ability visual end event for Phaser rendering
+    GameEvents.emit(EVENTS.ABILITY_VISUAL, { type: 'night-shield-end' });
 
     this.shieldElement = null;
     this.shieldHealthBar = null;

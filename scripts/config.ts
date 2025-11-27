@@ -235,6 +235,7 @@ interface GameConfig {
   ABILITIES: AbilitiesConfig;
   UI: UIConfig;
   DROPS: DropsConfig; // Added for weapon drops
+  BOSS: BossConfig; // Boss encounter configuration
 }
 
 /**
@@ -252,9 +253,20 @@ interface DropTypeConfig {
  */
 interface DropsConfig {
   ENEMY_DROP_CHANCE: number; // Chance for any enemy to drop an item (0 to 1)
+  DESPAWN_TIME: number; // Time in ms before drops despawn
+  MAX_DROPS: number; // Maximum number of drops on screen at once
   MULTI_SHOT: DropTypeConfig;
   SPREAD_SHOT: DropTypeConfig;
   RAPID_FIRE: DropTypeConfig;
+}
+
+/**
+ * Configuration for boss encounters
+ */
+interface BossConfig {
+  FIRST_BOSS_TIME: number; // Time in ms until first boss spawns
+  SPAWN_INTERVAL: number; // Time in ms between boss spawns
+  WARNING_TIME: number; // Time in ms before boss spawn to show warning
 }
 
 /**
@@ -420,6 +432,8 @@ export const CONFIG: GameConfig = {
   // Weapon Drop Settings
   DROPS: {
     ENEMY_DROP_CHANCE: 0.1, // 10% chance for an enemy to drop an item
+    DESPAWN_TIME: 30000, // 30 seconds before drops despawn
+    MAX_DROPS: 50, // Maximum number of drops on screen at once
     MULTI_SHOT: {
       PROJECTILE_COUNT: 3,
       Y_OFFSET: 10, // Pixels above/below the center projectile
@@ -431,6 +445,13 @@ export const CONFIG: GameConfig = {
     RAPID_FIRE: {
       COOLDOWN_MULTIPLIER: 0.5, // Halves the auto-attack cooldown
     },
+  },
+
+  // Boss Encounter Settings
+  BOSS: {
+    FIRST_BOSS_TIME: 2 * 60 * 1000, // First boss at 2 minutes (gives player time to level up)
+    SPAWN_INTERVAL: 5 * 60 * 1000, // 5 minutes between bosses (300,000ms)
+    WARNING_TIME: 30 * 1000, // 30 second warning before boss spawn
   },
 };
 

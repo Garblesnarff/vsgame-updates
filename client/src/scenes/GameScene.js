@@ -15,6 +15,17 @@ export default class GameScene extends Phaser.Scene {
         this.enemySprites = new Map();
         this.projectileSprites = new Map();
         this.dropSprites = new Map();
+        this.batSprites = new Map();
+
+        // Boss health bar tracking
+        this.bossHealthBar = null;
+        this.bossHealthFill = null;
+        this.bossNameText = null;
+        this.currentBossId = null;
+
+        // Active ability visuals
+        this.bloodDrainCircle = null;
+        this.nightShieldCircle = null;
 
         // Particle emitters
         this.bloodEmitter = null;
@@ -122,6 +133,18 @@ export default class GameScene extends Phaser.Scene {
             shieldGraphics.fillCircle(4, 4, 4);
             shieldGraphics.generateTexture('shield-particle', 8, 8);
             shieldGraphics.destroy();
+        }
+
+        // Bat fallback (purple bat shape)
+        if (!this.textures.exists('bat-fallback')) {
+            const batGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+            batGraphics.fillStyle(0x800080, 1);
+            // Draw bat-like shape (body + wings)
+            batGraphics.fillEllipse(10, 5, 8, 6); // Body
+            batGraphics.fillTriangle(0, 3, 6, 5, 3, 8); // Left wing
+            batGraphics.fillTriangle(20, 3, 14, 5, 17, 8); // Right wing
+            batGraphics.generateTexture('bat-fallback', 20, 10);
+            batGraphics.destroy();
         }
 
         console.log('All fallback textures created');
@@ -258,19 +281,32 @@ export default class GameScene extends Phaser.Scene {
 
         // Sync drops
         this.syncDrops(state.drops || []);
+
+        // Sync bats (from Bat Swarm ability)
+        this.syncBats(state.bats || []);
     }
 
     syncEnemies(enemies) {
         const currentIds = new Set();
+        let currentBoss = null;
 
         for (const enemy of enemies) {
             currentIds.add(enemy.id);
+
+            // Check if this enemy is a boss (by type name or large size)
+            const isBoss = enemy.type === 'ChurchPaladin' ||
+                          enemy.type?.includes('Boss') ||
+                          (enemy.width >= 80 && enemy.height >= 80);
+
+            if (isBoss) {
+                currentBoss = enemy;
+            }
 
             let sprite = this.enemySprites.get(enemy.id);
 
             if (!sprite) {
                 // Create new sprite for this enemy
-                sprite = this.createEnemySprite(enemy);
+                sprite = this.createEnemySprite(enemy, isBoss);
                 this.enemySprites.set(enemy.id, sprite);
             }
 
@@ -294,6 +330,13 @@ export default class GameScene extends Phaser.Scene {
             }
         }
 
+        // Update boss health bar
+        if (currentBoss) {
+            this.updateBossHealthBar(currentBoss);
+        } else {
+            this.hideBossHealthBar();
+        }
+
         // Remove sprites for dead enemies
         for (const [id, sprite] of this.enemySprites) {
             if (!currentIds.has(id)) {
@@ -303,7 +346,7 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
-    createEnemySprite(enemy) {
+    createEnemySprite(enemy, isBoss = false) {
         // Always use fallback texture since we don't have image assets
         const textureKey = 'enemy-fallback';
 
@@ -313,7 +356,7 @@ export default class GameScene extends Phaser.Scene {
             textureKey
         );
         sprite.setDisplaySize(enemy.width, enemy.height);
-        sprite.setDepth(5);
+        sprite.setDepth(isBoss ? 7 : 5); // Bosses render above regular enemies
         sprite.setVisible(true);
 
         // Tint enemies based on type for visual distinction
@@ -325,8 +368,23 @@ export default class GameScene extends Phaser.Scene {
             'SilverMage': 0xc0c0c0,      // Silver
             'HolyPriest': 0xffff00,      // Yellow
             'VampireScout': 0x00ffff,    // Cyan
+            'ChurchPaladin': 0xffd700,   // Gold for boss
         };
         sprite.setTint(tintMap[enemy.type] || 0xcc0000);
+
+        // Add glow effect for bosses
+        if (isBoss) {
+            // Create a subtle pulsing effect
+            this.tweens.add({
+                targets: sprite,
+                scaleX: 1.05,
+                scaleY: 1.05,
+                duration: 500,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+        }
 
         return sprite;
     }
@@ -416,6 +474,38 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    syncBats(bats) {
+        const currentIds = new Set();
+
+        for (const bat of bats) {
+            currentIds.add(bat.id);
+
+            let sprite = this.batSprites.get(bat.id);
+
+            if (!sprite) {
+                // Create new bat sprite
+                sprite = this.add.sprite(bat.x, bat.y, 'bat-fallback');
+                sprite.setDisplaySize(20, 10);
+                sprite.setDepth(9); // Above most entities
+                sprite.setTint(0x800080); // Purple
+                this.batSprites.set(bat.id, sprite);
+            }
+
+            // Update position and rotation
+            sprite.x = bat.x;
+            sprite.y = bat.y;
+            sprite.rotation = bat.angle;
+        }
+
+        // Remove sprites for bats that no longer exist
+        for (const [id, sprite] of this.batSprites) {
+            if (!currentIds.has(id)) {
+                sprite.destroy();
+                this.batSprites.delete(id);
+            }
+        }
+    }
+
     emitParticles(data) {
         if (!data) return;
 
@@ -451,22 +541,198 @@ export default class GameScene extends Phaser.Scene {
 
     showAbilityVisual(data) {
         // Handle ability visual effects
-        // This will be expanded in Phase 6
         if (!data) return;
 
         switch (data.type) {
-            case 'blood-drain-beam':
-                // Create a line/beam effect
+            case 'blood-drain':
+                this.showBloodDrainCircle(data.x, data.y, data.range);
+                break;
+            case 'blood-drain-end':
+                this.hideBloodDrainCircle();
                 break;
             case 'shadow-dash-trail':
-                // Create trail particles
+                // Shadow trail is handled by particle emitter
+                if (this.shadowEmitter) {
+                    this.shadowEmitter.emitParticleAt(data.x, data.y, 5);
+                }
                 break;
             case 'night-shield':
-                // Create shield circle
+                this.showNightShieldCircle(data.x, data.y, data.radius);
+                break;
+            case 'night-shield-end':
+                this.hideNightShieldCircle();
+                break;
+            case 'night-shield-explosion':
+                this.showShieldExplosion(data.x, data.y, data.range);
                 break;
             default:
                 break;
         }
+    }
+
+    showBloodDrainCircle(x, y, range) {
+        // Remove existing circle
+        if (this.bloodDrainCircle) {
+            this.bloodDrainCircle.destroy();
+        }
+
+        // Create blood drain AOE circle
+        this.bloodDrainCircle = this.add.graphics();
+        this.bloodDrainCircle.lineStyle(3, 0x8b0000, 0.8);
+        this.bloodDrainCircle.strokeCircle(0, 0, range);
+        this.bloodDrainCircle.fillStyle(0x8b0000, 0.15);
+        this.bloodDrainCircle.fillCircle(0, 0, range);
+        this.bloodDrainCircle.setPosition(x, y);
+        this.bloodDrainCircle.setDepth(3);
+
+        // Add pulsing animation
+        this.tweens.add({
+            targets: this.bloodDrainCircle,
+            alpha: { from: 0.8, to: 0.4 },
+            duration: 500,
+            yoyo: true,
+            repeat: -1
+        });
+    }
+
+    hideBloodDrainCircle() {
+        if (this.bloodDrainCircle) {
+            this.tweens.killTweensOf(this.bloodDrainCircle);
+            this.bloodDrainCircle.destroy();
+            this.bloodDrainCircle = null;
+        }
+    }
+
+    showNightShieldCircle(x, y, radius) {
+        // Remove existing circle
+        if (this.nightShieldCircle) {
+            this.nightShieldCircle.destroy();
+        }
+
+        // Create night shield circle
+        this.nightShieldCircle = this.add.graphics();
+        this.nightShieldCircle.lineStyle(4, 0x8a2be2, 0.9);
+        this.nightShieldCircle.strokeCircle(0, 0, radius || 40);
+        this.nightShieldCircle.fillStyle(0x8a2be2, 0.2);
+        this.nightShieldCircle.fillCircle(0, 0, radius || 40);
+        this.nightShieldCircle.setPosition(x, y);
+        this.nightShieldCircle.setDepth(9);
+
+        // Add rotating animation
+        this.tweens.add({
+            targets: this.nightShieldCircle,
+            rotation: Math.PI * 2,
+            duration: 2000,
+            repeat: -1
+        });
+    }
+
+    hideNightShieldCircle() {
+        if (this.nightShieldCircle) {
+            this.tweens.killTweensOf(this.nightShieldCircle);
+            this.nightShieldCircle.destroy();
+            this.nightShieldCircle = null;
+        }
+    }
+
+    showShieldExplosion(x, y, range) {
+        // Create expanding ring effect
+        const explosion = this.add.graphics();
+        explosion.lineStyle(5, 0x8a2be2, 1);
+        explosion.strokeCircle(0, 0, 10);
+        explosion.setPosition(x, y);
+        explosion.setDepth(15);
+
+        // Animate explosion expanding
+        this.tweens.add({
+            targets: explosion,
+            scaleX: range / 10,
+            scaleY: range / 10,
+            alpha: { from: 1, to: 0 },
+            duration: 300,
+            ease: 'Power2',
+            onComplete: () => {
+                explosion.destroy();
+            }
+        });
+
+        // Emit particles
+        if (this.shieldEmitter) {
+            this.shieldEmitter.emitParticleAt(x, y, 20);
+        }
+    }
+
+    updateBossHealthBar(boss) {
+        // Create health bar if it doesn't exist
+        if (!this.bossHealthBar) {
+            this.createBossHealthBar();
+        }
+
+        // Update position (fixed at top of screen)
+        const cam = this.cameras.main;
+        const barWidth = 400;
+        const barX = cam.scrollX + cam.width / 2 - barWidth / 2;
+        const barY = cam.scrollY + 20;
+
+        this.bossHealthBar.setPosition(barX, barY);
+        this.bossHealthFill.setPosition(barX + 2, barY + 2);
+        this.bossNameText.setPosition(cam.scrollX + cam.width / 2, barY + 35);
+
+        // Update health fill width
+        const healthPercent = Math.max(0, boss.health / boss.maxHealth);
+        this.bossHealthFill.clear();
+        this.bossHealthFill.fillStyle(0xff0000, 1);
+        this.bossHealthFill.fillRect(0, 0, (barWidth - 4) * healthPercent, 26);
+
+        // Update name text
+        this.bossNameText.setText(boss.type || 'BOSS');
+
+        // Show all elements
+        this.bossHealthBar.setVisible(true);
+        this.bossHealthFill.setVisible(true);
+        this.bossNameText.setVisible(true);
+
+        this.currentBossId = boss.id;
+    }
+
+    createBossHealthBar() {
+        // Background bar
+        this.bossHealthBar = this.add.graphics();
+        this.bossHealthBar.fillStyle(0x333333, 0.9);
+        this.bossHealthBar.fillRoundedRect(0, 0, 400, 30, 5);
+        this.bossHealthBar.lineStyle(2, 0xffd700, 1);
+        this.bossHealthBar.strokeRoundedRect(0, 0, 400, 30, 5);
+        this.bossHealthBar.setDepth(100);
+        this.bossHealthBar.setScrollFactor(0);
+
+        // Health fill
+        this.bossHealthFill = this.add.graphics();
+        this.bossHealthFill.setDepth(101);
+        this.bossHealthFill.setScrollFactor(0);
+
+        // Boss name text
+        this.bossNameText = this.add.text(0, 0, 'BOSS', {
+            fontSize: '16px',
+            fontFamily: 'Arial',
+            color: '#ffd700',
+            fontStyle: 'bold'
+        });
+        this.bossNameText.setOrigin(0.5, 0);
+        this.bossNameText.setDepth(102);
+        this.bossNameText.setScrollFactor(0);
+    }
+
+    hideBossHealthBar() {
+        if (this.bossHealthBar) {
+            this.bossHealthBar.setVisible(false);
+        }
+        if (this.bossHealthFill) {
+            this.bossHealthFill.setVisible(false);
+        }
+        if (this.bossNameText) {
+            this.bossNameText.setVisible(false);
+        }
+        this.currentBossId = null;
     }
 
     update(time, delta) {
@@ -487,5 +753,24 @@ export default class GameScene extends Phaser.Scene {
         this.enemySprites.clear();
         this.projectileSprites.clear();
         this.dropSprites.clear();
+        this.batSprites.clear();
+
+        // Clean up ability visuals
+        this.hideBloodDrainCircle();
+        this.hideNightShieldCircle();
+
+        // Clean up boss health bar
+        if (this.bossHealthBar) {
+            this.bossHealthBar.destroy();
+            this.bossHealthBar = null;
+        }
+        if (this.bossHealthFill) {
+            this.bossHealthFill.destroy();
+            this.bossHealthFill = null;
+        }
+        if (this.bossNameText) {
+            this.bossNameText.destroy();
+            this.bossNameText = null;
+        }
     }
 }

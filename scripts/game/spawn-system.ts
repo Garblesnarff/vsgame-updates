@@ -218,15 +218,17 @@ export class SpawnSystem {
     // Create additional swarmers at positions around the circle
     for (let i = 1; i < actualSwarmSize; i++) {
       const spawnDelay = i * 150; // Quicker spawn sequence (150ms between each)
+      const swarmerIndex = i; // Capture index for closure
 
-      setTimeout(() => {
+      // Use tracked timeout for proper cleanup on restart
+      this.game.scheduleTimeout(() => {
         // Check enemy cap before spawning additional swarmers
         if (this.game.enemies && this.game.enemies.length >= CONFIG.MAX_ENEMIES) {
           return; // Skip spawning if at cap
         }
 
         // Calculate position around the circle
-        const swarmAngle = angle + (i * (2 * Math.PI / actualSwarmSize));
+        const swarmAngle = angle + (swarmerIndex * (2 * Math.PI / actualSwarmSize));
         const swarmX = centerX + Math.cos(swarmAngle) * spawnRadius;
         const swarmY = centerY + Math.sin(swarmAngle) * spawnRadius;
 

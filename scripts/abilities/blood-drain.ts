@@ -13,6 +13,7 @@ export class BloodDrain extends Ability {
   healAmount: number;
   duration: number;
   activeSince: number;
+  private durationTimeoutId: number = 0;
 
   /**
    * Create a new Blood Drain ability
@@ -79,12 +80,29 @@ export class BloodDrain extends Ability {
 
     this.player.gameContainer.appendChild(this.visualEffect);
 
-    // Deactivate after duration
-    setTimeout(() => {
-      if (this.active) {
-        this.deactivate();
-      }
-    }, this.duration);
+    // Emit ability visual event for Phaser rendering
+    GameEvents.emit(EVENTS.ABILITY_VISUAL, {
+      type: 'blood-drain',
+      x: this.player.x + this.player.width / 2,
+      y: this.player.y + this.player.height / 2,
+      range: range
+    });
+
+    // Deactivate after duration - use tracked timeout if game is available
+    if (this.player.game) {
+      this.durationTimeoutId = this.player.game.scheduleTimeout(() => {
+        if (this.active) {
+          this.deactivate();
+        }
+      }, this.duration);
+    } else {
+      // Fallback to regular timeout if game isn't available
+      this.durationTimeoutId = window.setTimeout(() => {
+        if (this.active) {
+          this.deactivate();
+        }
+      }, this.duration);
+    }
   }
 
   /**
@@ -93,11 +111,20 @@ export class BloodDrain extends Ability {
   deactivate(): void {
     this.active = false;
 
+    // Clear duration timeout if still pending
+    if (this.durationTimeoutId) {
+      window.clearTimeout(this.durationTimeoutId);
+      this.durationTimeoutId = 0;
+    }
+
     // Remove visual effect
     if (this.visualEffect && this.visualEffect.parentNode) {
       this.visualEffect.parentNode.removeChild(this.visualEffect);
       this.visualEffect = null;
     }
+
+    // Emit ability visual end event for Phaser rendering
+    GameEvents.emit(EVENTS.ABILITY_VISUAL, { type: 'blood-drain-end' });
 
     // Clean up any legacy blood nova DOM elements (Phaser handles new particles)
     const bloodNovaElements = document.querySelectorAll('.blood-nova');

@@ -196,4 +196,12 @@ levelUp(): void {
     stateStore.levelSystem.kills.set(0);
     stateStore.levelSystem.killsToNextLevel.set(CONFIG.LEVEL.KILLS_FOR_LEVELS[1]);
   }
+
+  /**
+   * Force a level up without requiring kills (for boss rewards, etc.)
+   */
+  forceLevelUp(): void {
+    this.levelUp();
+    logger.info(`Forced level up! New level: ${this.level}`);
+  }
 }

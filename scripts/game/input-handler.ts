@@ -11,6 +11,12 @@ export class InputHandler {
   mouseX: number;
   mouseY: number;
 
+  // Store bound handlers for cleanup
+  private boundHandleKeyDown: (e: KeyboardEvent) => void;
+  private boundHandleKeyUp: (e: KeyboardEvent) => void;
+  private boundHandleClick: (e: MouseEvent) => void;
+  private boundHandleMouseMove: (e: MouseEvent) => void;
+
   /**
    * Create a new input handler
    * @param game - Game instance
@@ -23,11 +29,17 @@ export class InputHandler {
     this.mouseX = 0;
     this.mouseY = 0;
 
-    // Bind event listeners
-    window.addEventListener("keydown", this.handleKeyDown.bind(this));
-    window.addEventListener("keyup", this.handleKeyUp.bind(this));
-    window.addEventListener("click", this.handleClick.bind(this));
-    window.addEventListener("mousemove", this.handleMouseMove.bind(this));
+    // Create bound handlers (store references for cleanup)
+    this.boundHandleKeyDown = this.handleKeyDown.bind(this);
+    this.boundHandleKeyUp = this.handleKeyUp.bind(this);
+    this.boundHandleClick = this.handleClick.bind(this);
+    this.boundHandleMouseMove = this.handleMouseMove.bind(this);
+
+    // Attach event listeners
+    window.addEventListener("keydown", this.boundHandleKeyDown);
+    window.addEventListener("keyup", this.boundHandleKeyUp);
+    window.addEventListener("click", this.boundHandleClick);
+    window.addEventListener("mousemove", this.boundHandleMouseMove);
   }
 
   /**
@@ -177,6 +189,18 @@ export class InputHandler {
    * Reset input state
    */
   reset(): void {
+    this.keys = {};
+  }
+
+  /**
+   * Clean up event listeners
+   * Call this when destroying the game to prevent memory leaks
+   */
+  cleanup(): void {
+    window.removeEventListener("keydown", this.boundHandleKeyDown);
+    window.removeEventListener("keyup", this.boundHandleKeyUp);
+    window.removeEventListener("click", this.boundHandleClick);
+    window.removeEventListener("mousemove", this.boundHandleMouseMove);
     this.keys = {};
   }
 }

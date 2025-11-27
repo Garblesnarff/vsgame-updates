@@ -1,11 +1,11 @@
 import { Player } from "../entities/player";
-import { setupBossSystem } from './boss-system-integration'; // Removed unused GameBossProperties import
-import { fixBossSpawnSystem } from './boss-system-fix';
+import { setupBossSystem } from './boss-system-integration';
 import { Projectile, ProjectileOptions } from "../entities/projectile";
 import { Enemy } from "../entities/enemies/base-enemy";
 import { Boss } from "../entities/bosses"; // <-- Import Boss type
 import { Drop } from "../entities/drop"; // <-- Import Drop type
 import { DropType } from "../types/drop-types"; // <-- Import DropType enum
+import { BatSwarm } from "../abilities/bat-swarm"; // For bat rendering sync
 import { VampireHunter } from "../entities/enemies/vampire-hunter";
 import { BasicEnemy } from "../entities/enemies/basic-enemy";
 import { FastSwarmer } from "../entities/enemies/fast-swarmer";
@@ -68,6 +68,9 @@ export class Game {
 
   // Player
   player: Player;
+
+  // Timeout tracking for cleanup
+  activeTimeouts: Set<number> = new Set();
 
   // --- Properties added by Boss Integration ---
   isInBossFight: boolean = false;
@@ -416,8 +419,8 @@ export class Game {
       document.head.appendChild(style);
     }
     
-    // Remove after animation completes
-    setTimeout(() => {
+    // Remove after animation completes (use tracked timeout)
+    this.scheduleTimeout(() => {
       if (effect.parentNode) {
         effect.parentNode.removeChild(effect);
       }
@@ -569,8 +572,20 @@ export class Game {
         y: d.y,
         type: d.type,
       })),
+      bats: this.getBatRenderData(),
       gameTime: this.gameTime,
     });
+  }
+
+  /**
+   * Get bat render data from BatSwarm ability for Phaser sync
+   */
+  getBatRenderData(): Array<{ id: string; x: number; y: number; angle: number }> {
+    const batSwarm = this.player?.abilityManager?.getAbility("batSwarm");
+    if (batSwarm && batSwarm instanceof BatSwarm) {
+      return batSwarm.getBatRenderData();
+    }
+    return [];
   }
 
   /**
@@ -1006,12 +1021,10 @@ export class Game {
     this.spawnSystem.reset();
     this.particleSystem.reset();
     
-    // Reset boss system
+    // Reset boss system (timing is handled in reset() using CONFIG values)
     if (this.bossSpawnSystem) {
       console.log('GAME: Resetting boss system during restart');
       this.bossSpawnSystem.reset();
-      // Reapply fixes to ensure correct timing
-      fixBossSpawnSystem(this.bossSpawnSystem);
     }
 
     // Update UI manager with new player reference
@@ -1249,11 +1262,43 @@ logger.groupEnd();
 }
 
 /**
+ * Schedule a timeout that will be tracked for cleanup
+ * @param callback - Function to call after delay
+ * @param delay - Delay in milliseconds
+ * @returns Timeout ID
+ */
+scheduleTimeout(callback: () => void, delay: number): number {
+  const timeoutId = window.setTimeout(() => {
+    this.activeTimeouts.delete(timeoutId);
+    callback();
+  }, delay);
+  this.activeTimeouts.add(timeoutId);
+  return timeoutId;
+}
+
+/**
+ * Clear all tracked timeouts
+ */
+clearAllTimeouts(): void {
+  for (const timeoutId of this.activeTimeouts) {
+    window.clearTimeout(timeoutId);
+  }
+  this.activeTimeouts.clear();
+  logger.debug(`Cleared ${this.activeTimeouts.size} active timeouts`);
+}
+
+/**
 * Clean up event listeners to prevent memory leaks
 */
 cleanupEventListeners(): void {
 // No need to unsubscribe from one-time events (GAME_INIT)
 // But we should unsubscribe from any events we've subscribed to
+
+// Clean up input handler listeners
+this.inputHandler.cleanup();
+
+// Clear all tracked timeouts
+this.clearAllTimeouts();
 
 // Remove all game-related events to prevent leaks
 GameEvents.removeAllListeners(EVENTS.GAME_START);
@@ -1440,10 +1485,12 @@ if (this.player) {
   }
 
   /**
-   * Updates active drops, checking for player collision.
+   * Updates active drops, checking for player collision and despawn timing.
    * @param deltaTime - Time since the last frame.
    */
   updateDropsLifecycle(deltaTime: number): void {
+    const now = Date.now();
+
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const drop = this.drops[i];
       drop.update(deltaTime); // Update drop (e.g., animation)
@@ -1454,10 +1501,24 @@ if (this.player) {
         this.player.pickupDrop(drop.type); // Notify player
         drop.cleanup(); // Remove drop element
         this.drops.splice(i, 1); // Remove from active drops array
-        // Optionally emit event: GameEvents.emit(EVENTS.PLAYER_PICKUP_DROP, drop.type);
+        continue;
       }
 
-      // TODO: Add logic for drop timeout/despawn?
+      // Despawn drops after timeout
+      if (now - drop.createdAt >= CONFIG.DROPS.DESPAWN_TIME) {
+        logger.debug(`Drop ${drop.id} despawned after timeout`);
+        drop.cleanup();
+        this.drops.splice(i, 1);
+      }
+    }
+
+    // Enforce maximum drops limit - remove oldest if over limit
+    while (this.drops.length > CONFIG.DROPS.MAX_DROPS) {
+      const oldestDrop = this.drops.shift(); // Remove the oldest (first in array)
+      if (oldestDrop) {
+        logger.debug(`Drop ${oldestDrop.id} removed due to max drops limit`);
+        oldestDrop.cleanup();
+      }
     }
   }
 }

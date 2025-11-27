@@ -16,6 +16,8 @@ export class Drop extends BaseEntity {
   public y: number;
   width: number;
   height: number;
+  // Timestamp for despawn tracking
+  createdAt: number;
 
   /**
    * Creates a new Drop instance.
@@ -34,6 +36,8 @@ export class Drop extends BaseEntity {
     this.height = 20;
     this.x = x - this.width / 2; // Center the drop on the spawn location
     this.y = y - this.height / 2;
+    // Track creation time for despawn
+    this.createdAt = Date.now();
 
     // Create the DOM element
     this.element = document.createElement('div');
