@@ -49,6 +49,24 @@ export class BatSwarm extends Ability {
   }
 
   /**
+   * Check if the ability can be used
+   * Override to allow multiple swarms (skip active check)
+   */
+  canUse(): boolean {
+    if (!this.unlocked) {
+      return false;
+    }
+
+    const now = Date.now();
+    const onCooldown = now - this.lastUsed < this.cooldown;
+    const hasEnergy = this.player.stats.getEnergy() >= this.energyCost;
+    const isStunned = this.player.isStunned;
+
+    // Skip the !this.active check to allow multiple swarms
+    return !onCooldown && hasEnergy && !isStunned;
+  }
+
+  /**
    * Use the bat swarm ability
    * @returns Whether the ability was used
    */

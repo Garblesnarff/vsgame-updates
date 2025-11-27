@@ -285,9 +285,6 @@ export class Game {
     // Create passive skill menu
     this.passiveSkillMenu = new PassiveSkillMenu(this);
 
-    // Initialize ability UI
-    this.player.abilityManager.initializeUI();
-
     // Initialize boss system
     setupBossSystem(this);
 
@@ -1012,9 +1009,6 @@ export class Game {
     
     // Also ensure that saved values are loaded and reapplied
     this.passiveSkillMenu.loadSavedSkills();
-
-    // Initialize player abilities
-    this.player.abilityManager.initializeUI();
 
     // Reset game systems
     this.gameTime = 0;

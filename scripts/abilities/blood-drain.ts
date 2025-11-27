@@ -163,6 +163,13 @@ export class BloodDrain extends Ability {
         this.player.y + this.player.height / 2 - range + "px";
     }
 
+    // Update Phaser visual position
+    GameEvents.emit(EVENTS.ABILITY_VISUAL, {
+      type: 'blood-drain-update',
+      x: this.player.x + this.player.width / 2,
+      y: this.player.y + this.player.height / 2,
+    });
+
     // Create pulsing effect around player (occasionally)
     if (Math.random() < 0.1) {
       // Emit particle event for Phaser rendering

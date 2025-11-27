@@ -63,6 +63,9 @@ export default class GameScene extends Phaser.Scene {
 
         // Load drop sprites
         this.load.image('drop', 'assets/images/drop.png');
+
+        // Load background tile
+        this.load.image('background-tile', 'assets/images/background.jpeg');
     }
 
     createFallbackTextures() {
@@ -156,6 +159,16 @@ export default class GameScene extends Phaser.Scene {
 
         // Set world bounds
         this.physics.world.setBounds(0, 0, CONFIG.WORLD_WIDTH, CONFIG.WORLD_HEIGHT);
+
+        // Create tiled background
+        this.backgroundTile = this.add.tileSprite(
+            0, 0,
+            CONFIG.WORLD_WIDTH,
+            CONFIG.WORLD_HEIGHT,
+            'background-tile'
+        );
+        this.backgroundTile.setOrigin(0, 0);
+        this.backgroundTile.setDepth(-1); // Behind everything
 
         // Draw world border (subtle gray boundary)
         const border = this.add.graphics();
@@ -549,6 +562,11 @@ export default class GameScene extends Phaser.Scene {
                 break;
             case 'blood-drain-end':
                 this.hideBloodDrainCircle();
+                break;
+            case 'blood-drain-update':
+                if (this.bloodDrainCircle) {
+                    this.bloodDrainCircle.setPosition(data.x, data.y);
+                }
                 break;
             case 'shadow-dash-trail':
                 // Shadow trail is handled by particle emitter

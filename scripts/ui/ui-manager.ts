@@ -35,6 +35,7 @@ export class UIManager {
       this.gameContainer,
       this.player.abilityManager
     );
+    this.abilityBar.initialize();
     this.skillMenu = new SkillMenu(this.game);
     this.screensManager = new ScreensManager(this.gameContainer);
 
