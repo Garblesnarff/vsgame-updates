@@ -54,11 +54,6 @@ export function updateBossSystem(game: any, deltaTime: number): void {
     return;
   }
   
-  // Only log every 10 seconds to reduce console spam
-  if (Math.floor(game.gameTime / 1000) % 10 === 0) {
-    console.log(`BOSS INTEGRATION: updateBossSystem called with gameTime=${game.gameTime}ms (${Math.floor(game.gameTime/1000)}s), state=${game.stateManager.getCurrentState()}, isInBossFight=${game.isInBossFight}`);
-  }
-  
   // Check for boss spawning if not in a boss fight
   if (!game.isInBossFight) {
     const boss = game.bossSpawnSystem.update(game.gameTime, game.player.level);
@@ -82,7 +77,6 @@ export function addBossMethods(game: any): void {
    */
   game.startBossFight = function(boss: Boss): void {
     logger.info(`Starting boss fight with ${boss.name}`);
-    console.log(`BOSS FIGHT: Starting boss fight with ${boss.name}`);
 
     // --- BEGIN ADDED CODE: Clear existing non-boss enemies ---
     logger.debug(`Clearing ${this.enemies.length} existing enemies for boss fight.`);

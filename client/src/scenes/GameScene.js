@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { GameEvents, EVENTS } from '../../../scripts/utils/event-system';
 import CONFIG from '../../../scripts/config';
 
+console.log('=== GAMESCENE.JS LOADED - UPDATED VERSION WITH ENEMY SPRITES ===');
+
 /**
  * GameScene - Main Phaser scene that renders all game entities
  * This is a "dumb" rendering layer that subscribes to events from the game logic layer
@@ -39,7 +41,35 @@ export default class GameScene extends Phaser.Scene {
         // Try to load assets but don't fail if they don't exist
         // Fallback textures will be created in create()
         this.load.on('loaderror', (file) => {
-            console.warn(`Failed to load asset: ${file.key} from ${file.url}`);
+            console.error(`LOAD ERROR: ${file.key} from ${file.url}`);
+        });
+
+        this.load.on('filecomplete', (key, type, data) => {
+            console.log(`LOAD SUCCESS: ${key} (${type})`);
+        });
+
+        this.load.on('complete', () => {
+            console.log('=== ALL ASSETS LOADED ===');
+            // Log which textures are available
+            const textureKeys = ['basic-enemy', 'fast-swarmer', 'vampire-hunter', 'tanky-brute',
+                                 'silver-mage', 'holy-priest', 'vampire-scout', 'church-paladin', 'player'];
+            textureKeys.forEach(key => {
+                console.log(`  Texture '${key}': ${this.textures.exists(key) ? 'EXISTS' : 'MISSING'}`);
+            });
+
+            // Mark textures as ready - sprites created before this used fallback
+            this.texturesReady = true;
+
+            // Update existing sprites to use proper textures (instead of destroying them)
+            if (this.enemySprites && this.enemySprites.size > 0) {
+                console.log(`Updating ${this.enemySprites.size} sprites to use proper textures`);
+                this.enemySprites.forEach((sprite, id) => {
+                    const enemyType = sprite.getData('enemyType');
+                    if (enemyType) {
+                        this.updateSpriteTexture(sprite, enemyType);
+                    }
+                });
+            }
         });
 
         // Load player spritesheet
@@ -48,14 +78,40 @@ export default class GameScene extends Phaser.Scene {
             frameHeight: 32
         });
 
-        // Load enemy spritesheets
-        this.load.image('basic-enemy', 'assets/images/enemies/basic/basic_character_sheet.png');
-        this.load.image('fast-swarmer', 'assets/images/enemies/basic/basic_character_sheet.png');
-        this.load.image('vampire-hunter', 'assets/images/enemies/basic/basic_character_sheet.png');
-        this.load.image('tanky-brute', 'assets/images/enemies/basic/basic_character_sheet.png');
-        this.load.image('silver-mage', 'assets/images/enemies/basic/basic_character_sheet.png');
-        this.load.image('holy-priest', 'assets/images/enemies/basic/basic_character_sheet.png');
-        this.load.image('vampire-scout', 'assets/images/enemies/basic/basic_character_sheet.png');
+        // Load enemy spritesheets - each type has unique sprite
+        this.load.spritesheet('basic-enemy', 'assets/images/enemies/basic/basic_character_sheet.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('fast-swarmer', 'assets/images/enemies/swarmer/crow-all.png', {
+            frameWidth: 48,
+            frameHeight: 48
+        });
+        this.load.spritesheet('vampire-hunter', 'assets/images/enemies/hunter/paladin.png', {
+            frameWidth: 128,
+            frameHeight: 96
+        });
+        this.load.spritesheet('tanky-brute', 'assets/images/enemies/brute/Sword_Walk_full.png', {
+            frameWidth: 64,
+            frameHeight: 64
+        });
+        // Wizard: 384x64 image, 6 frames = 64x64 each (image height is 64, width per frame is 64)
+        this.load.spritesheet('silver-mage', 'assets/images/enemies/mage/wizzard-Run-Sheet.png', {
+            frameWidth: 64,
+            frameHeight: 64
+        });
+        this.load.spritesheet('holy-priest', 'assets/images/enemies/priest/heroine_attack.png', {
+            frameWidth: 128,
+            frameHeight: 64
+        });
+        this.load.spritesheet('vampire-scout', 'assets/images/enemies/scout/hero-walk-front.png', {
+            frameWidth: 32,
+            frameHeight: 32
+        });
+        this.load.spritesheet('church-paladin', 'assets/images/enemies/boss/paladin.png', {
+            frameWidth: 128,
+            frameHeight: 96
+        });
 
         // Load projectile sprites (simple colored shapes for now)
         this.load.image('projectile-player', 'assets/images/projectile.png');
@@ -153,9 +209,96 @@ export default class GameScene extends Phaser.Scene {
         console.log('All fallback textures created');
     }
 
+    setupEnemyAnimations() {
+        // BasicEnemy - idle bob (4 columns, 6 rows)
+        if (this.textures.exists('basic-enemy')) {
+            this.anims.create({
+                key: 'basic-enemy-idle',
+                frames: this.anims.generateFrameNumbers('basic-enemy', { start: 0, end: 3 }),
+                frameRate: 6,
+                repeat: -1
+            });
+        }
+
+        // FastSwarmer - crow flying (3x3 grid = 9 frames)
+        if (this.textures.exists('fast-swarmer')) {
+            this.anims.create({
+                key: 'swarmer-fly',
+                frames: this.anims.generateFrameNumbers('fast-swarmer', { start: 0, end: 8 }),
+                frameRate: 12,
+                repeat: -1
+            });
+        }
+
+        // VampireHunter - paladin idle stance (first row, 4 frames)
+        if (this.textures.exists('vampire-hunter')) {
+            this.anims.create({
+                key: 'hunter-idle',
+                frames: this.anims.generateFrameNumbers('vampire-hunter', { start: 0, end: 3 }),
+                frameRate: 6,
+                repeat: -1
+            });
+        }
+
+        // TankyBrute - swordsman walking (6 cols, 4 rows - use first row)
+        if (this.textures.exists('tanky-brute')) {
+            this.anims.create({
+                key: 'brute-walk',
+                frames: this.anims.generateFrameNumbers('tanky-brute', { start: 0, end: 5 }),
+                frameRate: 8,
+                repeat: -1
+            });
+        }
+
+        // SilverMage - wizard running (6 frames horizontal)
+        if (this.textures.exists('silver-mage')) {
+            this.anims.create({
+                key: 'mage-run',
+                frames: this.anims.generateFrameNumbers('silver-mage', { start: 0, end: 5 }),
+                frameRate: 10,
+                repeat: -1
+            });
+        }
+
+        // HolyPriest - heroine attack stance (5 frames)
+        if (this.textures.exists('holy-priest')) {
+            this.anims.create({
+                key: 'priest-attack',
+                frames: this.anims.generateFrameNumbers('holy-priest', { start: 0, end: 4 }),
+                frameRate: 8,
+                repeat: -1
+            });
+        }
+
+        // VampireScout - hero walking (6 frames)
+        if (this.textures.exists('vampire-scout')) {
+            this.anims.create({
+                key: 'scout-walk',
+                frames: this.anims.generateFrameNumbers('vampire-scout', { start: 0, end: 5 }),
+                frameRate: 10,
+                repeat: -1
+            });
+        }
+
+        // ChurchPaladin (Boss) - same as hunter but different animation set
+        if (this.textures.exists('church-paladin')) {
+            this.anims.create({
+                key: 'paladin-idle',
+                frames: this.anims.generateFrameNumbers('church-paladin', { start: 0, end: 3 }),
+                frameRate: 6,
+                repeat: -1
+            });
+        }
+
+        console.log('Enemy animations created');
+    }
+
     create() {
         // Create fallback textures FIRST (before any sprites)
         this.createFallbackTextures();
+
+        // Setup enemy animations
+        this.setupEnemyAnimations();
 
         // Set world bounds
         this.physics.world.setBounds(0, 0, CONFIG.WORLD_WIDTH, CONFIG.WORLD_HEIGHT);
@@ -327,19 +470,20 @@ export default class GameScene extends Phaser.Scene {
             sprite.x = enemy.x + enemy.width / 2;
             sprite.y = enemy.y + enemy.height / 2;
 
-            // Update size if needed
-            sprite.setDisplaySize(enemy.width, enemy.height);
+            // Scale is set once during creation, no need to update every frame
 
-            // Health-based tinting (redder as health decreases)
-            if (enemy.maxHealth > 0) {
+            // Health-based visual feedback (only when significantly damaged)
+            // Only apply damage tint for sprites using fallback textures
+            const usesFallback = sprite.getData('usesFallback');
+            if (usesFallback && enemy.maxHealth > 0) {
                 const healthPercent = enemy.health / enemy.maxHealth;
-                const tint = Phaser.Display.Color.Interpolate.ColorWithColor(
-                    { r: 255, g: 0, b: 0 },
-                    { r: 255, g: 255, b: 255 },
-                    100,
-                    healthPercent * 100
-                );
-                sprite.setTint(Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b));
+                if (healthPercent < 0.3) {
+                    // Flash red when very low health
+                    const flashIntensity = (0.3 - healthPercent) / 0.3;
+                    const redTint = Math.floor(255 * (1 - flashIntensity * 0.5));
+                    sprite.setTint(Phaser.Display.Color.GetColor(255, redTint, redTint));
+                }
+                // Don't clear tint - it was set during sprite creation
             }
         }
 
@@ -360,30 +504,108 @@ export default class GameScene extends Phaser.Scene {
     }
 
     createEnemySprite(enemy, isBoss = false) {
-        // Always use fallback texture since we don't have image assets
-        const textureKey = 'enemy-fallback';
+        // Map enemy types to their specific textures
+        const textureMap = {
+            'BasicEnemy': 'basic-enemy',
+            'FastSwarmer': 'fast-swarmer',
+            'VampireHunter': 'vampire-hunter',
+            'TankyBrute': 'tanky-brute',
+            'SilverMage': 'silver-mage',
+            'HolyPriest': 'holy-priest',
+            'VampireScout': 'vampire-scout',
+            'ChurchPaladin': 'church-paladin'
+        };
+
+        // Map enemy types to their animations
+        const animationMap = {
+            'BasicEnemy': 'basic-enemy-idle',
+            'FastSwarmer': 'swarmer-fly',
+            'VampireHunter': 'hunter-idle',
+            'TankyBrute': 'brute-walk',
+            'SilverMage': 'mage-run',
+            'HolyPriest': 'priest-attack',
+            'VampireScout': 'scout-walk',
+            'ChurchPaladin': 'paladin-idle'
+        };
+
+        // Frame dimensions and actual visible character sizes
+        // charW/charH = approximate size of visible character within the frame
+        const frameSizes = {
+            'BasicEnemy': { w: 32, h: 32, charW: 28, charH: 28 },     // Character fills frame
+            'FastSwarmer': { w: 48, h: 48, charW: 40, charH: 35 },    // Crow
+            'VampireHunter': { w: 128, h: 96, charW: 35, charH: 50 }, // Small char in large frame
+            'TankyBrute': { w: 64, h: 64, charW: 50, charH: 55 },     // Swordsman
+            'SilverMage': { w: 64, h: 64, charW: 45, charH: 55 },     // Wizard
+            'HolyPriest': { w: 128, h: 64, charW: 40, charH: 55 },    // Heroine attack
+            'VampireScout': { w: 32, h: 32, charW: 24, charH: 28 },   // Small hero
+            'ChurchPaladin': { w: 128, h: 96, charW: 35, charH: 50 }  // Boss paladin
+        };
+
+        // Get texture key, fall back to 'enemy-fallback' if texture doesn't exist
+        let textureKey = textureMap[enemy.type] || 'basic-enemy';
+        const textureExists = this.textures.exists(textureKey);
+        const usesFallback = !textureExists;
+
+        // Debug: Log which texture is being used
+        console.log(`Enemy ${enemy.type}: texture=${textureKey}, exists=${textureExists}, usesFallback=${usesFallback}`);
+
+        if (usesFallback) {
+            textureKey = 'enemy-fallback';
+        }
 
         const sprite = this.add.sprite(
             enemy.x + enemy.width / 2,
             enemy.y + enemy.height / 2,
             textureKey
         );
-        sprite.setDisplaySize(enemy.width, enemy.height);
+
+        // Calculate proper scale to make visible character 2x the collision size
+        let scale = 1.0;
+        if (usesFallback) {
+            // Fallback textures: use displaySize directly (they're simple shapes)
+            sprite.setDisplaySize(enemy.width * 2, enemy.height * 2);
+        } else {
+            // For real sprites: scale based on frame size to achieve 2x visibility
+            const frameInfo = frameSizes[enemy.type] || { w: 32, h: 32, charW: 28, charH: 28 };
+            // Target: visible character should be 2x the enemy's collision size
+            const targetSize = Math.max(enemy.width, enemy.height) * 2;
+            // Scale factor: how much to scale the frame so visible char = targetSize
+            scale = targetSize / Math.min(frameInfo.charW, frameInfo.charH);
+            sprite.setScale(scale);
+        }
+
         sprite.setDepth(isBoss ? 7 : 5); // Bosses render above regular enemies
         sprite.setVisible(true);
 
-        // Tint enemies based on type for visual distinction
-        const tintMap = {
-            'BasicEnemy': 0xcc0000,      // Red
-            'FastSwarmer': 0x00cc00,     // Green
-            'VampireHunter': 0xa05000,   // Brown
-            'TankyBrute': 0x6a0dad,      // Purple
-            'SilverMage': 0xc0c0c0,      // Silver
-            'HolyPriest': 0xffff00,      // Yellow
-            'VampireScout': 0x00ffff,    // Cyan
-            'ChurchPaladin': 0xffd700,   // Gold for boss
-        };
-        sprite.setTint(tintMap[enemy.type] || 0xcc0000);
+        // Store data for later use in syncEnemies and texture updates
+        sprite.setData('spriteScale', scale);
+        sprite.setData('usesFallback', usesFallback);
+        sprite.setData('enemyType', enemy.type);
+        sprite.setData('isBoss', isBoss);
+
+        // Play animation if available
+        const animKey = animationMap[enemy.type];
+        if (animKey && this.anims.exists(animKey)) {
+            sprite.play(animKey);
+        }
+
+        // Only apply tint for boss (gold glow) or if using fallback texture
+        if (isBoss) {
+            sprite.setTint(0xffd700); // Gold tint for boss
+        } else if (usesFallback) {
+            // Fallback tinting for enemies without proper sprites
+            const tintMap = {
+                'BasicEnemy': 0xcc0000,
+                'FastSwarmer': 0x00cc00,
+                'VampireHunter': 0xa05000,
+                'TankyBrute': 0x6a0dad,
+                'SilverMage': 0xc0c0c0,
+                'HolyPriest': 0xffff00,
+                'VampireScout': 0x00ffff,
+                'ChurchPaladin': 0xffd700
+            };
+            sprite.setTint(tintMap[enemy.type] || 0xcc0000);
+        }
 
         // Add glow effect for bosses
         if (isBoss) {
@@ -400,6 +622,77 @@ export default class GameScene extends Phaser.Scene {
         }
 
         return sprite;
+    }
+
+    updateSpriteTexture(sprite, enemyType) {
+        // Map enemy types to their specific textures
+        const textureMap = {
+            'BasicEnemy': 'basic-enemy',
+            'FastSwarmer': 'fast-swarmer',
+            'VampireHunter': 'vampire-hunter',
+            'TankyBrute': 'tanky-brute',
+            'SilverMage': 'silver-mage',
+            'HolyPriest': 'holy-priest',
+            'VampireScout': 'vampire-scout',
+            'ChurchPaladin': 'church-paladin'
+        };
+
+        // Map enemy types to their animations
+        const animationMap = {
+            'BasicEnemy': 'basic-enemy-idle',
+            'FastSwarmer': 'swarmer-fly',
+            'VampireHunter': 'hunter-idle',
+            'TankyBrute': 'brute-walk',
+            'SilverMage': 'mage-run',
+            'HolyPriest': 'priest-attack',
+            'VampireScout': 'scout-walk',
+            'ChurchPaladin': 'paladin-idle'
+        };
+
+        // Frame dimensions and actual visible character sizes
+        const frameSizes = {
+            'BasicEnemy': { w: 32, h: 32, charW: 28, charH: 28 },
+            'FastSwarmer': { w: 48, h: 48, charW: 40, charH: 35 },
+            'VampireHunter': { w: 128, h: 96, charW: 35, charH: 50 },
+            'TankyBrute': { w: 64, h: 64, charW: 50, charH: 55 },
+            'SilverMage': { w: 64, h: 64, charW: 45, charH: 55 },
+            'HolyPriest': { w: 128, h: 64, charW: 40, charH: 55 },
+            'VampireScout': { w: 32, h: 32, charW: 24, charH: 28 },
+            'ChurchPaladin': { w: 128, h: 96, charW: 35, charH: 50 }
+        };
+
+        const textureKey = textureMap[enemyType] || 'basic-enemy';
+        const textureExists = this.textures.exists(textureKey);
+
+        if (textureExists) {
+            // Update to proper texture
+            sprite.setTexture(textureKey);
+            sprite.setData('usesFallback', false);
+
+            // Recalculate scale for the new texture
+            const frameInfo = frameSizes[enemyType] || { w: 32, h: 32, charW: 28, charH: 28 };
+            // Use stored enemy dimensions or estimate from current display size
+            const currentScale = sprite.getData('spriteScale') || 1.0;
+            const estimatedEnemySize = 25; // Most enemies are 25x25
+            const targetSize = estimatedEnemySize * 2;
+            const scale = targetSize / Math.min(frameInfo.charW, frameInfo.charH);
+            sprite.setScale(scale);
+            sprite.setData('spriteScale', scale);
+
+            // Start animation
+            const animKey = animationMap[enemyType];
+            if (animKey && this.anims.exists(animKey)) {
+                sprite.play(animKey);
+            }
+
+            // Clear fallback tint (unless it's a boss)
+            const isBoss = sprite.getData('isBoss');
+            if (!isBoss) {
+                sprite.clearTint();
+            }
+
+            console.log(`Updated sprite for ${enemyType} to use proper texture`);
+        }
     }
 
     syncProjectiles(projectiles) {

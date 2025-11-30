@@ -517,12 +517,10 @@ export class Game {
 
     // Update boss system if it exists
     if (this.bossSpawnSystem) {
-      console.log(`GAME: Updating boss system at game time ${Math.floor(this.gameTime/1000)}s`);
       const boss = this.bossSpawnSystem.update(this.gameTime, this.player.level);
       if (boss) {
         // Add boss to enemies array
         this.enemies.push(boss);
-        console.log(`GAME: Boss added to enemies array`);
       }
     }
 

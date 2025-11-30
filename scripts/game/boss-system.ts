@@ -72,36 +72,23 @@ export class BossSpawnSystem {
    * @returns New boss if spawned, otherwise null
    */
   update(gameTime: number, playerLevel: number): Boss | null {
-    // Log every 10 seconds
-    if (Math.floor(gameTime / 1000) % 10 === 0) {
-      // Convert to minutes and seconds for clearer logging
-      const currentMinutes = Math.floor(gameTime / 60000);
-      const currentSeconds = Math.floor((gameTime % 60000) / 1000);
-      const nextBossMinutes = Math.floor(this.nextBossTime / 60000);
-      const nextBossSeconds = Math.floor((this.nextBossTime % 60000) / 1000);
-      
-      console.log(`BOSS SYSTEM: Current game time: ${currentMinutes}:${currentSeconds.toString().padStart(2, '0')}, Next boss at: ${nextBossMinutes}:${nextBossSeconds.toString().padStart(2, '0')}, Warning shown: ${this.hasShownWarning}`);
-    }
+    // Boss timer tracking (logging removed to reduce console spam)
 
     // Check if we should show a warning
     const warningTime = this.nextBossTime - this.bossWarningTime;
     if (!this.hasShownWarning && gameTime >= warningTime) {
-      console.log(`BOSS SYSTEM: Warning time reached at game time ${Math.floor(gameTime/1000)}s`);
       this.showBossWarning(this.getBossTypeForNextSpawn());
       this.hasShownWarning = true;
       this.lastBossWarningTime = gameTime;
     }
-    
+
     // Check if it's time to spawn a boss
     if (gameTime >= this.nextBossTime) {
-      console.log(`BOSS SYSTEM: Boss spawn time reached at game time ${Math.floor(gameTime/1000)}s`);
-      
       // Reset warning flag
       this.hasShownWarning = false;
-      
+
       // Set next boss time
       this.nextBossTime = gameTime + this.bossSpawnInterval;
-      console.log(`BOSS SYSTEM: Next boss time set to ${Math.floor(this.nextBossTime/1000)}s`);
       
       // Spawn boss
       return this.spawnBoss(playerLevel);
