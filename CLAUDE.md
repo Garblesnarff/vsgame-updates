@@ -4,28 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a browser-based vampire survival game built with TypeScript, Phaser 3 (for rendering), and Webpack. Players control a vampire fighting waves of enemies, using abilities, leveling up, and facing boss encounters. The game features a skill tree system, various enemy types with unique behaviors, and a comprehensive entity lifecycle management system.
+Browser-based vampire survival game built with TypeScript, Phaser 3 (rendering), and Webpack. Players control a vampire fighting waves of enemies, using abilities, leveling up, and facing boss encounters.
 
 ## Development Commands
 
-### Core Development
-- **Start dev server**: `npm run dev` - Launches webpack-dev-server on port 9901 with hot reload
-- **Build for production**: `npm run build` - Creates optimized bundle in `dist/`
-- **Type checking**: `npm run typecheck` - Run TypeScript compiler without emitting files
-- **Watch TypeScript**: `npm run watch:ts` - TypeScript compilation in watch mode
+```bash
+# Development
+npm run dev          # Start dev server on http://localhost:9901 (hot reload)
+npm run build        # Production build to dist/
+npm run typecheck    # TypeScript type checking
 
-### Testing
-- **Run tests**: `npm test` - Runs Jest test suite
-- **Watch tests**: `npm run test:watch` - Jest in watch mode for active development
-- **Coverage report**: `npm run test:coverage` - Generates test coverage reports
+# Testing
+npm test                           # Run all tests
+npm test -- path/to/file.test.ts   # Run single test file
+npm run test:watch                 # Watch mode
+npm run test:coverage              # Coverage report
 
-### Code Quality
-- **Lint**: `npm run lint` - Check code with ESLint
-- **Lint fix**: `npm run lint:fix` - Auto-fix linting issues
-- **Generate docs**: `npm run docs` - Creates TypeDoc documentation in `docs/`
-
-### Legacy
-- **Simple HTTP server**: `npm start` - Basic http-server on port 3000 (legacy, use `npm run dev` instead)
+# Code Quality
+npm run lint         # ESLint check
+npm run lint:fix     # Auto-fix lint issues
+```
 
 ## Architecture Overview
 
@@ -204,19 +202,6 @@ Located in `scripts/ui/`:
 - **StatsDisplay** (`stats-display.ts`): Player health/energy bars
 - **Screens** (`screens.ts`): Game over, level up screens
 
-### Utilities
-
-Located in `scripts/utils/`:
-- **logger.ts**: Centralized logging with log levels (DEBUG, INFO, WARN, ERROR)
-- **error-handler.ts**: Structured error handling with categories and severity
-- **event-system.ts**: EventEmitter implementation
-- **persistence.ts**: LocalStorage management for save data
-- **asset-manager.ts**: Asset loading/caching
-- **collision.ts**: Collision detection helpers
-- **math.ts**: Math utilities
-- **dom.ts**: DOM manipulation helpers
-- **dom-templates.ts**: Reusable DOM template creation
-
 ### Phaser 3 Client (`client/src/`)
 
 The Phaser rendering layer handles visuals:
@@ -236,56 +221,19 @@ The Phaser rendering layer handles visuals:
   - `ParticleEffects.js` - Phaser particle systems
   - `AnimationEffects.js` - Sprite animations
 
-### Assets
-
-Located in `client/assets/`:
-- **Images**: `client/assets/images/` - Spritesheets and textures
-  - `player/vampire_character.png` - Player sprite
-  - `enemies/basic/basic_character_sheet.png` - Enemy sprites
-- **Sounds**: `client/assets/sounds/` - Audio files (placeholder)
-- **Fonts**: `client/assets/fonts/` - Custom fonts (placeholder)
-
 ## Key Files and Entry Points
 
-- **Main entry**: `scripts/main.ts` - Initializes game, sets up error handling, starts `Game`
+- **Main entry**: `scripts/main.ts` - Initializes game, starts `Game`
 - **Game core**: `scripts/game/game.ts` - Main `Game` class, orchestrates all systems
 - **Config**: `scripts/config.ts` - Game configuration constants
-- **HTML template**: `index.html` - Base HTML structure with stat displays, overlays
-- **Webpack config**: `webpack.config.js` - Build configuration
-- **TypeScript config**: `tsconfig.json` - TypeScript compiler settings
-
-## TypeScript Configuration
-
-- **Target**: ES2020
-- **Module**: ESNext with bundler resolution
-- **Strict mode**: Enabled with all strict flags
-- **Output**: `dist/` directory
-- **Source maps**: Enabled for debugging
-- **Lib**: ES2020, DOM, DOM.Iterable
-
-## Testing Infrastructure
-
-- **Framework**: Jest with ts-jest and jsdom
-- **Test location**: Tests should be in `scripts/**/__tests__/` or `*.test.ts` files
-- **Coverage**: Configured to collect from `scripts/**/*.{js,ts}` (excluding tests)
-- **Setup**: `jest.setup.js` for test environment configuration
+- **Enemy configs**: `scripts/config/enemy-configs.ts` - Data-driven enemy stats
 
 ## Code Quality Standards
 
-### ESLint Configuration
-- **Extends**: `eslint:recommended`, `@typescript-eslint/recommended`, `prettier`
-- **Key rules**:
-  - No `console.log` (use `logger` instead)
-  - Prefer `const` over `let`
-  - No `var` keyword
-  - Strict equality (`===`)
-  - Unused vars must start with `_`
-- **TypeScript rules**: `@typescript-eslint/no-explicit-any` is a warning (not error)
-
 ### Logging Convention
-**Always use the logger instead of `console.log`**:
+**Always use the logger instead of `console.log`** (ESLint enforces this):
 ```typescript
-import { createLogger, LogLevel } from "./utils/logger";
+import { createLogger } from "./utils/logger";
 const logger = createLogger('ModuleName');
 logger.debug('Debug message');
 logger.info('Info message');
@@ -293,210 +241,128 @@ logger.warn('Warning message');
 logger.error('Error message', error);
 ```
 
-### Error Handling Convention
-Use structured error handling:
-```typescript
-import { handleError, createError, ErrorCategory, ErrorSeverity } from "./utils/error-handler";
-
-handleError(
-  createError('Error message', {
-    severity: ErrorSeverity.HIGH,
-    category: ErrorCategory.GAME_STATE,
-    module: 'ModuleName',
-    recoverable: false,
-    context: { additionalInfo: 'value' }
-  })
-);
-```
-
 ## Important Patterns and Conventions
 
-### Entity Creation Pattern (with Object Pooling)
+### Pooled vs Non-Pooled Entity Lifecycle
 
-**For Pooled Entities (Enemies, Projectiles)**:
+**For Pooled Entities (Enemies, Projectiles)** - Use `pool.release()` not `cleanup()`:
 ```typescript
-// Acquire from pool
-const pool = game.enemyPools.get('basicEnemy');
-const enemy = pool.acquire();
-
-// Initialize with options
-enemy.init({
-  playerLevel: game.player.level,
-  config: ENEMY_CONFIGS.basicEnemy,
-  poolKey: 'basicEnemy'
-});
-
-// Add to game arrays
-game.enemies.push(enemy);
-game.spatialGrid.insert(enemy);
-
-// ... entity lives and updates ...
-
-// Release back to pool (instead of cleanup)
-pool.release(enemy);
-game.enemies.splice(index, 1);
+const enemy = game.enemyPools.get('basicEnemy').acquire();
+enemy.init({ playerLevel, config: ENEMY_CONFIGS.basicEnemy, poolKey: 'basicEnemy' });
+// ... later ...
+game.enemyPools.get('basicEnemy').release(enemy);  // NOT enemy.cleanup()
 ```
 
-**For Non-Pooled Entities (Player, Drops, Particles)**:
-1. Create entity instance: `const entity = new Entity(gameContainer)`
-2. Call `initialize()` explicitly
-3. Entity automatically registers with `EntityRegistry`
-4. Game loop calls `update(deltaTime)` each frame
-5. Call `cleanup()` when removing entity
-6. Remove from game arrays: `game.drops.splice(index, 1)`
-
-**Important**: Never call `cleanup()` on pooled entities - always use `pool.release(entity)` instead!
+**For Non-Pooled Entities (Player, Drops)** - Use standard lifecycle:
+```typescript
+const entity = new Entity(gameContainer);
+entity.initialize();
+// ... later ...
+entity.cleanup();
+```
 
 ### State Store Usage
-For reactive game state:
 ```typescript
 import stateStore from "./game/state-store";
-
-// Read state
 const killPoints = stateStore.game.availableKillPoints.get();
-
-// Update state (triggers subscribers)
 stateStore.game.availableKillPoints.set(newValue);
-
-// Subscribe to changes
-const unsubscribe = stateStore.game.availableKillPoints.subscribe(
-  'uniqueKey',
-  (newValue, oldValue) => { /* react to change */ }
-);
+const unsubscribe = stateStore.game.availableKillPoints.subscribe('key', (newVal) => { });
 ```
 
 ### Event System Usage
 ```typescript
 import { GameEvents, EVENTS } from "./utils/event-system";
-
-// Emit event
 GameEvents.emit(EVENTS.PLAYER_LEVEL_UP, playerLevel);
-
-// Subscribe to event
-const unsubscribe = GameEvents.on(EVENTS.PLAYER_LEVEL_UP, (level) => {
-  // Handle event
-});
-
-// Unsubscribe when done
-unsubscribe();
+const unsubscribe = GameEvents.on(EVENTS.PLAYER_LEVEL_UP, (level) => { });
 ```
 
-### Webpack Integration
-- **Entry**: `scripts/main.ts`
-- **Output**: `dist/js/[name].[contenthash].js`
-- **Dev server**: Port 9901, hot reload enabled
-- **CSS**: Loaded via `style-loader` and `css-loader`
-- **Assets**: Images, sounds, fonts handled via asset modules
+## Task Management with Beads
 
-## Directory-Specific READMEs
+This project uses [Beads](https://github.com/steveyegge/beads) for AI-agent-friendly issue tracking. Beads provides persistent memory across sessions via a git-backed issue database.
 
-Many directories contain their own README.md files with detailed information:
-- `scripts/README.md` - Scripts directory overview
-- `scripts/abilities/README.md` - Abilities system details
-- `scripts/ecs/README.md` - ECS architecture
-- `scripts/entities/README.md` - Entity system and lifecycle
-- `scripts/hsm/README.md` - State machine info
-- `scripts/ui/README.md` - UI components
-- `scripts/utils/README.md` - Utility functions
-- `client/README.md` - Client/Phaser layer
-- `DIRECTORY_RULES.md` - Guidelines for directory README structure
+### Quick Reference
 
-## Special Documentation Files
+```bash
+# View ready work (no blockers)
+bd ready                    # Human-readable
+bd ready --json             # For programmatic use
 
-- **ADVANCED_LIFECYCLE.md**: Comprehensive guide to entity lifecycle management and the Entity Registry system
-- **DOM_CONSTANTS_README.md**: Full guide to DOM element constant usage and templates
-- **DIRECTORY_RULES.md**: Template and guidelines for creating directory READMEs
+# Issue lifecycle
+bd create "Fix collision detection bug"   # Create issue
+bd update bd-a1b2 --status in_progress    # Start work
+bd close bd-a1b2 --reason "Fixed in commit abc123"  # Complete
+
+# Exploration
+bd list                     # All issues
+bd show bd-a1b2             # Issue details
+bd dep tree bd-a1b2         # Dependency graph
+```
+
+### Session Workflow
+
+**Start of session**:
+```bash
+bd ready                    # See what's ready to work on
+```
+
+**During work**: Create issues for newly discovered tasks:
+```bash
+bd create "Refactor enemy spawn system"
+bd dep add bd-new bd-current --type discovered-from
+```
+
+**End of session**:
+1. File issues for remaining/discovered work
+2. Close completed issues with clear reasons
+3. Run `bd sync` to ensure state is saved
+
+### Issue IDs
+
+Beads uses hash-based IDs: `bd-a1b2`, `bd-f14c`. Child issues use dot notation: `bd-a3f8e9.1`.
+
+### Dependency Types
+
+- **blocks**: Issue A must complete before B
+- **parent-child**: Hierarchical task breakdown
+- **discovered-from**: Work found during another task
+- **related**: Connected but independent
+
+### Key Files
+
+- `.beads/beads.jsonl` - Issue database (committed to git)
+- `.beads/beads.db` - Local SQLite cache (gitignored)
 
 ## Common Development Workflows
 
 ### Adding a New Enemy Type
-1. **Create enemy config** in `scripts/config/enemy-configs.ts`:
-   ```typescript
-   myNewEnemy: {
-     width: 30, height: 30,
-     baseHealth: 50, baseDamage: 5,
-     speed: 1.0, sprite: 'new-enemy'
-   }
-   ```
-
-2. **Create enemy class** in `scripts/entities/enemies/new-enemy.ts`:
-   - Extend `base-enemy.ts`
-   - Constructor should only take `gameContainer` (no playerLevel)
-   - Initialize DOM elements and default properties in constructor
-   - Override `init(options: EnemyOptions)` if needed for custom initialization
-   - Override `reset()` if you have custom cleanup (call `super.reset()` first)
-   - Override `update(deltaTime)` for custom behavior
-
-3. **Add to exports** in `scripts/entities/enemies/index.ts`
-
-4. **Register in object pool** in `scripts/game/game.ts` constructor:
-   ```typescript
-   { key: 'myNewEnemy', type: MyNewEnemy, prewarm: 10 }
-   ```
-
-5. **Update spawn system** in `scripts/game/spawn-system.ts`:
-   - Add spawn method using pool: `pool.get('myNewEnemy').acquire()`
-   - Add to spawn weight/probability logic
-
-6. **Add Phaser rendering** in `client/src/scenes/managers/EnemyManager.js`
-
-7. **Add assets** to `client/assets/images/enemies/`
+1. Add config in `scripts/config/enemy-configs.ts`
+2. Create class in `scripts/entities/enemies/` extending `base-enemy.ts`
+   - Constructor takes only `gameContainer`
+   - Override `init()`, `reset()`, `update()` as needed
+3. Export in `scripts/entities/enemies/index.ts`
+4. Register pool in `scripts/game/game.ts` constructor
+5. Add to spawn logic in `scripts/game/spawn-system.ts`
+6. Add Phaser rendering in `client/src/scenes/managers/EnemyManager.js`
 
 ### Adding a New Ability
-1. Create new file in `scripts/abilities/` extending `ability-base.ts`
-2. Implement `activate(player, game)` method
-3. Define `config` with cooldown, energyCost, icon, keybind
-4. Register in `ability-manager.ts`
-5. Add UI icon/styling in `styles/abilities.css`
-6. Add visual effects in `client/src/scenes/managers/AbilityVisualManager.js`
-
-### Adding a New UI Component
-1. Create class in `scripts/ui/` with proper DOM element management
-2. Use `DOM_IDS` and `CSS_CLASSES` constants from `scripts/constants/dom-elements.ts`
-3. Prefer `Templates` from `scripts/utils/dom-templates.ts` for complex UI
-4. Add styling in appropriate `styles/*.css` file
-5. Integrate with `UIManager` if needed
-6. Subscribe to relevant events via `GameEvents`
+1. Create class in `scripts/abilities/` extending `ability-base.ts`
+2. Implement `activate(player, game)` with cooldown, energyCost, keybind
+3. Register in `ability-manager.ts`
+4. Add visuals in `client/src/scenes/managers/AbilityVisualManager.js`
 
 ### Debugging
-- **Development mode**: Game instance exposed as `window.vampireGame`
-- **Logging**: Adjust log level via `setLogLevel(LogLevel.DEBUG)` in `scripts/main.ts`
-- **Source maps**: Enabled in both dev and production builds
-- **Entity tracking**: Use `EntityRegistry.getInstance().getAll()` to inspect entities
-- **State inspection**: Access `stateStore` to view current game state
+- **Dev mode**: Game instance at `window.vampireGame`
+- **Entity tracking**: `EntityRegistry.getInstance().getAll()`
+- **State inspection**: `stateStore` in console
 
-## Browser Compatibility
+## Architecture Notes
 
-The game checks for:
-- `requestAnimationFrame` support
-- `localStorage` availability (for save data)
-- `addEventListener` support
+1. **Dual Codebases**: `scripts/` (TypeScript logic) and `client/` (Phaser rendering) are separate. Logic manages state, client renders it.
 
-Warnings are shown if localStorage is unavailable (game progress won't save).
+2. **Partial ECS**: `scripts/ecs/` exists but most code uses traditional OOP.
 
-## Production vs Development
+3. **State Management Hybrid**: `StateStore` for reactive data, `GameStateManager` for game flow states.
 
-- **Development** (`npm run dev`):
-  - Log level: DEBUG (all logs)
-  - Source maps: `eval-source-map` (fast)
-  - Game instance on `window.vampireGame`
-  - Hot module reloading
+4. **Boss System**: Main integration point is `boss-system-integration.ts`.
 
-- **Production** (`npm run build`):
-  - Log level: ERROR (errors only)
-  - Source maps: `source-map` (separate files)
-  - Minified HTML/CSS/JS
-  - Code splitting for vendors
-  - No debug globals
-
-## Known Architecture Notes
-
-1. **Partial ECS**: The project has ECS components/systems but doesn't fully use ECS throughout. Most code is traditional OOP with classes.
-
-2. **Dual Codebases**: `scripts/` (logic) and `client/` (rendering) are separate. This separation allows business logic to be independent of rendering concerns.
-
-3. **Boss System Integration**: Boss system has multiple integration files (`boss-system.ts`, `boss-system-integration.ts`, `boss-system-fix.ts`) indicating iterative development. The main integration point is `boss-system-integration.ts`.
-
-4. **State Management Hybrid**: Uses both `StateStore` (reactive) and `GameStateManager` (state machine). `StateStore` is for reactive data, `GameStateManager` is for game flow states.
-
-5. **Entity Registry**: Provides centralized entity tracking but adoption may be partial. Some entities may be tracked only in game arrays (`game.enemies`, `game.projectiles`).
+5. **Object Pooling**: Critical for performance. `tsconfig.json` has `strictPropertyInitialization: false` to support this pattern.

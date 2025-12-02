@@ -43,6 +43,12 @@ export class Enemy extends BaseEntity implements Poolable<EnemyOptions> {
   // Collision tracking
   isCollidingWithPlayer: boolean = false;
 
+  // Animation state for Phaser rendering
+  animationState: 'idle' | 'run' | 'attack' | 'death' = 'idle';
+
+  // Facing direction for directional animations
+  facingDirection: 'up' | 'down' | 'left' | 'right' = 'down';
+
   /**
    * Create a new enemy
    * @param gameContainer - DOM element containing the game
@@ -108,6 +114,8 @@ export class Enemy extends BaseEntity implements Poolable<EnemyOptions> {
       this.maxHealth = 0;
       this.damage = 0;
       this.isCollidingWithPlayer = false;
+      this.animationState = 'idle';
+      this.facingDirection = 'down';
       this.poolKey = '';
 
       if(this.element) {
@@ -178,6 +186,16 @@ export class Enemy extends BaseEntity implements Poolable<EnemyOptions> {
     // Normalize and apply speed
     this.x += (dx / dist) * this.speed;
     this.y += (dy / dist) * this.speed;
+
+    // Calculate facing direction based on movement
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.facingDirection = dx > 0 ? 'right' : 'left';
+    } else {
+      this.facingDirection = dy > 0 ? 'down' : 'up';
+    }
+
+    // Set animation state based on action
+    this.animationState = this.isCollidingWithPlayer ? 'attack' : 'run';
 
     this.updatePosition();
   }

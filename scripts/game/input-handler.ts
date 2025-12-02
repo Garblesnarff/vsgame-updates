@@ -35,6 +35,21 @@ export class InputHandler {
     this.boundHandleClick = this.handleClick.bind(this);
     this.boundHandleMouseMove = this.handleMouseMove.bind(this);
 
+    // Initialize event listeners
+    this.init();
+  }
+
+  /**
+   * Initialize/re-initialize event listeners
+   * Called from constructor and after restart
+   */
+  init(): void {
+    // Remove any existing listeners first to prevent duplicates
+    window.removeEventListener("keydown", this.boundHandleKeyDown);
+    window.removeEventListener("keyup", this.boundHandleKeyUp);
+    window.removeEventListener("click", this.boundHandleClick);
+    window.removeEventListener("mousemove", this.boundHandleMouseMove);
+
     // Attach event listeners
     window.addEventListener("keydown", this.boundHandleKeyDown);
     window.addEventListener("keyup", this.boundHandleKeyUp);
@@ -59,8 +74,8 @@ export class InputHandler {
       return;
     }
 
-    if ((e.key === "s" || e.key === "S") && this.game.isRunning()) {
-      // 'S' to toggle skill menu
+    if ((e.key === "t" || e.key === "T") && this.game.isRunning()) {
+      // 'T' to toggle skill menu
       this.game.toggleSkillMenu();
       return;
     }

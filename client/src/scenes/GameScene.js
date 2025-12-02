@@ -79,9 +79,17 @@ export default class GameScene extends Phaser.Scene {
         });
 
         // Load enemy spritesheets - each type has unique sprite
-        this.load.spritesheet('basic-enemy', 'assets/images/enemies/basic/basic_character_sheet.png', {
-            frameWidth: 32,
-            frameHeight: 32
+        // BasicEnemy uses peasant spritesheet: 1024x1024, 4x4 grid = 256x256 per frame
+        // Row 0: idle, Row 1: run, Row 2: attack, Row 3: death
+        this.load.spritesheet('basic-enemy', 'assets/images/enemies/basic/peasant-animation.png', {
+            frameWidth: 256,
+            frameHeight: 256
+        });
+        // BasicEnemy walk animation: 512x512, 4x4 grid = 128x128 per frame (16 frames)
+        // Row 0: DOWN, Row 1: LEFT, Row 2: UP, Row 3: RIGHT
+        this.load.spritesheet('basic-enemy-walk', 'assets/images/enemies/basic/peasant-walk-16.png', {
+            frameWidth: 128,
+            frameHeight: 128
         });
         this.load.spritesheet('fast-swarmer', 'assets/images/enemies/swarmer/crow-all.png', {
             frameWidth: 48,
@@ -210,12 +218,42 @@ export default class GameScene extends Phaser.Scene {
     }
 
     setupEnemyAnimations() {
-        // BasicEnemy - idle bob (4 columns, 6 rows)
-        if (this.textures.exists('basic-enemy')) {
+        // BasicEnemy - 16-frame walk spritesheet (4x4 grid, 128x128 frames)
+        // Row 0: DOWN, Row 1: RIGHT, Row 2: UP, Row 3: LEFT (first 2 frames only)
+        if (this.textures.exists('basic-enemy-walk')) {
+            // DOWN - front-facing (row 0, frames 0-3)
+            this.anims.create({
+                key: 'basic-enemy-walk-down',
+                frames: this.anims.generateFrameNumbers('basic-enemy-walk', { start: 0, end: 3 }),
+                frameRate: 8,
+                repeat: -1
+            });
+            // RIGHT - side walking right (row 1, frames 4-7)
+            this.anims.create({
+                key: 'basic-enemy-walk-right',
+                frames: this.anims.generateFrameNumbers('basic-enemy-walk', { start: 4, end: 7 }),
+                frameRate: 8,
+                repeat: -1
+            });
+            // UP - back-facing (row 2, frames 8-11)
+            this.anims.create({
+                key: 'basic-enemy-walk-up',
+                frames: this.anims.generateFrameNumbers('basic-enemy-walk', { start: 8, end: 11 }),
+                frameRate: 8,
+                repeat: -1
+            });
+            // LEFT - side walking left (row 3, frames 12-13 only - only 2 left-facing frames exist)
+            this.anims.create({
+                key: 'basic-enemy-walk-left',
+                frames: this.anims.generateFrameNumbers('basic-enemy-walk', { start: 12, end: 13 }),
+                frameRate: 8,
+                repeat: -1
+            });
+            // IDLE - use first down frames
             this.anims.create({
                 key: 'basic-enemy-idle',
-                frames: this.anims.generateFrameNumbers('basic-enemy', { start: 0, end: 3 }),
-                frameRate: 6,
+                frames: this.anims.generateFrameNumbers('basic-enemy-walk', { start: 0, end: 1 }),
+                frameRate: 4,
                 repeat: -1
             });
         }
@@ -472,6 +510,17 @@ export default class GameScene extends Phaser.Scene {
 
             // Scale is set once during creation, no need to update every frame
 
+            // Handle directional animation switching for BasicEnemy
+            if (enemy.type === 'BasicEnemy' && enemy.facingDirection) {
+                const targetAnim = `basic-enemy-walk-${enemy.facingDirection}`;
+                const currentAnim = sprite.anims.currentAnim?.key;
+
+                // Only switch if animation changed (avoid restart) and animation exists
+                if (currentAnim !== targetAnim && this.anims.exists(targetAnim)) {
+                    sprite.play(targetAnim);
+                }
+            }
+
             // Health-based visual feedback (only when significantly damaged)
             // Only apply damage tint for sprites using fallback textures
             const usesFallback = sprite.getData('usesFallback');
@@ -506,7 +555,7 @@ export default class GameScene extends Phaser.Scene {
     createEnemySprite(enemy, isBoss = false) {
         // Map enemy types to their specific textures
         const textureMap = {
-            'BasicEnemy': 'basic-enemy',
+            'BasicEnemy': 'basic-enemy-walk',  // 64-frame walk spritesheet
             'FastSwarmer': 'fast-swarmer',
             'VampireHunter': 'vampire-hunter',
             'TankyBrute': 'tanky-brute',
@@ -518,7 +567,7 @@ export default class GameScene extends Phaser.Scene {
 
         // Map enemy types to their animations
         const animationMap = {
-            'BasicEnemy': 'basic-enemy-idle',
+            'BasicEnemy': 'basic-enemy-walk-down',  // Default to facing down
             'FastSwarmer': 'swarmer-fly',
             'VampireHunter': 'hunter-idle',
             'TankyBrute': 'brute-walk',
@@ -531,7 +580,7 @@ export default class GameScene extends Phaser.Scene {
         // Frame dimensions and actual visible character sizes
         // charW/charH = approximate size of visible character within the frame
         const frameSizes = {
-            'BasicEnemy': { w: 32, h: 32, charW: 28, charH: 28 },     // Character fills frame
+            'BasicEnemy': { w: 128, h: 128, charW: 90, charH: 110 },  // Peasant with pitchfork (128x128 frames)
             'FastSwarmer': { w: 48, h: 48, charW: 40, charH: 35 },    // Crow
             'VampireHunter': { w: 128, h: 96, charW: 35, charH: 50 }, // Small char in large frame
             'TankyBrute': { w: 64, h: 64, charW: 50, charH: 55 },     // Swordsman
@@ -632,7 +681,7 @@ export default class GameScene extends Phaser.Scene {
     updateSpriteTexture(sprite, enemyType) {
         // Map enemy types to their specific textures
         const textureMap = {
-            'BasicEnemy': 'basic-enemy',
+            'BasicEnemy': 'basic-enemy-walk',  // 64-frame walk spritesheet
             'FastSwarmer': 'fast-swarmer',
             'VampireHunter': 'vampire-hunter',
             'TankyBrute': 'tanky-brute',
@@ -644,7 +693,7 @@ export default class GameScene extends Phaser.Scene {
 
         // Map enemy types to their animations
         const animationMap = {
-            'BasicEnemy': 'basic-enemy-idle',
+            'BasicEnemy': 'basic-enemy-walk-down',  // Default to facing down
             'FastSwarmer': 'swarmer-fly',
             'VampireHunter': 'hunter-idle',
             'TankyBrute': 'brute-walk',
@@ -656,7 +705,7 @@ export default class GameScene extends Phaser.Scene {
 
         // Frame dimensions and actual visible character sizes
         const frameSizes = {
-            'BasicEnemy': { w: 32, h: 32, charW: 28, charH: 28 },
+            'BasicEnemy': { w: 128, h: 128, charW: 90, charH: 110 },  // Peasant (128x128 frames)
             'FastSwarmer': { w: 48, h: 48, charW: 40, charH: 35 },
             'VampireHunter': { w: 128, h: 96, charW: 35, charH: 50 },
             'TankyBrute': { w: 64, h: 64, charW: 50, charH: 55 },
