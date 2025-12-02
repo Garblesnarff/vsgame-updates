@@ -559,6 +559,9 @@ export default class GameScene extends Phaser.Scene {
             textureKey
         );
 
+        // Start invisible to prevent frame 0 flash before animation starts
+        sprite.setVisible(false);
+
         // Calculate proper scale to make visible character 2x the collision size
         let scale = 1.0;
         if (usesFallback) {
@@ -575,7 +578,6 @@ export default class GameScene extends Phaser.Scene {
         }
 
         sprite.setDepth(isBoss ? 7 : 5); // Bosses render above regular enemies
-        sprite.setVisible(true);
 
         // Store data for later use in syncEnemies and texture updates
         sprite.setData('spriteScale', scale);
@@ -588,6 +590,9 @@ export default class GameScene extends Phaser.Scene {
         if (animKey && this.anims.exists(animKey)) {
             sprite.play(animKey);
         }
+
+        // Make sprite visible AFTER animation is set up (prevents frame 0 flash)
+        sprite.setVisible(true);
 
         // Only apply tint for boss (gold glow) or if using fallback texture
         if (isBoss) {
