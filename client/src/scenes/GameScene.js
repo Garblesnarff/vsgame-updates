@@ -85,11 +85,11 @@ export default class GameScene extends Phaser.Scene {
             frameWidth: 256,
             frameHeight: 256
         });
-        // BasicEnemy walk animation: 512x512, 4x4 grid = 128x128 per frame (16 frames)
+        // BasicEnemy walk animation: 1024x1024, 4x4 grid = 256x256 per frame (16 frames)
         // Row 0: DOWN, Row 1: LEFT, Row 2: UP, Row 3: RIGHT
         this.load.spritesheet('basic-enemy-walk', 'assets/images/enemies/basic/peasant-walk-16.png', {
-            frameWidth: 128,
-            frameHeight: 128
+            frameWidth: 256,
+            frameHeight: 256
         });
         this.load.spritesheet('fast-swarmer', 'assets/images/enemies/swarmer/crow-all.png', {
             frameWidth: 48,
@@ -580,7 +580,7 @@ export default class GameScene extends Phaser.Scene {
         // Frame dimensions and actual visible character sizes
         // charW/charH = approximate size of visible character within the frame
         const frameSizes = {
-            'BasicEnemy': { w: 128, h: 128, charW: 90, charH: 110 },  // Peasant with pitchfork (128x128 frames)
+            'BasicEnemy': { w: 256, h: 256, charW: 180, charH: 220 },  // Peasant with pitchfork (256x256 frames)
             'FastSwarmer': { w: 48, h: 48, charW: 40, charH: 35 },    // Crow
             'VampireHunter': { w: 128, h: 96, charW: 35, charH: 50 }, // Small char in large frame
             'TankyBrute': { w: 64, h: 64, charW: 50, charH: 55 },     // Swordsman
@@ -705,7 +705,7 @@ export default class GameScene extends Phaser.Scene {
 
         // Frame dimensions and actual visible character sizes
         const frameSizes = {
-            'BasicEnemy': { w: 128, h: 128, charW: 90, charH: 110 },  // Peasant (128x128 frames)
+            'BasicEnemy': { w: 256, h: 256, charW: 180, charH: 220 },  // Peasant (256x256 frames)
             'FastSwarmer': { w: 48, h: 48, charW: 40, charH: 35 },
             'VampireHunter': { w: 128, h: 96, charW: 35, charH: 50 },
             'TankyBrute': { w: 64, h: 64, charW: 50, charH: 55 },
