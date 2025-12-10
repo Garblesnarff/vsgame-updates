@@ -1,6 +1,6 @@
 /**
  * Game loop manager
- * Handles the main game update and render loop
+ * Handles the main game update and render loop with frame rate limiting
  */
 export class GameLoop {
   lastTimestamp: number;
@@ -8,13 +8,21 @@ export class GameLoop {
   gamePaused: boolean;
   pauseOverlay: HTMLElement | null;
   updateCallback: ((deltaTime: number) => void) | null;
+  targetFPS: number;
+  frameInterval: number;
+  lastFrameTime: number;
+  accumulatedTime: number;
 
-  constructor() {
+  constructor(targetFPS: number = 60) {
     this.lastTimestamp = 0;
     this.gameRunning = false;
     this.gamePaused = false;
     this.pauseOverlay = null;
     this.updateCallback = null;
+    this.targetFPS = targetFPS;
+    this.frameInterval = 1000 / targetFPS; // Target frame time in ms
+    this.lastFrameTime = 0;
+    this.accumulatedTime = 0;
   }
 
   /**
@@ -86,6 +94,7 @@ export class GameLoop {
 
   /**
    * Main update function called on each animation frame
+   * Implements frame rate limiting to maintain consistent target FPS
    * @param timestamp - Current timestamp
    */
   update(timestamp: number): void {
@@ -93,16 +102,29 @@ export class GameLoop {
       return;
     }
 
-    // Calculate delta time
-    const deltaTime = timestamp - (this.lastTimestamp || timestamp);
-    this.lastTimestamp = timestamp;
-
-    // Skip updates if game is paused
-    if (!this.gamePaused && this.updateCallback) {
-      this.updateCallback(deltaTime);
+    // Initialize lastFrameTime on first call
+    if (this.lastFrameTime === 0) {
+      this.lastFrameTime = timestamp;
     }
 
-    // Request next frame
+    // Calculate delta time since last frame
+    const deltaTime = timestamp - this.lastFrameTime;
+    this.accumulatedTime += deltaTime;
+
+    // Update if we have enough accumulated time for a frame
+    if (this.accumulatedTime >= this.frameInterval) {
+      // Skip updates if game is paused
+      if (!this.gamePaused && this.updateCallback) {
+        // Use fixed timestep for consistent game logic
+        this.updateCallback(this.frameInterval);
+      }
+
+      // Consume the frame interval from accumulated time
+      this.accumulatedTime -= this.frameInterval;
+      this.lastFrameTime = timestamp;
+    }
+
+    // Request next frame (always maintain the animation frame loop)
     requestAnimationFrame(this.update.bind(this));
   }
 }

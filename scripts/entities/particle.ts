@@ -1,5 +1,6 @@
 import { BaseEntity } from "./base-entity";
 import { createLogger } from "../utils/logger";
+import { Poolable } from "../types/types";
 
 const logger = createLogger('Particle');
 
@@ -18,9 +19,9 @@ interface ParticleOptions {
 }
 
 /**
- * Particle class for visual effects
+ * Particle class for visual effects with object pooling support
  */
-export class Particle extends BaseEntity {
+export class Particle extends BaseEntity implements Poolable<ParticleOptions> {
   // DOM elements inherited from BaseEntity
 
   // Position and movement
@@ -36,12 +37,29 @@ export class Particle extends BaseEntity {
   radius?: number;
 
   /**
-   * Create a new particle
+   * Create a new particle for pooling (DOM element created once)
    * @param gameContainer - DOM element containing the game
-   * @param options - Particle options
    */
-  constructor(gameContainer: HTMLElement, options: ParticleOptions) {
-    super(gameContainer, `particle_${options.type || 'blood'}_${Date.now()}`);
+  constructor(gameContainer: HTMLElement) {
+    super(gameContainer, `particle_blood_${Date.now()}`);
+
+    // Create DOM element once (reused across pool lifecycle)
+    this.element = document.createElement("div");
+    this.element.className = "blood-particle"; // Default class
+
+    // Add to game container once
+    this.gameContainer.appendChild(this.element);
+
+    // Reset to default state
+    this.reset();
+  }
+
+  /**
+   * Initialize particle with options (called when acquired from pool)
+   * @param options - Particle initialization options
+   */
+  init(options: ParticleOptions): void {
+    this.id = `particle_${options.type || 'blood'}_${Date.now()}`;
 
     // Position and movement
     this.x = options.x || 0;
@@ -53,11 +71,9 @@ export class Particle extends BaseEntity {
     this.life = options.life || 30;
     this.type = options.type || "blood";
     this.opacity = options.opacity || 1;
+    this.radius = options.radius;
 
-    // Create DOM element
-    this.element = document.createElement("div");
-
-    // Set class based on particle type
+    // Update DOM element based on particle type
     switch (this.type) {
       case "blood":
         this.element.className = "blood-particle";
@@ -83,14 +99,33 @@ export class Particle extends BaseEntity {
       this.element.style.opacity = this.opacity.toString();
     }
 
-    // Position element
+    // Position element and show it
     this.updatePosition();
+    this.element.style.display = 'block';
 
-    // Add to game container
-    this.gameContainer.appendChild(this.element);
-    
     // Initialize the particle
     this.initialize();
+  }
+
+  /**
+   * Reset particle to default state (called when released to pool)
+   */
+  reset(): void {
+    this.x = 0;
+    this.y = 0;
+    this.vx = 0;
+    this.vy = 0;
+    this.life = 0;
+    this.type = "blood";
+    this.opacity = 1;
+    this.radius = undefined;
+
+    // Hide element
+    if (this.element) {
+      this.element.style.display = 'none';
+      this.element.className = "blood-particle";
+      this.element.style.opacity = "1";
+    }
   }
 
   /**
@@ -157,80 +192,7 @@ export class Particle extends BaseEntity {
     this.element.style.top = this.y + "px";
   }
 
-  /**
-   * Factory method to create blood particles
-   * @param gameContainer - DOM element for the game container
-   * @param x - X coordinate
-   * @param y - Y coordinate
-   * @param count - Number of particles to create
-   * @returns Array of created particles
-   */
-  static createBloodParticles(
-    gameContainer: HTMLElement,
-    x: number,
-    y: number,
-    count: number
-  ): Particle[] {
-    const particles: Particle[] = [];
 
-    for (let i = 0; i < count; i++) {
-      particles.push(
-        new Particle(gameContainer, {
-          x: x,
-          y: y,
-          vx: (Math.random() - 0.5) * 5,
-          vy: (Math.random() - 0.5) * 5,
-          life: 30 + Math.random() * 30,
-          type: "blood",
-        })
-      );
-    }
-
-    return particles;
-  }
-
-  /**
-   * Factory method to create shadow trail particles
-   * @param gameContainer - DOM element for the game container
-   * @param x - X coordinate
-   * @param y - Y coordinate
-   * @returns Created shadow particle
-   */
-  static createShadowTrail(
-    gameContainer: HTMLElement,
-    x: number,
-    y: number
-  ): Particle {
-    return new Particle(gameContainer, {
-      x: x,
-      y: y,
-      vx: 0,
-      vy: 0,
-      opacity: 0.5,
-      type: "shadow",
-    });
-  }
-
-  /**
-   * Factory method to create blood nova effect
-   * @param gameContainer - DOM element for the game container
-   * @param x - X coordinate
-   * @param y - Y coordinate
-   * @returns Created nova particle
-   */
-  static createBloodNova(
-    gameContainer: HTMLElement,
-    x: number,
-    y: number
-  ): Particle {
-    return new Particle(gameContainer, {
-      x: x,
-      y: y,
-      radius: 20,
-      opacity: 0.5,
-      type: "bloodNova",
-    });
-  }
 
   /**
    * Clean up particle resources

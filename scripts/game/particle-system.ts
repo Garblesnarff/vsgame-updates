@@ -1,27 +1,39 @@
 import { Particle } from "../entities/particle";
 import { createLogger } from "../utils/logger";
+import { ObjectPool } from "../utils/object-pool";
 
 const logger = createLogger('ParticleSystem');
 
 /**
- * Particle System
- * Manages all particle effects in the game
+ * Particle System with object pooling
+ * Manages all particle effects in the game using efficient object pools
  */
 export class ParticleSystem {
   gameContainer: HTMLElement;
   particles: Particle[];
-  bloodNovas: Particle[];
-  shadowTrails: Particle[];
+
+  // Object pools for different particle types
+  bloodParticlePool: ObjectPool<Particle>;
+  shadowTrailPool: ObjectPool<Particle>;
+  bloodNovaPool: ObjectPool<Particle>;
 
   /**
-   * Create a new particle system
+   * Create a new particle system with object pools
    * @param gameContainer - DOM element for the game container
    */
   constructor(gameContainer: HTMLElement) {
     this.gameContainer = gameContainer;
     this.particles = [];
-    this.bloodNovas = [];
-    this.shadowTrails = [];
+
+    // Create object pools for different particle types
+    this.bloodParticlePool = new ObjectPool(() => new Particle(gameContainer));
+    this.bloodParticlePool.prewarm(50); // Pre-allocate blood particles
+
+    this.shadowTrailPool = new ObjectPool(() => new Particle(gameContainer));
+    this.shadowTrailPool.prewarm(10); // Pre-allocate shadow trails
+
+    this.bloodNovaPool = new ObjectPool(() => new Particle(gameContainer));
+    this.bloodNovaPool.prewarm(5); // Pre-allocate blood novas
   }
 
   /**
@@ -29,25 +41,34 @@ export class ParticleSystem {
    * @param deltaTime - Time since last update in milliseconds
    */
   update(deltaTime: number = 0): void {
-    // Update regular particles
+    // Update all particles and remove expired ones
     for (let i = this.particles.length - 1; i >= 0; i--) {
-      if (this.particles[i].update(deltaTime)) {
+      const particle = this.particles[i];
+      if (particle.update(deltaTime)) {
+        // Particle expired, release back to appropriate pool
+        this.releaseParticleToPool(particle);
         this.particles.splice(i, 1);
       }
     }
+  }
 
-    // Update blood novas
-    for (let i = this.bloodNovas.length - 1; i >= 0; i--) {
-      if (this.bloodNovas[i].update(deltaTime)) {
-        this.bloodNovas.splice(i, 1);
-      }
-    }
-
-    // Update shadow trails
-    for (let i = this.shadowTrails.length - 1; i >= 0; i--) {
-      if (this.shadowTrails[i].update(deltaTime)) {
-        this.shadowTrails.splice(i, 1);
-      }
+  /**
+   * Release a particle back to its appropriate pool
+   * @param particle - The particle to release
+   */
+  private releaseParticleToPool(particle: Particle): void {
+    switch (particle.type) {
+      case "blood":
+        this.bloodParticlePool.release(particle);
+        break;
+      case "shadow":
+        this.shadowTrailPool.release(particle);
+        break;
+      case "bloodNova":
+        this.bloodNovaPool.release(particle);
+        break;
+      default:
+        this.bloodParticlePool.release(particle);
     }
   }
 
@@ -59,12 +80,21 @@ export class ParticleSystem {
    * @returns Array of created particles
    */
   createBloodParticles(x: number, y: number, count: number): Particle[] {
-    const newParticles = Particle.createBloodParticles(
-      this.gameContainer,
-      x,
-      y,
-      count
-    );
+    const newParticles: Particle[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const particle = this.bloodParticlePool.acquire();
+      particle.init({
+        x,
+        y,
+        vx: (Math.random() - 0.5) * 5,
+        vy: (Math.random() - 0.5) * 5,
+        life: 30 + Math.random() * 30,
+        type: "blood",
+      });
+      newParticles.push(particle);
+    }
+
     this.particles.push(...newParticles);
     return newParticles;
   }
@@ -76,8 +106,15 @@ export class ParticleSystem {
    * @returns Created nova particle
    */
   createBloodNova(x: number, y: number): Particle {
-    const nova = Particle.createBloodNova(this.gameContainer, x, y);
-    this.bloodNovas.push(nova);
+    const nova = this.bloodNovaPool.acquire();
+    nova.init({
+      x: x,
+      y: y,
+      radius: 20,
+      opacity: 0.5,
+      type: "bloodNova",
+    });
+    this.particles.push(nova);
     return nova;
   }
 
@@ -88,8 +125,16 @@ export class ParticleSystem {
    * @returns Created shadow particle
    */
   createShadowTrail(x: number, y: number): Particle {
-    const trail = Particle.createShadowTrail(this.gameContainer, x, y);
-    this.shadowTrails.push(trail);
+    const trail = this.shadowTrailPool.acquire();
+    trail.init({
+      x: x,
+      y: y,
+      vx: 0,
+      vy: 0,
+      opacity: 0.5,
+      type: "shadow",
+    });
+    this.particles.push(trail);
     return trail;
   }
 
@@ -103,9 +148,10 @@ export class ParticleSystem {
     const particles: Particle[] = [];
 
     for (let i = 0; i < count; i++) {
-      const particle = new Particle(this.gameContainer, {
-        x: x,
-        y: y,
+      const particle = this.bloodParticlePool.acquire();
+      particle.init({
+        x,
+        y,
         vx: (Math.random() - 0.5) * 3,
         vy: (Math.random() - 0.5) * 3,
         life: 20 + Math.random() * 10,
@@ -127,32 +173,12 @@ export class ParticleSystem {
    */
   reset(): void {
     logger.debug('Resetting particle system');
-    
-    // Clean up all particles
+
+    // Release all active particles back to their pools
     for (const particle of this.particles) {
-      particle.cleanup();
+      this.releaseParticleToPool(particle);
     }
     this.particles = [];
-
-    // Clean up all blood novas
-    for (const nova of this.bloodNovas) {
-      nova.cleanup();
-    }
-    this.bloodNovas = [];
-
-    // Clean up all shadow trails
-    for (const trail of this.shadowTrails) {
-      trail.cleanup();
-    }
-    this.shadowTrails = [];
-
-    // Use querySelector for any other particles that might have been missed
-    const allParticles = this.gameContainer.querySelectorAll('.blood-particle, .blood-nova, .shadow-trail');
-    allParticles.forEach(element => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    });
   }
 }
 
