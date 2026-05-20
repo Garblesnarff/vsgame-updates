@@ -31,6 +31,7 @@ import { DOM_IDS, CSS_CLASSES, SELECTORS } from "../constants/dom-elements";
 import { ObjectPool } from "../utils/object-pool";
 import { SpatialGrid } from "./spatial-grid";
 import { ENEMY_CONFIGS } from "../config/enemy-configs";
+import { RenderSyncPayload } from "../types/render-sync";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
@@ -524,7 +525,7 @@ export class Game {
     }
 
     // Emit render sync event for Phaser rendering layer
-    GameEvents.emit(EVENTS.RENDER_SYNC, {
+    const renderSyncPayload: RenderSyncPayload = {
       player: {
         x: this.player.x,
         y: this.player.y,
@@ -564,7 +565,9 @@ export class Game {
       })),
       bats: this.getBatRenderData(),
       gameTime: this.gameTime,
-    });
+    };
+
+    GameEvents.emit(EVENTS.RENDER_SYNC, renderSyncPayload);
   }
 
   /**
