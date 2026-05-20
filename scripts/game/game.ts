@@ -33,12 +33,17 @@ import { SpatialGrid } from "./spatial-grid";
 import { ENEMY_CONFIGS } from "../config/enemy-configs";
 import { RenderSyncPayload } from "../types/render-sync";
 import { ParticleEmitPayload } from "../types/particle-events";
+import { EnemySpawnPayload } from "../types/enemy-events";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
 
 const emitParticle = (payload: ParticleEmitPayload): void => {
   GameEvents.emit(EVENTS.PARTICLE_EMIT, payload);
+};
+
+const emitEnemySpawn = (payload: EnemySpawnPayload): void => {
+  GameEvents.emit(EVENTS.ENEMY_SPAWN, payload);
 };
 
 /**
@@ -374,10 +379,10 @@ export class Game {
 
         // Initialize and add to game
         this.enemies.push(enemy);
+
+        // Emit spawn event
+        emitEnemySpawn({ enemy, enemyType: 'summonedEnemy', source: 'game' });
       }
-      
-      // Emit spawn event
-      GameEvents.emit(EVENTS.ENEMY_SPAWN, enemy, 'summonedEnemy');
     }
     
     // Create a visual effect for the summoning
@@ -477,7 +482,7 @@ export class Game {
         this.enemies.push(newEnemy);
 
         // Emit enemy spawn event
-        GameEvents.emit(EVENTS.ENEMY_SPAWN, newEnemy);
+        emitEnemySpawn({ enemy: newEnemy, enemyType: (newEnemy as Enemy).poolKey || newEnemy.constructor.name, source: 'game' });
       }
     } // <-- Added closing brace
     // --- END MODIFIED SECTION ---
