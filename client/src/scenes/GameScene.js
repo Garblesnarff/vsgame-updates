@@ -7,6 +7,7 @@ console.log('=== GAMESCENE.JS LOADED - UPDATED VERSION WITH ENEMY SPRITES ===');
 /**
  * @typedef {import('../../../scripts/types/render-sync').RenderSyncPayload} RenderSyncPayload
  * @typedef {import('../../../scripts/types/render-sync').RenderEnemyState} RenderEnemyState
+ * @typedef {import('../../../scripts/types/particle-events').ParticleEmitPayload} ParticleEmitPayload
  */
 
 /**
@@ -873,6 +874,7 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    /** @param {ParticleEmitPayload} data */
     emitParticles(data) {
         if (!data) return;
 
