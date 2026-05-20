@@ -34,6 +34,7 @@ import { ENEMY_CONFIGS } from "../config/enemy-configs";
 import { RenderSyncPayload } from "../types/render-sync";
 import { ParticleEmitPayload } from "../types/particle-events";
 import { EnemySpawnPayload } from "../types/enemy-events";
+import { EnemyDamagePayload, EnemyDeathPayload } from "../types/enemy-combat-events";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
@@ -44,6 +45,14 @@ const emitParticle = (payload: ParticleEmitPayload): void => {
 
 const emitEnemySpawn = (payload: EnemySpawnPayload): void => {
   GameEvents.emit(EVENTS.ENEMY_SPAWN, payload);
+};
+
+const emitEnemyDamage = (payload: EnemyDamagePayload): void => {
+  GameEvents.emit(EVENTS.ENEMY_DAMAGE, payload);
+};
+
+const emitEnemyDeath = (payload: EnemyDeathPayload): void => {
+  GameEvents.emit(EVENTS.ENEMY_DEATH, payload);
 };
 
 /**
@@ -187,7 +196,7 @@ export class Game {
               this.enemiesToRemove.add(enemy);
 
               // Emit enemy death event
-              GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+              emitEnemyDeath({ enemy, source: "projectile" });
 
               // --- Add Drop Chance Logic ---
               if (Math.random() < CONFIG.DROPS.ENEMY_DROP_CHANCE) {
@@ -202,7 +211,7 @@ export class Game {
 
             } else {
               // Emit enemy damage event
-              GameEvents.emit(EVENTS.ENEMY_DAMAGE, enemy, projectile.damage);
+              emitEnemyDamage({ enemy, damage: projectile.damage, source: "projectile" });
             }
 
             // Handle Blood Lance special behavior
@@ -824,7 +833,7 @@ export class Game {
               this.enemies.splice(j, 1);
 
               // Emit enemy death event
-              GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+              emitEnemyDeath({ enemy, source: "projectile" });
 
               // Add kill to player and check for level up
               if (this.levelSystem.addKill()) {
@@ -832,7 +841,7 @@ export class Game {
               }
             } else {
               // Emit enemy damage event
-              GameEvents.emit(EVENTS.ENEMY_DAMAGE, enemy, projectile.damage);
+              emitEnemyDamage({ enemy, damage: projectile.damage, source: "projectile" });
             }
 
             // Handle Blood Lance special behavior

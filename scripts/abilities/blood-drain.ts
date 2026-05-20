@@ -2,6 +2,11 @@ import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
 import GameEvents, { EVENTS } from "../utils/event-system";
+import { EnemyDeathPayload } from "../types/enemy-combat-events";
+
+const emitEnemyDeath = (payload: EnemyDeathPayload): void => {
+  GameEvents.emit(EVENTS.ENEMY_DEATH, payload);
+};
 
 /**
  * Blood Drain ability - Drains health from nearby enemies
@@ -253,7 +258,7 @@ export class BloodDrain extends Ability {
           
           // Emit enemy death event to ensure other systems update properly
           if (this.player.game) {
-            GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+            emitEnemyDeath({ enemy, source: "blood-drain" });
           }
         } else {
           // Create blood particles flowing from enemy to player (occasionally)

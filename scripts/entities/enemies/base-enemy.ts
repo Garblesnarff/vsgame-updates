@@ -1,9 +1,15 @@
 import CONFIG from "../../config";
+
 import { GameEvents, EVENTS } from "../../utils/event-system";
+import { EnemyDamagePayload } from "../../types/enemy-combat-events";
 import { BaseEntity } from "../base-entity";
 import { createLogger } from "../../utils/logger";
 import { Poolable } from "../../types/types";
 import { EnemyConfig } from "../../config";
+
+const emitEnemyDamage = (payload: EnemyDamagePayload): void => {
+  GameEvents.emit(EVENTS.ENEMY_DAMAGE, payload);
+};
 
 const logger = createLogger('Enemy');
 
@@ -237,7 +243,7 @@ export class Enemy extends BaseEntity implements Poolable<EnemyOptions> {
     }
 
     // Emit damage event
-    GameEvents.emit(EVENTS.ENEMY_DAMAGE, this, amount);
+    emitEnemyDamage({ enemy: this, damage: amount, source: "direct" });
 
     // Return whether the enemy died - use a small threshold to account for floating point errors
     return this.health <= 0.001;
