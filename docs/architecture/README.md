@@ -6,6 +6,7 @@ This directory contains architecture and ownership guidance.
 
 - BOUNDARIES.md: Layer boundaries and forbidden patterns.
 - MODULE_OWNERSHIP.md: Ownership slices for parallel contributors.
+- EVENT_CONTRACT_BACKLOG.md: Prioritized typed event-contract migration backlog (P0/P1/P2).
 
 ### Notes
 
