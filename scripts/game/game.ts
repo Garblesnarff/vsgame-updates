@@ -31,9 +31,29 @@ import { DOM_IDS, CSS_CLASSES, SELECTORS } from "../constants/dom-elements";
 import { ObjectPool } from "../utils/object-pool";
 import { SpatialGrid } from "./spatial-grid";
 import { ENEMY_CONFIGS } from "../config/enemy-configs";
+import { RenderSyncPayload } from "../types/render-sync";
+import { ParticleEmitPayload } from "../types/particle-events";
+import { EnemySpawnPayload } from "../types/enemy-events";
+import { EnemyDamagePayload, EnemyDeathPayload } from "../types/enemy-combat-events";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
+
+const emitParticle = (payload: ParticleEmitPayload): void => {
+  GameEvents.emit(EVENTS.PARTICLE_EMIT, payload);
+};
+
+const emitEnemySpawn = (payload: EnemySpawnPayload): void => {
+  GameEvents.emit(EVENTS.ENEMY_SPAWN, payload);
+};
+
+const emitEnemyDamage = (payload: EnemyDamagePayload): void => {
+  GameEvents.emit(EVENTS.ENEMY_DAMAGE, payload);
+};
+
+const emitEnemyDeath = (payload: EnemyDeathPayload): void => {
+  GameEvents.emit(EVENTS.ENEMY_DEATH, payload);
+};
 
 /**
  * Main Game class that orchestrates all game systems
@@ -111,7 +131,7 @@ export class Game {
           projectile.collidesWithPlayer(this.player)
         ) {
           // Create hit effect
-          GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+          emitParticle({
             type: 'blood', x: projectile.x, y: projectile.y, count: 5
           });
 
@@ -142,7 +162,7 @@ export class Game {
 
           if (projectile.collidesWith(enemy)) {
             // Create blood particles (emit to Phaser renderer)
-            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            emitParticle({
               type: 'blood', x: projectile.x, y: projectile.y, count: 5
             });
 
@@ -151,7 +171,7 @@ export class Game {
             const enemyDied = enemy.takeDamage(
               damageDealt,
               (x: number, y: number, count: number) => {
-                GameEvents.emit(EVENTS.PARTICLE_EMIT, { type: 'blood', x, y, count });
+                emitParticle({ type: 'blood', x, y, count });
               },
               projectile.isBloodLance ? 'bloodLance' : undefined
             );
@@ -176,7 +196,7 @@ export class Game {
               this.enemiesToRemove.add(enemy);
 
               // Emit enemy death event
-              GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+              emitEnemyDeath({ enemy, source: "projectile" });
 
               // --- Add Drop Chance Logic ---
               if (Math.random() < CONFIG.DROPS.ENEMY_DROP_CHANCE) {
@@ -191,7 +211,7 @@ export class Game {
 
             } else {
               // Emit enemy damage event
-              GameEvents.emit(EVENTS.ENEMY_DAMAGE, enemy, projectile.damage);
+              emitEnemyDamage({ enemy, damage: projectile.damage, source: "projectile" });
             }
 
             // Handle Blood Lance special behavior
@@ -368,10 +388,10 @@ export class Game {
 
         // Initialize and add to game
         this.enemies.push(enemy);
+
+        // Emit spawn event
+        emitEnemySpawn({ enemy, enemyType: 'summonedEnemy', source: 'game' });
       }
-      
-      // Emit spawn event
-      GameEvents.emit(EVENTS.ENEMY_SPAWN, enemy, 'summonedEnemy');
     }
     
     // Create a visual effect for the summoning
@@ -471,7 +491,7 @@ export class Game {
         this.enemies.push(newEnemy);
 
         // Emit enemy spawn event
-        GameEvents.emit(EVENTS.ENEMY_SPAWN, newEnemy);
+        emitEnemySpawn({ enemy: newEnemy, enemyType: (newEnemy as Enemy).poolKey || newEnemy.constructor.name, source: 'game' });
       }
     } // <-- Added closing brace
     // --- END MODIFIED SECTION ---
@@ -524,7 +544,7 @@ export class Game {
     }
 
     // Emit render sync event for Phaser rendering layer
-    GameEvents.emit(EVENTS.RENDER_SYNC, {
+    const renderSyncPayload: RenderSyncPayload = {
       player: {
         x: this.player.x,
         y: this.player.y,
@@ -564,7 +584,9 @@ export class Game {
       })),
       bats: this.getBatRenderData(),
       gameTime: this.gameTime,
-    });
+    };
+
+    GameEvents.emit(EVENTS.RENDER_SYNC, renderSyncPayload);
   }
 
   /**
@@ -701,7 +723,7 @@ export class Game {
         // Apply damage to player
         if (this.player.takeDamage(damageAmount)) {
           // Create blood particles if damage was applied (emit to Phaser renderer)
-          GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+          emitParticle({
             type: 'blood',
             x: this.player.x + this.player.width / 2,
             y: this.player.y + this.player.height / 2,
@@ -763,7 +785,7 @@ export class Game {
           projectile.collidesWithPlayer(this.player)
         ) {
           // Create hit effect
-          GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+          emitParticle({
             type: 'blood', x: projectile.x, y: projectile.y, count: 5
           });
 
@@ -782,7 +804,7 @@ export class Game {
 
           if (projectile.collidesWith(enemy)) {
             // Create blood particles (emit to Phaser renderer)
-            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            emitParticle({
               type: 'blood', x: projectile.x, y: projectile.y, count: 5
             });
 
@@ -791,7 +813,7 @@ export class Game {
             const enemyDied = enemy.takeDamage(
               damageDealt,
               (x: number, y: number, count: number) => {
-                GameEvents.emit(EVENTS.PARTICLE_EMIT, { type: 'blood', x, y, count });
+                emitParticle({ type: 'blood', x, y, count });
               },
               projectile.isBloodLance ? 'bloodLance' : undefined
             );
@@ -811,7 +833,7 @@ export class Game {
               this.enemies.splice(j, 1);
 
               // Emit enemy death event
-              GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+              emitEnemyDeath({ enemy, source: "projectile" });
 
               // Add kill to player and check for level up
               if (this.levelSystem.addKill()) {
@@ -819,7 +841,7 @@ export class Game {
               }
             } else {
               // Emit enemy damage event
-              GameEvents.emit(EVENTS.ENEMY_DAMAGE, enemy, projectile.damage);
+              emitEnemyDamage({ enemy, damage: projectile.damage, source: "projectile" });
             }
 
             // Handle Blood Lance special behavior
