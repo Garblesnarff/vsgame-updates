@@ -5,6 +5,12 @@ import CONFIG from '../../../scripts/config';
 console.log('=== GAMESCENE.JS LOADED - UPDATED VERSION WITH ENEMY SPRITES ===');
 
 /**
+ * @typedef {import('../../../scripts/types/render-sync').RenderSyncPayload} RenderSyncPayload
+ * @typedef {import('../../../scripts/types/render-sync').RenderEnemyState} RenderEnemyState
+ * @typedef {import('../../../scripts/types/particle-events').ParticleEmitPayload} ParticleEmitPayload
+ */
+
+/**
  * GameScene - Main Phaser scene that renders all game entities
  * This is a "dumb" rendering layer that subscribes to events from the game logic layer
  */
@@ -449,6 +455,7 @@ export default class GameScene extends Phaser.Scene {
         this.unsubscribers.push(unsub3);
     }
 
+    /** @param {RenderSyncPayload} state */
     syncRenderState(state) {
         // Sync player
         if (state.player && this.playerSprite) {
@@ -480,6 +487,7 @@ export default class GameScene extends Phaser.Scene {
         this.syncBats(state.bats || []);
     }
 
+    /** @param {RenderEnemyState[]} enemies */
     syncEnemies(enemies) {
         const currentIds = new Set();
         let currentBoss = null;
@@ -866,6 +874,7 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    /** @param {ParticleEmitPayload} data */
     emitParticles(data) {
         if (!data) return;
 
