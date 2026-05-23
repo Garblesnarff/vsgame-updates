@@ -11,11 +11,7 @@ import CONFIG from "../config";
 import { GameEvents, EVENTS } from "../utils/event-system";
 import { Game } from "../game/game";
 import { ENEMY_CONFIGS } from "../config/enemy-configs";
-import { EnemySpawnPayload } from "../types/enemy-events";
-
-const emitEnemySpawn = (payload: EnemySpawnPayload): void => {
-  GameEvents.emit(EVENTS.ENEMY_SPAWN, payload);
-};
+import { emitEnemySpawn } from "../utils/game-event-emitters";
 
 /**
  * Enemy spawn system

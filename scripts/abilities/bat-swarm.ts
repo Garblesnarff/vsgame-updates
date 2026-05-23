@@ -2,7 +2,7 @@ import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
 import CONFIG from "../config";
-import { GameEvents, EVENTS } from "../utils/event-system";
+import { emitParticle } from "../utils/game-event-emitters";
 
 
 /**
@@ -156,7 +156,7 @@ export class BatSwarm extends Ability {
 
           if (this.batCollidesWithEnemy(bat, enemy)) {
             // Create blood particles (emit to Phaser renderer)
-            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            emitParticle({
               type: 'blood', x: bat.x, y: bat.y, count: 3
             });
 

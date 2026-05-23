@@ -17,6 +17,10 @@ Prioritization is based on:
 
 These are high-traffic and/or cross-layer events with immediate regression risk.
 
+**Status**: Complete. P0 events now use shared payload contracts and typed emitter helpers:
+`RenderSyncPayload`, `ParticleEmitPayload`, `EnemySpawnPayload`, `EnemyDamagePayload`,
+`EnemyDeathPayload`, and player lifecycle/progression payloads.
+
 ### 1) `EVENTS.RENDER_SYNC`
 - **Current risk**: Drives renderer state each frame; payload shape is implicit.
 - **Observed producers/consumers**:

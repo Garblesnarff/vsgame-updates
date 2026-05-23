@@ -25,30 +25,53 @@ export class ParticleSystem {
     this.gameContainer = gameContainer;
     this.particles = [];
 
-    // Create object pools for different particle types
-    this.bloodParticlePool = new ObjectPool(() => new Particle(gameContainer));
+    // Create object pools for different particle types with memory limits
+    this.bloodParticlePool = new ObjectPool(() => new Particle(gameContainer), {
+      maxSize: 200,  // Limit blood particles to prevent excessive memory use
+      minSize: 20,
+      shrinkThreshold: 0.2
+    });
     this.bloodParticlePool.prewarm(50); // Pre-allocate blood particles
 
-    this.shadowTrailPool = new ObjectPool(() => new Particle(gameContainer));
+    this.shadowTrailPool = new ObjectPool(() => new Particle(gameContainer), {
+      maxSize: 50,   // Shadow trails are less common
+      minSize: 5,
+      shrinkThreshold: 0.2
+    });
     this.shadowTrailPool.prewarm(10); // Pre-allocate shadow trails
 
-    this.bloodNovaPool = new ObjectPool(() => new Particle(gameContainer));
+    this.bloodNovaPool = new ObjectPool(() => new Particle(gameContainer), {
+      maxSize: 20,   // Blood novas are rare
+      minSize: 2,
+      shrinkThreshold: 0.1
+    });
     this.bloodNovaPool.prewarm(5); // Pre-allocate blood novas
   }
 
   /**
-   * Update all particles
+   * Update all particles with optimized batch processing
    * @param deltaTime - Time since last update in milliseconds
    */
   update(deltaTime: number = 0): void {
-    // Update all particles and remove expired ones
+    // Early exit if no particles
+    if (this.particles.length === 0) return;
+
+    // Batch DOM updates to minimize reflows
+    const expiredParticles: Particle[] = [];
+
+    // First pass: update particle state
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const particle = this.particles[i];
       if (particle.update(deltaTime)) {
-        // Particle expired, release back to appropriate pool
-        this.releaseParticleToPool(particle);
+        // Particle expired, mark for removal
+        expiredParticles.push(particle);
         this.particles.splice(i, 1);
       }
+    }
+
+    // Second pass: release expired particles back to pools
+    for (const particle of expiredParticles) {
+      this.releaseParticleToPool(particle);
     }
   }
 

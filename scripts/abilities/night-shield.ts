@@ -2,6 +2,7 @@ import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
 import GameEvents, { EVENTS } from "../utils/event-system";
+import { emitParticle } from "../utils/game-event-emitters";
 
 
 /**
@@ -191,7 +192,7 @@ export class NightShield extends Ability {
    */
   createShieldAbsorptionEffect(): void {
     // Emit particle event for Phaser rendering
-    GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+    emitParticle({
       type: 'shield',
       x: this.player.x + this.player.width / 2,
       y: this.player.y + this.player.height / 2,
@@ -248,7 +249,7 @@ export class NightShield extends Ability {
 
       if (distance <= range) {
         // Create explosion particles at enemy position
-        GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+        emitParticle({
           type: 'blood',
           x: enemy.x + enemy.width / 2,
           y: enemy.y + enemy.height / 2,

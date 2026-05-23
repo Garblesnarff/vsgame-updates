@@ -27,6 +27,8 @@ Every PR must include:
    - Results (pass/fail/warning with reason)
 6. **Rollback Plan**:
    - How to revert quickly if needed.
+7. **Task Pack**:
+   - Which `docs/task-packs/*` template applies, or why none applies.
 
 ## Mandatory Engineering Rules
 
@@ -34,6 +36,7 @@ Every PR must include:
 - No renderer-side gameplay logic.
 - No silent API contract changes.
 - Add or update tests with behavior changes.
+- Run `npm run verify` before marking work complete.
 
 ## Task Framing for AI Contributors
 
@@ -52,3 +55,13 @@ Reviewers should reject PRs when:
 - Contracts changed without explicit documentation.
 - Tests do not cover affected behavior.
 - Architectural boundaries are violated.
+
+## Automation
+
+Required local and CI checks:
+
+- `npm run typecheck`
+- `npm test -- --runInBand`
+- `npm run architecture:check`
+
+The architecture check enforces current hard boundaries without trying to fix all legacy debt in one patch.

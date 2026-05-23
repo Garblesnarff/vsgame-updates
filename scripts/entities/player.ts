@@ -10,6 +10,7 @@ import { DropType } from "../types/drop-types";
 import stateStore from "../game/state-store";
 import { BaseEntity } from "./base-entity";
 import passiveSkillModel from "../models/passive-skill-model"; // Import passive skill model
+import { emitPlayerDamage, emitPlayerDeath, emitPlayerHeal } from "../utils/game-event-emitters";
 
 // Create a logger for the Player class
 const logger = createLogger('Player');
@@ -37,7 +38,7 @@ export class Player extends BaseEntity implements IPlayer {
     this.element.classList.add('dead');
 
     // Emit death event
-    GameEvents.emit(EVENTS.PLAYER_DEATH, this);
+    emitPlayerDeath({ player: this });
 
     console.log("Player death triggered at health: " + this.stats.getHealth()); // Keeping this original log
   }
@@ -503,7 +504,12 @@ export class Player extends BaseEntity implements IPlayer {
     stateStore.player.health.set(newHealth);
 
     // Emit damage event
-    GameEvents.emit(EVENTS.PLAYER_DAMAGE, damageTaken, this);
+    emitPlayerDamage({
+      player: this,
+      damage: damageTaken,
+      currentHealth: newHealth,
+      maxHealth: this.stats.getMaxHealth(),
+    });
 
     // Force consistency between health value and alive state
     if (newHealth <= 0 && this.isAlive) {
@@ -535,7 +541,12 @@ export class Player extends BaseEntity implements IPlayer {
 
     // Only emit heal event if actually healed
     if (newHealth > oldHealth) {
-      GameEvents.emit(EVENTS.PLAYER_HEAL, amount, this);
+      emitPlayerHeal({
+        player: this,
+        amount,
+        currentHealth: newHealth,
+        maxHealth: this.stats.getMaxHealth(),
+      });
     }
   }
 

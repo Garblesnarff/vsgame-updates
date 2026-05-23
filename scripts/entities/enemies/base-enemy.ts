@@ -1,15 +1,10 @@
 import CONFIG from "../../config";
 
-import { GameEvents, EVENTS } from "../../utils/event-system";
-import { EnemyDamagePayload } from "../../types/enemy-combat-events";
+import { emitEnemyDamage } from "../../utils/game-event-emitters";
 import { BaseEntity } from "../base-entity";
 import { createLogger } from "../../utils/logger";
 import { Poolable } from "../../types/types";
 import { EnemyConfig } from "../../config";
-
-const emitEnemyDamage = (payload: EnemyDamagePayload): void => {
-  GameEvents.emit(EVENTS.ENEMY_DAMAGE, payload);
-};
 
 const logger = createLogger('Enemy');
 

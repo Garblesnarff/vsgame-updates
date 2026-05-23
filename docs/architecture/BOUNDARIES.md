@@ -28,6 +28,16 @@ This document defines strict architectural boundaries for the Vampire Survival G
    - Use `GameEvents` and typed payloads.
 4. Core gameplay paths must avoid `any` types.
    - Temporary exceptions require inline TODO with tracking issue.
+5. P0 event families must use typed emitters from `scripts/utils/game-event-emitters.ts`.
+   - `RENDER_SYNC`
+   - `PARTICLE_EMIT`
+   - `ENEMY_SPAWN`
+   - `ENEMY_DAMAGE`
+   - `ENEMY_DEATH`
+   - `PLAYER_LEVEL_UP`
+   - `PLAYER_DAMAGE`
+   - `PLAYER_HEAL`
+   - `PLAYER_DEATH`
 
 ## Forbidden Patterns
 
@@ -41,6 +51,7 @@ This document defines strict architectural boundaries for the Vampire Survival G
 - Define event payload types first.
 - Add tests for event contracts before feature integration.
 - Keep modules single-purpose and composable.
+- Run `npm run architecture:check` when changing event, renderer, or cross-layer code.
 
 ## Scope Notes
 

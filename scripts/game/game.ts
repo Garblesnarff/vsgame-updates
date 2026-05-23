@@ -32,28 +32,11 @@ import { ObjectPool } from "../utils/object-pool";
 import { SpatialGrid } from "./spatial-grid";
 import { ENEMY_CONFIGS } from "../config/enemy-configs";
 import { RenderSyncPayload } from "../types/render-sync";
-import { ParticleEmitPayload } from "../types/particle-events";
-import { EnemySpawnPayload } from "../types/enemy-events";
-import { EnemyDamagePayload, EnemyDeathPayload } from "../types/enemy-combat-events";
+import { performanceMonitor } from "../utils/performance-monitor";
+import { emitEnemyDamage, emitEnemyDeath, emitEnemySpawn, emitParticle, emitRenderSync } from "../utils/game-event-emitters";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
-
-const emitParticle = (payload: ParticleEmitPayload): void => {
-  GameEvents.emit(EVENTS.PARTICLE_EMIT, payload);
-};
-
-const emitEnemySpawn = (payload: EnemySpawnPayload): void => {
-  GameEvents.emit(EVENTS.ENEMY_SPAWN, payload);
-};
-
-const emitEnemyDamage = (payload: EnemyDamagePayload): void => {
-  GameEvents.emit(EVENTS.ENEMY_DAMAGE, payload);
-};
-
-const emitEnemyDeath = (payload: EnemyDeathPayload): void => {
-  GameEvents.emit(EVENTS.ENEMY_DEATH, payload);
-};
 
 /**
  * Main Game class that orchestrates all game systems
@@ -251,23 +234,31 @@ export class Game {
     // Update state store with game state
     stateStore.game.state.set(GameState.LOADING);
 
-    // Create object pools
-    this.projectilePool = new ObjectPool(() => new Projectile(this.gameContainer));
+    // Create object pools with memory limits
+    this.projectilePool = new ObjectPool(() => new Projectile(this.gameContainer), {
+      maxSize: 300,  // Reasonable limit for projectiles
+      minSize: 50,
+      shrinkThreshold: 0.3
+    });
     this.projectilePool.prewarm(100);
 
     this.enemyPools = new Map<string, ObjectPool<Enemy>>();
     const enemyTypes = [
-        { key: 'basicEnemy', type: BasicEnemy, prewarm: 50 },
-        { key: 'vampireHunter', type: VampireHunter, prewarm: 10 },
-        { key: 'fastSwarmer', type: FastSwarmer, prewarm: 20 },
-        { key: 'tankyBrute', type: TankyBrute, prewarm: 5 },
-        { key: 'silverMage', type: SilverMage, prewarm: 5 },
-        { key: 'holyPriest', type: HolyPriest, prewarm: 5 },
-        { key: 'vampireScout', type: VampireScout, prewarm: 5 }
+        { key: 'basicEnemy', type: BasicEnemy, prewarm: 50, maxSize: 200 },
+        { key: 'vampireHunter', type: VampireHunter, prewarm: 10, maxSize: 50 },
+        { key: 'fastSwarmer', type: FastSwarmer, prewarm: 20, maxSize: 150 },
+        { key: 'tankyBrute', type: TankyBrute, prewarm: 5, maxSize: 30 },
+        { key: 'silverMage', type: SilverMage, prewarm: 5, maxSize: 20 },
+        { key: 'holyPriest', type: HolyPriest, prewarm: 5, maxSize: 20 },
+        { key: 'vampireScout', type: VampireScout, prewarm: 5, maxSize: 25 }
     ];
 
-    for (const { key, type, prewarm } of enemyTypes) {
-        const pool = new ObjectPool(() => new type(this.gameContainer));
+    for (const { key, type, prewarm, maxSize } of enemyTypes) {
+        const pool = new ObjectPool(() => new type(this.gameContainer), {
+          maxSize,
+          minSize: Math.max(2, Math.floor(prewarm / 5)),
+          shrinkThreshold: 0.2
+        });
         pool.prewarm(prewarm);
         this.enemyPools.set(key, pool);
     }
@@ -466,6 +457,9 @@ export class Game {
    * @param deltaTime - Time since last update in ms
    */
   update(deltaTime: number): void {
+    // Start performance monitoring
+    performanceMonitor.startFrame();
+
     // Update game time
     this.gameTime += deltaTime;
 
@@ -586,7 +580,10 @@ export class Game {
       gameTime: this.gameTime,
     };
 
-    GameEvents.emit(EVENTS.RENDER_SYNC, renderSyncPayload);
+    emitRenderSync(renderSyncPayload);
+
+    // End performance monitoring
+    performanceMonitor.endFrame(this.enemies.length, this.particleSystem.particles.length);
   }
 
   /**
@@ -1029,6 +1026,8 @@ export class Game {
     this.gameTime = 0;
     this.spawnSystem.reset();
     this.particleSystem.reset();
+
+
     
     // Reset boss system (timing is handled in reset() using CONFIG values)
     if (this.bossSpawnSystem) {
@@ -1444,14 +1443,12 @@ export class Game {
   }
 
   /**
-   * Updates the spatial grid incrementally for better performance.
-   * Only rebuilds when entities are added/removed, not every frame.
+   * Updates the spatial grid for collision detection.
+   * Rebuilds every frame for simplicity and performance consistency.
    */
   updateSpatialGrid(): void {
-    // For now, we rebuild the grid every frame but track which entities need updates
-    // Future optimization: track position changes and only update moved entities
-
-    // Clear the grid but keep the structure for reuse
+    // Clear and rebuild the spatial grid every frame
+    // This provides consistent performance and avoids stutter during movement
     this.spatialGrid.clear();
 
     // Re-insert all active entities

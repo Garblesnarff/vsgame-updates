@@ -6,6 +6,7 @@ This directory contains project documentation for architecture and contributor w
 
 - architecture: Architecture policies, ownership boundaries, and system constraints.
 - process: Development process documents, including AI collaboration protocols.
+- task-packs: Small, ownership-scoped templates for common AI coding tasks.
 
 ### Notes
 

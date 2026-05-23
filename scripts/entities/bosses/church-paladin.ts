@@ -1,7 +1,7 @@
 import { Boss } from './base-boss';
 import { Enemy, ParticleCreationFunction } from '../enemies/base-enemy';
 import { GameEvents, EVENTS } from '../../utils/event-system';
-import { EnemySpawnPayload } from '../../types/enemy-events';
+import { emitEnemySpawn } from '../../utils/game-event-emitters';
 import CONFIG from '../../config';
 import { createLogger } from '../../utils/logger';
 import { HolyPriest } from '../enemies/holy-priest';
@@ -11,10 +11,6 @@ const logger = createLogger('ChurchPaladin');
 /**
  * Interface for a holy projectile
  */
-const emitEnemySpawn = (payload: EnemySpawnPayload): void => {
-    GameEvents.emit(EVENTS.ENEMY_SPAWN, payload);
-};
-
 interface HolyProjectile {
     x: number;
     y: number;
