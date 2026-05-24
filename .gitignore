@@ -1,2 +1,6 @@
 .venv
 node_modules
+
+# macOS metadata / AppleDouble sidecar files.
+.DS_Store
+._*

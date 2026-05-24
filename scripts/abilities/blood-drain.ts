@@ -2,6 +2,7 @@ import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
 import GameEvents, { EVENTS } from "../utils/event-system";
+import { emitEnemyDeath, emitParticle } from "../utils/game-event-emitters";
 
 /**
  * Blood Drain ability - Drains health from nearby enemies
@@ -173,7 +174,7 @@ export class BloodDrain extends Ability {
     // Create pulsing effect around player (occasionally)
     if (Math.random() < 0.1) {
       // Emit particle event for Phaser rendering
-      GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+      emitParticle({
         type: 'bloodNova',
         x: this.player.x + this.player.width / 2,
         y: this.player.y + this.player.height / 2
@@ -220,7 +221,7 @@ export class BloodDrain extends Ability {
           // Limit particle creation
           if (particlesCreated < maxParticlesPerFrame) {
             // Emit particle event for Phaser rendering
-            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            emitParticle({
               type: 'blood',
               x: x,
               y: y,
@@ -253,14 +254,14 @@ export class BloodDrain extends Ability {
           
           // Emit enemy death event to ensure other systems update properly
           if (this.player.game) {
-            GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+            emitEnemyDeath({ enemy, source: "blood-drain" });
           }
         } else {
           // Create blood particles flowing from enemy to player (occasionally)
           // Reduced probability from 0.2 to 0.05 to limit particles
           if (Math.random() < 0.05 && particlesCreated < maxParticlesPerFrame) {
             // Emit particle event for Phaser rendering
-            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            emitParticle({
               type: 'blood',
               x: enemy.x + enemy.width / 2,
               y: enemy.y + enemy.height / 2,

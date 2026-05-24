@@ -4,6 +4,8 @@ import { GameEvents, EVENTS } from "./utils/event-system";
 import { createLogger, LogLevel, setLogLevel } from "./utils/logger";
 import { registerGlobalErrorHandler, ErrorSeverity, ErrorCategory, tryCatch } from "./utils/error-handler";
 import { isStorageAvailable } from "./utils/persistence";
+import { performanceMonitor } from "./utils/performance-monitor";
+import { PlayerLevelUpPayload } from "./types/player-events";
 import "./utils/init"; // Initialize game settings
 // @ts-ignore - GameScene is a JavaScript file
 import GameScene from "../client/src/scenes/GameScene";
@@ -174,11 +176,14 @@ function initializeGame(): void {
       // Start the game
       game.start();
 
-      // Expose game instances to window for debugging (only in development)
+      // Expose game instances and performance monitor to window for debugging
       if (process.env.NODE_ENV !== "production") {
         (window as any).vampireGame = game;
         (window as any).phaserGame = phaserGame;
       }
+
+      // Always expose performance monitor globally for internal use
+      (window as any).performanceMonitor = performanceMonitor;
 
       logger.info("Vampire Survival Game initialized successfully!");
     },
@@ -229,8 +234,8 @@ function setupEventListeners(): void {
   });
 
   // Player events
-  GameEvents.on(EVENTS.PLAYER_LEVEL_UP, (level: number) => {
-    logger.info(`Player leveled up to ${level}`);
+  GameEvents.on(EVENTS.PLAYER_LEVEL_UP, (payload: PlayerLevelUpPayload) => {
+    logger.info(`Player leveled up to ${payload.level}`);
   });
 
   // Error events - add custom error event if needed

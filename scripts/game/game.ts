@@ -31,6 +31,9 @@ import { DOM_IDS, CSS_CLASSES, SELECTORS } from "../constants/dom-elements";
 import { ObjectPool } from "../utils/object-pool";
 import { SpatialGrid } from "./spatial-grid";
 import { ENEMY_CONFIGS } from "../config/enemy-configs";
+import { RenderSyncPayload } from "../types/render-sync";
+import { performanceMonitor } from "../utils/performance-monitor";
+import { emitEnemyDamage, emitEnemyDeath, emitEnemySpawn, emitParticle, emitRenderSync } from "../utils/game-event-emitters";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
@@ -111,7 +114,7 @@ export class Game {
           projectile.collidesWithPlayer(this.player)
         ) {
           // Create hit effect
-          GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+          emitParticle({
             type: 'blood', x: projectile.x, y: projectile.y, count: 5
           });
 
@@ -142,7 +145,7 @@ export class Game {
 
           if (projectile.collidesWith(enemy)) {
             // Create blood particles (emit to Phaser renderer)
-            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            emitParticle({
               type: 'blood', x: projectile.x, y: projectile.y, count: 5
             });
 
@@ -151,7 +154,7 @@ export class Game {
             const enemyDied = enemy.takeDamage(
               damageDealt,
               (x: number, y: number, count: number) => {
-                GameEvents.emit(EVENTS.PARTICLE_EMIT, { type: 'blood', x, y, count });
+                emitParticle({ type: 'blood', x, y, count });
               },
               projectile.isBloodLance ? 'bloodLance' : undefined
             );
@@ -176,7 +179,7 @@ export class Game {
               this.enemiesToRemove.add(enemy);
 
               // Emit enemy death event
-              GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+              emitEnemyDeath({ enemy, source: "projectile" });
 
               // --- Add Drop Chance Logic ---
               if (Math.random() < CONFIG.DROPS.ENEMY_DROP_CHANCE) {
@@ -191,7 +194,7 @@ export class Game {
 
             } else {
               // Emit enemy damage event
-              GameEvents.emit(EVENTS.ENEMY_DAMAGE, enemy, projectile.damage);
+              emitEnemyDamage({ enemy, damage: projectile.damage, source: "projectile" });
             }
 
             // Handle Blood Lance special behavior
@@ -231,23 +234,31 @@ export class Game {
     // Update state store with game state
     stateStore.game.state.set(GameState.LOADING);
 
-    // Create object pools
-    this.projectilePool = new ObjectPool(() => new Projectile(this.gameContainer));
+    // Create object pools with memory limits
+    this.projectilePool = new ObjectPool(() => new Projectile(this.gameContainer), {
+      maxSize: 300,  // Reasonable limit for projectiles
+      minSize: 50,
+      shrinkThreshold: 0.3
+    });
     this.projectilePool.prewarm(100);
 
     this.enemyPools = new Map<string, ObjectPool<Enemy>>();
     const enemyTypes = [
-        { key: 'basicEnemy', type: BasicEnemy, prewarm: 50 },
-        { key: 'vampireHunter', type: VampireHunter, prewarm: 10 },
-        { key: 'fastSwarmer', type: FastSwarmer, prewarm: 20 },
-        { key: 'tankyBrute', type: TankyBrute, prewarm: 5 },
-        { key: 'silverMage', type: SilverMage, prewarm: 5 },
-        { key: 'holyPriest', type: HolyPriest, prewarm: 5 },
-        { key: 'vampireScout', type: VampireScout, prewarm: 5 }
+        { key: 'basicEnemy', type: BasicEnemy, prewarm: 50, maxSize: 200 },
+        { key: 'vampireHunter', type: VampireHunter, prewarm: 10, maxSize: 50 },
+        { key: 'fastSwarmer', type: FastSwarmer, prewarm: 20, maxSize: 150 },
+        { key: 'tankyBrute', type: TankyBrute, prewarm: 5, maxSize: 30 },
+        { key: 'silverMage', type: SilverMage, prewarm: 5, maxSize: 20 },
+        { key: 'holyPriest', type: HolyPriest, prewarm: 5, maxSize: 20 },
+        { key: 'vampireScout', type: VampireScout, prewarm: 5, maxSize: 25 }
     ];
 
-    for (const { key, type, prewarm } of enemyTypes) {
-        const pool = new ObjectPool(() => new type(this.gameContainer));
+    for (const { key, type, prewarm, maxSize } of enemyTypes) {
+        const pool = new ObjectPool(() => new type(this.gameContainer), {
+          maxSize,
+          minSize: Math.max(2, Math.floor(prewarm / 5)),
+          shrinkThreshold: 0.2
+        });
         pool.prewarm(prewarm);
         this.enemyPools.set(key, pool);
     }
@@ -368,10 +379,10 @@ export class Game {
 
         // Initialize and add to game
         this.enemies.push(enemy);
+
+        // Emit spawn event
+        emitEnemySpawn({ enemy, enemyType: 'summonedEnemy', source: 'game' });
       }
-      
-      // Emit spawn event
-      GameEvents.emit(EVENTS.ENEMY_SPAWN, enemy, 'summonedEnemy');
     }
     
     // Create a visual effect for the summoning
@@ -446,6 +457,9 @@ export class Game {
    * @param deltaTime - Time since last update in ms
    */
   update(deltaTime: number): void {
+    // Start performance monitoring
+    performanceMonitor.startFrame();
+
     // Update game time
     this.gameTime += deltaTime;
 
@@ -471,7 +485,7 @@ export class Game {
         this.enemies.push(newEnemy);
 
         // Emit enemy spawn event
-        GameEvents.emit(EVENTS.ENEMY_SPAWN, newEnemy);
+        emitEnemySpawn({ enemy: newEnemy, enemyType: (newEnemy as Enemy).poolKey || newEnemy.constructor.name, source: 'game' });
       }
     } // <-- Added closing brace
     // --- END MODIFIED SECTION ---
@@ -524,7 +538,7 @@ export class Game {
     }
 
     // Emit render sync event for Phaser rendering layer
-    GameEvents.emit(EVENTS.RENDER_SYNC, {
+    const renderSyncPayload: RenderSyncPayload = {
       player: {
         x: this.player.x,
         y: this.player.y,
@@ -564,7 +578,12 @@ export class Game {
       })),
       bats: this.getBatRenderData(),
       gameTime: this.gameTime,
-    });
+    };
+
+    emitRenderSync(renderSyncPayload);
+
+    // End performance monitoring
+    performanceMonitor.endFrame(this.enemies.length, this.particleSystem.particles.length);
   }
 
   /**
@@ -701,7 +720,7 @@ export class Game {
         // Apply damage to player
         if (this.player.takeDamage(damageAmount)) {
           // Create blood particles if damage was applied (emit to Phaser renderer)
-          GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+          emitParticle({
             type: 'blood',
             x: this.player.x + this.player.width / 2,
             y: this.player.y + this.player.height / 2,
@@ -763,7 +782,7 @@ export class Game {
           projectile.collidesWithPlayer(this.player)
         ) {
           // Create hit effect
-          GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+          emitParticle({
             type: 'blood', x: projectile.x, y: projectile.y, count: 5
           });
 
@@ -782,7 +801,7 @@ export class Game {
 
           if (projectile.collidesWith(enemy)) {
             // Create blood particles (emit to Phaser renderer)
-            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            emitParticle({
               type: 'blood', x: projectile.x, y: projectile.y, count: 5
             });
 
@@ -791,7 +810,7 @@ export class Game {
             const enemyDied = enemy.takeDamage(
               damageDealt,
               (x: number, y: number, count: number) => {
-                GameEvents.emit(EVENTS.PARTICLE_EMIT, { type: 'blood', x, y, count });
+                emitParticle({ type: 'blood', x, y, count });
               },
               projectile.isBloodLance ? 'bloodLance' : undefined
             );
@@ -811,7 +830,7 @@ export class Game {
               this.enemies.splice(j, 1);
 
               // Emit enemy death event
-              GameEvents.emit(EVENTS.ENEMY_DEATH, enemy);
+              emitEnemyDeath({ enemy, source: "projectile" });
 
               // Add kill to player and check for level up
               if (this.levelSystem.addKill()) {
@@ -819,7 +838,7 @@ export class Game {
               }
             } else {
               // Emit enemy damage event
-              GameEvents.emit(EVENTS.ENEMY_DAMAGE, enemy, projectile.damage);
+              emitEnemyDamage({ enemy, damage: projectile.damage, source: "projectile" });
             }
 
             // Handle Blood Lance special behavior
@@ -1007,6 +1026,8 @@ export class Game {
     this.gameTime = 0;
     this.spawnSystem.reset();
     this.particleSystem.reset();
+
+
     
     // Reset boss system (timing is handled in reset() using CONFIG values)
     if (this.bossSpawnSystem) {
@@ -1422,14 +1443,12 @@ export class Game {
   }
 
   /**
-   * Updates the spatial grid incrementally for better performance.
-   * Only rebuilds when entities are added/removed, not every frame.
+   * Updates the spatial grid for collision detection.
+   * Rebuilds every frame for simplicity and performance consistency.
    */
   updateSpatialGrid(): void {
-    // For now, we rebuild the grid every frame but track which entities need updates
-    // Future optimization: track position changes and only update moved entities
-
-    // Clear the grid but keep the structure for reuse
+    // Clear and rebuild the spatial grid every frame
+    // This provides consistent performance and avoids stutter during movement
     this.spatialGrid.clear();
 
     // Re-insert all active entities

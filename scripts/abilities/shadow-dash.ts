@@ -1,7 +1,7 @@
 import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
-import GameEvents, { EVENTS } from "../utils/event-system";
+import { emitParticle } from "../utils/game-event-emitters";
 
 /**
  * Shadow Dash ability - Dash through enemies, becoming briefly invulnerable
@@ -161,7 +161,7 @@ export class ShadowDash extends Ability {
       const trailY = this.player.y + dashY * (i / 10);
 
       // Emit particle event for Phaser rendering
-      GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+      emitParticle({
         type: 'shadowTrail',
         x: trailX,
         y: trailY
@@ -193,7 +193,7 @@ export class ShadowDash extends Ability {
         if (
           enemy.takeDamage(damage, (x, y, count) => {
             // Emit particle event for Phaser rendering
-            GameEvents.emit(EVENTS.PARTICLE_EMIT, {
+            emitParticle({
               type: 'blood',
               x: x,
               y: y,

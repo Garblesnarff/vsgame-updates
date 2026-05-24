@@ -2,6 +2,7 @@ import { Enemy, ParticleCreationFunction } from '../enemies/base-enemy';
 import CONFIG from '../../config';
 import { GameEvents, EVENTS } from '../../utils/event-system';
 import { createLogger } from '../../utils/logger';
+import { emitPlayerDeath } from '../../utils/game-event-emitters';
 
 const logger = createLogger('Boss');
 
@@ -333,12 +334,11 @@ export class Boss extends Enemy {
         } catch (error) {
           logger.debug(`Error calling player.die(): ${error}`);
         }
-      } else if (GameEvents && GameEvents.emit) {
-        // Alternative: Emit death event
-        logger.debug('Emitting PLAYER_DEATH event');
-        GameEvents.emit(EVENTS.PLAYER_DEATH, player);
-        return true;
       }
+
+      logger.debug('Emitting PLAYER_DEATH event');
+      emitPlayerDeath({ player });
+      return true;
       
       // Backup: Force isDead property
       if (player.isDead !== undefined) {

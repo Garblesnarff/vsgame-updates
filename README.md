@@ -13,6 +13,7 @@ A browser-based survival game where you play as a vampire fighting against waves
 - [Code Quality](#code-quality)
 - [Build](#build)
 - [Enemy Types](#enemy-types)
+- [Architecture Governance](#architecture-governance)
 
 ## Features
 
@@ -224,6 +225,14 @@ The codebase has been refactored with several architectural improvements:
 5. **Testing Infrastructure**: Jest configuration for unit testing components.
 
 6. **Documentation**: Comprehensive JSDoc comments for better developer understanding.
+
+## Architecture Governance
+
+To keep the project scalable for AI and human contributors:
+
+- See `docs/architecture/BOUNDARIES.md` for strict layer boundaries.
+- See `docs/architecture/MODULE_OWNERSHIP.md` for module ownership and parallel work rules.
+- See `docs/process/AI_CONTRIBUTION_PROTOCOL.md` for AI contribution requirements.
 
 ## License
 

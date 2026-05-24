@@ -119,6 +119,15 @@ export class SpatialGrid<T extends { x: number; y: number; width: number; height
     const startRow = Math.floor(entity.y / this.cellSize);
     const endRow = Math.floor((entity.y + entity.height) / this.cellSize);
 
+    // Record collision checks for performance monitoring
+    const cellsChecked = (endCol - startCol + 3) * (endRow - startRow + 3); // +3 for neighbors
+    for (let i = 0; i < cellsChecked; i++) {
+      // Import performance monitor dynamically to avoid circular dependency
+      if (typeof window !== 'undefined' && (window as any).performanceMonitor) {
+        (window as any).performanceMonitor.recordCollisionCheck();
+      }
+    }
+
     for (let row = startRow - 1; row <= endRow + 1; row++) {
       for (let col = startCol - 1; col <= endCol + 1; col++) {
         const key = `${col},${row}`;

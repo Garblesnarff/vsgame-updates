@@ -2,7 +2,20 @@ import Phaser from 'phaser';
 import { GameEvents, EVENTS } from '../../../scripts/utils/event-system';
 import CONFIG from '../../../scripts/config';
 
-console.log('=== GAMESCENE.JS LOADED - UPDATED VERSION WITH ENEMY SPRITES ===');
+const RENDER_DIAGNOSTICS_ENABLED = false;
+const renderDebug = (...args) => {
+    if (RENDER_DIAGNOSTICS_ENABLED) {
+        console.debug(...args);
+    }
+};
+
+renderDebug('=== GAMESCENE.JS LOADED - UPDATED VERSION WITH ENEMY SPRITES ===');
+
+/**
+ * @typedef {import('../../../scripts/types/render-sync').RenderSyncPayload} RenderSyncPayload
+ * @typedef {import('../../../scripts/types/render-sync').RenderEnemyState} RenderEnemyState
+ * @typedef {import('../../../scripts/types/particle-events').ParticleEmitPayload} ParticleEmitPayload
+ */
 
 /**
  * GameScene - Main Phaser scene that renders all game entities
@@ -45,16 +58,16 @@ export default class GameScene extends Phaser.Scene {
         });
 
         this.load.on('filecomplete', (key, type, data) => {
-            console.log(`LOAD SUCCESS: ${key} (${type})`);
+            renderDebug(`LOAD SUCCESS: ${key} (${type})`);
         });
 
         this.load.on('complete', () => {
-            console.log('=== ALL ASSETS LOADED ===');
+            renderDebug('=== ALL ASSETS LOADED ===');
             // Log which textures are available
             const textureKeys = ['basic-enemy', 'fast-swarmer', 'vampire-hunter', 'tanky-brute',
                                  'silver-mage', 'holy-priest', 'vampire-scout', 'church-paladin', 'player'];
             textureKeys.forEach(key => {
-                console.log(`  Texture '${key}': ${this.textures.exists(key) ? 'EXISTS' : 'MISSING'}`);
+                renderDebug(`  Texture '${key}': ${this.textures.exists(key) ? 'EXISTS' : 'MISSING'}`);
             });
 
             // Mark textures as ready - sprites created before this used fallback
@@ -62,7 +75,7 @@ export default class GameScene extends Phaser.Scene {
 
             // Update existing sprites to use proper textures (instead of destroying them)
             if (this.enemySprites && this.enemySprites.size > 0) {
-                console.log(`Updating ${this.enemySprites.size} sprites to use proper textures`);
+                renderDebug(`Updating ${this.enemySprites.size} sprites to use proper textures`);
                 this.enemySprites.forEach((sprite, id) => {
                     const enemyType = sprite.getData('enemyType');
                     if (enemyType) {
@@ -143,7 +156,7 @@ export default class GameScene extends Phaser.Scene {
             playerGraphics.fillRoundedRect(0, 0, 30, 40, 8);
             playerGraphics.generateTexture('player-fallback', 30, 40);
             playerGraphics.destroy();
-            console.log('Created player-fallback texture');
+            renderDebug('Created player-fallback texture');
         }
 
         // Enemy fallback (white square - will be tinted per type)
@@ -153,7 +166,7 @@ export default class GameScene extends Phaser.Scene {
             enemyGraphics.fillRoundedRect(0, 0, 32, 32, 4);
             enemyGraphics.generateTexture('enemy-fallback', 32, 32);
             enemyGraphics.destroy();
-            console.log('Created enemy-fallback texture');
+            renderDebug('Created enemy-fallback texture');
         }
 
         // Projectile fallback (white circle - will be tinted)
@@ -163,7 +176,7 @@ export default class GameScene extends Phaser.Scene {
             projGraphics.fillCircle(8, 8, 8);
             projGraphics.generateTexture('projectile-fallback', 16, 16);
             projGraphics.destroy();
-            console.log('Created projectile-fallback texture');
+            renderDebug('Created projectile-fallback texture');
         }
 
         // Blood particle (red circle)
@@ -214,7 +227,7 @@ export default class GameScene extends Phaser.Scene {
             batGraphics.destroy();
         }
 
-        console.log('All fallback textures created');
+        renderDebug('All fallback textures created');
     }
 
     setupEnemyAnimations() {
@@ -328,7 +341,7 @@ export default class GameScene extends Phaser.Scene {
             });
         }
 
-        console.log('Enemy animations created');
+        renderDebug('Enemy animations created');
     }
 
     create() {
@@ -369,7 +382,7 @@ export default class GameScene extends Phaser.Scene {
         // Subscribe to game events
         this.subscribeToEvents();
 
-        console.log('GameScene ready');
+        renderDebug('GameScene ready');
     }
 
     createPlayerSprite() {
@@ -449,6 +462,7 @@ export default class GameScene extends Phaser.Scene {
         this.unsubscribers.push(unsub3);
     }
 
+    /** @param {RenderSyncPayload} state */
     syncRenderState(state) {
         // Sync player
         if (state.player && this.playerSprite) {
@@ -480,6 +494,7 @@ export default class GameScene extends Phaser.Scene {
         this.syncBats(state.bats || []);
     }
 
+    /** @param {RenderEnemyState[]} enemies */
     syncEnemies(enemies) {
         const currentIds = new Set();
         let currentBoss = null;
@@ -596,7 +611,7 @@ export default class GameScene extends Phaser.Scene {
         const usesFallback = !textureExists;
 
         // Debug: Log which texture is being used
-        console.log(`Enemy ${enemy.type}: texture=${textureKey}, exists=${textureExists}, usesFallback=${usesFallback}`);
+        renderDebug(`Enemy ${enemy.type}: texture=${textureKey}, exists=${textureExists}, usesFallback=${usesFallback}`);
 
         if (usesFallback) {
             textureKey = 'enemy-fallback';
@@ -745,7 +760,7 @@ export default class GameScene extends Phaser.Scene {
                 sprite.clearTint();
             }
 
-            console.log(`Updated sprite for ${enemyType} to use proper texture`);
+            renderDebug(`Updated sprite for ${enemyType} to use proper texture`);
         }
     }
 
@@ -866,6 +881,7 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    /** @param {ParticleEmitPayload} data */
     emitParticles(data) {
         if (!data) return;
 

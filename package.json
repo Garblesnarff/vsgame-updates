@@ -15,7 +15,9 @@
     "docs": "typedoc --entryPointStrategy expand ./scripts --exclude '**/__tests__/**/*'",
     "lint": "eslint 'scripts/**/!(|-*).{js,ts}'",
     "lint:fix": "eslint 'scripts/**/!(|-*).{js,ts}' --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "architecture:check": "node scripts/tools/architecture-check.js",
+    "verify": "npm run typecheck && npm test -- --runInBand && npm run architecture:check"
   },
   "keywords": [
     "game",

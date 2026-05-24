@@ -3,6 +3,7 @@ import { GameEvents, EVENTS } from "../utils/event-system";
 import { createLogger } from "../utils/logger";
 import { IPlayer, ILevelSystem } from "../types/player-types";
 import stateStore from "./state-store";
+import { emitPlayerLevelUp } from "../utils/game-event-emitters";
 
 // Create a logger for the LevelSystem class
 const logger = createLogger('LevelSystem');
@@ -153,7 +154,7 @@ levelUp(): void {
   this.levelUpCallbacks.forEach((callback) => callback(newLevel));
   
   // Emit level up event
-  GameEvents.emit(EVENTS.PLAYER_LEVEL_UP, newLevel, this.player);
+  emitPlayerLevelUp({ level: newLevel, player: this.player });
 }
 
   /**

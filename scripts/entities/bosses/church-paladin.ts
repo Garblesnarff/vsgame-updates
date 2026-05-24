@@ -1,6 +1,7 @@
 import { Boss } from './base-boss';
 import { Enemy, ParticleCreationFunction } from '../enemies/base-enemy';
 import { GameEvents, EVENTS } from '../../utils/event-system';
+import { emitEnemySpawn } from '../../utils/game-event-emitters';
 import CONFIG from '../../config';
 import { createLogger } from '../../utils/logger';
 import { HolyPriest } from '../enemies/holy-priest';
@@ -1923,7 +1924,7 @@ export class ChurchPaladin extends Boss {
         this.createAcolyteSpawnEffect(acolyte.x, acolyte.y, acolyte.width, acolyte.height);
 
         // Emit event
-        GameEvents.emit(EVENTS.ENEMY_SPAWN, acolyte, 'holyPriest');
+        emitEnemySpawn({ enemy: acolyte, enemyType: 'holyPriest', source: 'boss' });
     }
 
     /**
