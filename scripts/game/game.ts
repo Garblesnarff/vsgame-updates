@@ -33,7 +33,8 @@ import { SpatialGrid } from "./spatial-grid";
 import { ENEMY_CONFIGS } from "../config/enemy-configs";
 import { RenderSyncPayload } from "../types/render-sync";
 import { performanceMonitor } from "../utils/performance-monitor";
-import { emitEnemyDamage, emitEnemyDeath, emitEnemySpawn, emitParticle, emitRenderSync } from "../utils/game-event-emitters";
+import { emitAbilityUpgrade, emitEnemyDamage, emitEnemyDeath, emitEnemySpawn, emitParticle, emitRenderSync } from "../utils/game-event-emitters";
+import { resolveEnemyProjectileHit, resolvePlayerProjectileEnemyHit } from "./combat-resolution";
 
 // Create a logger for the Game class
 const logger = createLogger('Game');
@@ -113,24 +114,11 @@ export class Game {
           !this.player.isInvulnerable &&
           projectile.collidesWithPlayer(this.player)
         ) {
-          // Create hit effect
-          emitParticle({
-            type: 'blood', x: projectile.x, y: projectile.y, count: 5
-          });
-
-          // Apply damage to player
-          this.player.takeDamage(projectile.damage);
-
-          // *** ADD THIS CHECK ***
-          if (!this.player.isAlive) {
-            this.gameOver();
-            // Potentially return or break here if gameOver stops the loop
-            // or handles cleanup appropriately. For now, just add the call.
-          }
-          // *** END ADDED CHECK ***
-
-          // Remove projectile
-          shouldRemoveProjectile = true;
+          shouldRemoveProjectile = resolveEnemyProjectileHit({
+            projectile,
+            player: this.player,
+            onPlayerKilled: () => this.gameOver(),
+          }).shouldRemoveProjectile;
         }
       } 
       // Handle player projectiles (they only collide with enemies)
@@ -144,69 +132,24 @@ export class Game {
           if (enemy.health <= 0) continue; // Skip dead enemies
 
           if (projectile.collidesWith(enemy)) {
-            // Create blood particles (emit to Phaser renderer)
-            emitParticle({
-              type: 'blood', x: projectile.x, y: projectile.y, count: 5
-            });
-
-            // Apply damage to enemy and get the damage dealt
-            const damageDealt = projectile.damage;
-            const enemyDied = enemy.takeDamage(
-              damageDealt,
-              (x: number, y: number, count: number) => {
-                emitParticle({ type: 'blood', x, y, count });
-              },
-              projectile.isBloodLance ? 'bloodLance' : undefined
-            );
-            
-            // Apply life steal if the player has it
-            const lifeStealPercentage = this.player.stats.getLifeStealPercentage();
-            if (lifeStealPercentage > 0 && !projectile.isEnemyProjectile) {
-              const healAmount = damageDealt * (lifeStealPercentage / 100);
-              if (healAmount > 0) {
-                this.player.heal(healAmount);
-              }
-            }
-            
-            if (enemyDied) {
-              // Enemy died
+            const result = resolvePlayerProjectileEnemyHit({
+              projectile,
+              enemy,
+              player: this.player,
+              releaseEnemy: (defeatedEnemy) => {
+                // Enemy died
               const pool = this.enemyPools.get(enemy.poolKey);
               if (pool) {
-                pool.release(enemy);
+                  pool.release(defeatedEnemy);
               } else {
-                enemy.cleanup(this.player);
+                  defeatedEnemy.cleanup(this.player);
               }
-              this.enemiesToRemove.add(enemy);
-
-              // Emit enemy death event
-              emitEnemyDeath({ enemy, source: "projectile" });
-
-              // --- Add Drop Chance Logic ---
-              if (Math.random() < CONFIG.DROPS.ENEMY_DROP_CHANCE) {
-                this.spawnDrop(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-              }
-              // --- End Drop Chance Logic ---
-
-              // Add kill to player and check for level up
-              if (this.levelSystem.addKill()) {
-                // Level up was handled by the callback
-              }
-
-            } else {
-              // Emit enemy damage event
-              emitEnemyDamage({ enemy, damage: projectile.damage, source: "projectile" });
-            }
-
-            // Handle Blood Lance special behavior
-            if (projectile.isBloodLance) {
-              shouldRemoveProjectile = projectile.handleBloodLanceHit(
-                enemy,
-                this.player.heal.bind(this.player)
-              );
-            } else {
-              // Regular projectile or auto-attack - remove after hitting
-              shouldRemoveProjectile = true;
-            }
+                this.enemiesToRemove.add(defeatedEnemy);
+              },
+              spawnDrop: (x, y) => this.spawnDrop(x, y),
+              addKill: () => this.levelSystem.addKill(),
+            });
+            shouldRemoveProjectile = result.shouldRemoveProjectile;
 
             // Break loop for non-piercing projectiles
             if (shouldRemoveProjectile && !projectile.isBloodLance) {
@@ -1183,8 +1126,7 @@ export class Game {
     if (upgraded) {
       this.player.skillPoints -= pointCost;
 
-      // Emit ability upgraded event
-      GameEvents.emit(EVENTS.ABILITY_UPGRADE, skillId, this.player);
+      emitAbilityUpgrade({ abilityName: skillId, player: this.player });
     }
   }
 

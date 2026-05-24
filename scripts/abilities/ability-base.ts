@@ -1,6 +1,6 @@
-import { GameEvents, EVENTS } from "../utils/event-system";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
+import { emitAbilityUnlock, emitAbilityUpgrade, emitAbilityUse } from "../utils/game-event-emitters";
 // Removed unused createLogger import and logger constant
 
 /**
@@ -178,8 +178,7 @@ export class Ability {
     this.player.stats.setEnergy(this.player.stats.getEnergy() - this.energyCost);
     this.lastUsed = Date.now();
 
-    // Emit ability use event
-    GameEvents.emit(EVENTS.ABILITY_USE, this.name, this.player);
+    emitAbilityUse({ abilityName: this.name, player: this.player });
 
     return true;
   }
@@ -313,8 +312,7 @@ export class Ability {
     this.level++;
     this.updateLevelDisplay();
 
-    // Emit upgrade event
-    GameEvents.emit(EVENTS.ABILITY_UPGRADE, this.name, this.player);
+    emitAbilityUpgrade({ abilityName: this.name, player: this.player });
 
     return true;
   }
@@ -335,8 +333,7 @@ export class Ability {
     this.unlocked = true;
     this.level = 1;
 
-    // Emit unlock event
-    GameEvents.emit(EVENTS.ABILITY_UNLOCK, this.name, this.player);
+    emitAbilityUnlock({ abilityName: this.name, player: this.player });
 
     return true;
   }

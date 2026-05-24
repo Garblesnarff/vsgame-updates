@@ -2,6 +2,13 @@ import { Enemy, ParticleCreationFunction } from './base-enemy';
 import CONFIG from '../../config';
 import { GameEvents, EVENTS } from '../../utils/event-system';
 import { createLogger } from '../../utils/logger';
+import {
+    emitEnemyAttack,
+    emitEnemyAttackStart,
+    emitEnemyDodge,
+    emitEnemySpecialMove,
+    emitEnemySummon,
+} from '../../utils/game-event-emitters';
 
 const logger = createLogger('VampireScout');
 
@@ -331,7 +338,7 @@ export class VampireScout extends Enemy {
         this.createDashEffect(dashAngle, dashDistance);
         
         // Emit dash event
-        GameEvents.emit(EVENTS.ENEMY_SPECIAL_MOVE, this, 'dash');
+        emitEnemySpecialMove({ enemy: this, moveType: 'dash' });
     }
     
     /**
@@ -382,7 +389,7 @@ export class VampireScout extends Enemy {
         this.setChannelingVisual(true);
         
         // Emit event for sound effects or other feedback
-        GameEvents.emit(EVENTS.ENEMY_ATTACK_START, this, 'markChannel');
+        emitEnemyAttackStart({ enemy: this, attackType: 'markChannel' });
     }
     
     /**
@@ -460,7 +467,7 @@ export class VampireScout extends Enemy {
         });
         
         // Sound effect
-        GameEvents.emit(EVENTS.ENEMY_ATTACK, this, 'markApplied');
+        emitEnemyAttack({ enemy: this, attackType: 'markApplied' });
     }
     
     /**
@@ -486,11 +493,12 @@ export class VampireScout extends Enemy {
      */
     private summonEnemies(): void {
         // Emit event for other systems to handle the actual spawning
-        GameEvents.emit(EVENTS.ENEMY_SUMMON, {
+        emitEnemySummon({
             position: { x: this.x, y: this.y },
             count: this.summonCount,
             types: ['basic'], // Could be configurable
-            spawnRadius: 50
+            spawnRadius: 50,
+            sourceEnemy: this
         });
         
         // Create summon visual effect
@@ -560,7 +568,7 @@ export class VampireScout extends Enemy {
             this.setInvisibility(true);
             
             // Emit dodge event
-            GameEvents.emit(EVENTS.ENEMY_DODGE, this, projectileType || 'unknown');
+            emitEnemyDodge({ enemy: this, projectileType: projectileType || 'unknown' });
             
             // Cancel channeling if we were marking
             if (this.isChannelingMark) {

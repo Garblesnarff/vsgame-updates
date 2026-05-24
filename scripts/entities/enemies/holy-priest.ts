@@ -1,7 +1,13 @@
 import { Enemy, ParticleCreationFunction } from './base-enemy';
 import CONFIG from '../../config';
-import { GameEvents, EVENTS } from '../../utils/event-system';
 import { createLogger } from '../../utils/logger';
+import {
+  emitEnemyAttack,
+  emitEnemyBuff,
+  emitEnemyBuffEnd,
+  emitEnemyHeal,
+  emitEnemySpecialMove,
+} from '../../utils/game-event-emitters';
 
 const logger = createLogger('HolyPriest');
 
@@ -427,7 +433,7 @@ export class HolyPriest extends Enemy {
             this.createHealingTether(enemy);
 
             // Emit event for other systems
-            GameEvents.emit(EVENTS.ENEMY_HEAL, enemy, healPerFrame);
+            emitEnemyHeal({ enemy, amount: healPerFrame });
         }
 
         // If all nearby enemies are at full health, consider adding shields
@@ -558,7 +564,7 @@ export class HolyPriest extends Enemy {
         }, 1000);
 
         // Emit shield cast event
-        GameEvents.emit(EVENTS.ENEMY_SPECIAL_MOVE, this, 'holyShield');
+        emitEnemySpecialMove({ enemy: this, moveType: 'holyShield' });
     }
 
     /**
@@ -601,7 +607,7 @@ export class HolyPriest extends Enemy {
         }
 
         // Emit shield applied event
-        GameEvents.emit(EVENTS.ENEMY_BUFF, enemy, 'holyShield', this.shieldDamageReduction);
+        emitEnemyBuff({ enemy, buffType: 'holyShield', amount: this.shieldDamageReduction });
     }
 
     /**
@@ -629,7 +635,7 @@ export class HolyPriest extends Enemy {
                 this.activeShields.delete(enemyId);
 
                 // Emit shield removed event
-                GameEvents.emit(EVENTS.ENEMY_BUFF_END, shield.enemy, 'holyShield');
+                emitEnemyBuffEnd({ enemy: shield.enemy, buffType: 'holyShield' });
             } else {
                 // Update shield opacity based on remaining time
                 const opacity = 0.8 * (1 - elapsed / shield.duration);
@@ -697,7 +703,7 @@ export class HolyPriest extends Enemy {
         }, 1500);
 
         // Emit blessing cast event
-        GameEvents.emit(EVENTS.ENEMY_SPECIAL_MOVE, this, 'courageBlessing');
+        emitEnemySpecialMove({ enemy: this, moveType: 'courageBlessing' });
     }
 
     /**
@@ -741,7 +747,7 @@ export class HolyPriest extends Enemy {
         }
 
         // Emit blessing applied event
-        GameEvents.emit(EVENTS.ENEMY_BUFF, enemy, 'courageBlessing', this.blessingBoost);
+        emitEnemyBuff({ enemy, buffType: 'courageBlessing', amount: this.blessingBoost });
     }
     
     /**
@@ -769,7 +775,7 @@ export class HolyPriest extends Enemy {
                 this.activeBlessings.delete(enemyId);
 
                 // Emit blessing removed event
-                GameEvents.emit(EVENTS.ENEMY_BUFF_END, blessing.enemy, 'courageBlessing');
+                emitEnemyBuffEnd({ enemy: blessing.enemy, buffType: 'courageBlessing' });
             } else {
                 // Update blessing opacity based on remaining time
                 const opacity = 0.7 * (1 - elapsed / blessing.duration);
@@ -812,7 +818,7 @@ export class HolyPriest extends Enemy {
         }
 
         // Emit burst event
-        GameEvents.emit(EVENTS.ENEMY_ATTACK, this, 'holyBurst');
+        emitEnemyAttack({ enemy: this, attackType: 'holyBurst' });
     }
 
     /**

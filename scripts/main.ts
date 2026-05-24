@@ -6,6 +6,7 @@ import { registerGlobalErrorHandler, ErrorSeverity, ErrorCategory, tryCatch } fr
 import { isStorageAvailable } from "./utils/persistence";
 import { performanceMonitor } from "./utils/performance-monitor";
 import { PlayerLevelUpPayload } from "./types/player-events";
+import { BossDefeatedPayload, BossSpawnPayload, BossWarningPayload } from "./types/boss-events";
 import "./utils/init"; // Initialize game settings
 // @ts-ignore - GameScene is a JavaScript file
 import GameScene from "../client/src/scenes/GameScene";
@@ -221,16 +222,16 @@ function setupEventListeners(): void {
   });
 
   // Boss events
-  GameEvents.on(EVENTS.BOSS_WARNING, (bossType: string) => {
-    logger.info(`Boss warning: ${bossType} approaching`);
+  GameEvents.on(EVENTS.BOSS_WARNING, (payload: BossWarningPayload) => {
+    logger.info(`Boss warning: ${payload.bossType} approaching`);
   });
 
-  GameEvents.on(EVENTS.BOSS_SPAWN, (boss: any) => {
-    logger.info(`Boss spawned: ${boss.name}`);
+  GameEvents.on(EVENTS.BOSS_SPAWN, (payload: BossSpawnPayload) => {
+    logger.info(`Boss spawned: ${payload.boss.name}`);
   });
 
-  GameEvents.on(EVENTS.BOSS_DEFEATED, () => {
-    logger.info('Boss defeated');
+  GameEvents.on(EVENTS.BOSS_DEFEATED, (_payload: BossDefeatedPayload) => {
+    logger.info("Boss defeated");
   });
 
   // Player events

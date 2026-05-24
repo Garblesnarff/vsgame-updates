@@ -1,7 +1,6 @@
 import { Boss } from './base-boss';
 import { Enemy, ParticleCreationFunction } from '../enemies/base-enemy';
-import { GameEvents, EVENTS } from '../../utils/event-system';
-import { emitEnemySpawn } from '../../utils/game-event-emitters';
+import { emitBossAttack, emitBossAttackStart, emitBossReward, emitBossSpecialMove, emitEnemySpawn } from '../../utils/game-event-emitters';
 import CONFIG from '../../config';
 import { createLogger } from '../../utils/logger';
 import { HolyPriest } from '../enemies/holy-priest';
@@ -611,7 +610,7 @@ export class ChurchPaladin extends Boss {
         this.element.classList.add('charging');
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK, this, 'charge');
+        emitBossAttack({ boss: this, attackType: 'charge' });
     }
 
     /**
@@ -725,7 +724,7 @@ export class ChurchPaladin extends Boss {
         this.createTeleportEffect(this.x, this.y);
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_SPECIAL_MOVE, this, 'teleport');
+        emitBossSpecialMove({ boss: this, moveType: 'teleport' });
     }
 
     /**
@@ -782,7 +781,7 @@ export class ChurchPaladin extends Boss {
         }, 1200);
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK, this, 'swordCombo');
+        emitBossAttack({ boss: this, attackType: 'swordCombo' });
     }
 
     /**
@@ -871,7 +870,7 @@ export class ChurchPaladin extends Boss {
         }, 500);
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK, this, 'shieldBash');
+        emitBossAttack({ boss: this, attackType: 'shieldBash' });
     }
 
     /**
@@ -965,7 +964,7 @@ export class ChurchPaladin extends Boss {
         }
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK, this, 'holyProjectiles');
+        emitBossAttack({ boss: this, attackType: 'holyProjectiles' });
     }
 
     /**
@@ -1176,7 +1175,7 @@ export class ChurchPaladin extends Boss {
         this.consecrationZones.push(zone);
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK, this, 'consecration');
+        emitBossAttack({ boss: this, attackType: 'consecration' });
     }
 
     /**
@@ -1289,7 +1288,7 @@ export class ChurchPaladin extends Boss {
         this.createShieldPulseEffect();
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_SPECIAL_MOVE, this, 'divineShield');
+        emitBossSpecialMove({ boss: this, moveType: 'divineShield' });
     }
 
     /**
@@ -1365,7 +1364,7 @@ export class ChurchPaladin extends Boss {
         }
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK, this, 'lightPillars');
+        emitBossAttack({ boss: this, attackType: 'lightPillars' });
     }
 
     /**
@@ -1575,7 +1574,7 @@ export class ChurchPaladin extends Boss {
         }, 4000); // 4 second charge-up
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK_START, this, 'judgment');
+        emitBossAttackStart({ boss: this, attackType: 'judgment' });
     }
 
     /**
@@ -1659,7 +1658,7 @@ export class ChurchPaladin extends Boss {
         }, 1000);
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK, this, 'judgment');
+        emitBossAttack({ boss: this, attackType: 'judgment' });
     }
 
     /**
@@ -1776,7 +1775,7 @@ export class ChurchPaladin extends Boss {
         }, 1500); // 1.5 second charge-up
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK_START, this, 'holyNova');
+        emitBossAttackStart({ boss: this, attackType: 'holyNova' });
     }
 
     /**
@@ -1809,7 +1808,7 @@ export class ChurchPaladin extends Boss {
         // Note: This should be handled outside in game.ts when processing the BOSS_ATTACK event
 
         // Emit event with nova radius for damage calculation
-        GameEvents.emit(EVENTS.BOSS_ATTACK, this, 'holyNova', { radius: novaRadius, damage: this.damage * 4 });
+        emitBossAttack({ boss: this, attackType: 'holyNova', metadata: { radius: novaRadius, damage: this.damage * 4 } });
 
         // Remove nova after animation
         setTimeout(() => {
@@ -1854,7 +1853,7 @@ export class ChurchPaladin extends Boss {
         }, 1500); // 1.5 second summon time
 
         // Emit event
-        GameEvents.emit(EVENTS.BOSS_ATTACK_START, this, 'summonAcolytes');
+        emitBossAttackStart({ boss: this, attackType: 'summonAcolytes' });
     }
 
     /**
@@ -2024,11 +2023,11 @@ export class ChurchPaladin extends Boss {
         super.dropRewards();
 
         // Emit special reward event with reward type
-        GameEvents.emit(EVENTS.BOSS_REWARD, this, 'churchPaladin', {
+        emitBossReward({ boss: this, bossType: 'churchPaladin', rewards: {
             rewardType: 'holyConviction',
             duration: 3 * 60 * 1000, // 3 minutes
             powerUp: 'blessedBlood'
-        });
+        } });
     }
 
     /**

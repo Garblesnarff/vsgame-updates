@@ -1,8 +1,7 @@
 import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
-import GameEvents, { EVENTS } from "../utils/event-system";
-import { emitParticle } from "../utils/game-event-emitters";
+import { emitAbilityVisual, emitParticle } from "../utils/game-event-emitters";
 
 
 /**
@@ -113,7 +112,7 @@ export class NightShield extends Ability {
     this.player.gameContainer.appendChild(this.shieldElement);
 
     // Emit ability visual event for Phaser rendering
-    GameEvents.emit(EVENTS.ABILITY_VISUAL, {
+    emitAbilityVisual({
       type: 'night-shield',
       x: this.player.x + this.player.width / 2,
       y: this.player.y + this.player.height / 2,
@@ -274,7 +273,7 @@ export class NightShield extends Ability {
    */
   createExplosionEffect(): void {
     // Emit ability visual event for Phaser explosion rendering
-    GameEvents.emit(EVENTS.ABILITY_VISUAL, {
+    emitAbilityVisual({
       type: 'night-shield-explosion',
       x: this.player.x + this.player.width / 2,
       y: this.player.y + this.player.height / 2,
@@ -347,7 +346,7 @@ export class NightShield extends Ability {
     }
 
     // Emit ability visual end event for Phaser rendering
-    GameEvents.emit(EVENTS.ABILITY_VISUAL, { type: 'night-shield-end' });
+    emitAbilityVisual({ type: 'night-shield-end' });
 
     this.shieldElement = null;
     this.shieldHealthBar = null;

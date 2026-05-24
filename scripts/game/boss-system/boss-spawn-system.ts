@@ -1,6 +1,6 @@
-import { GameEvents, EVENTS } from '../../utils/event-system';
 import { Boss, ChurchPaladin } from '../../entities/bosses';
 import { createLogger } from '../../utils/logger';
+import { emitBossSpawn, emitBossWarning } from '../../utils/game-event-emitters';
 
 const logger = createLogger('BossSpawnSystem');
 
@@ -125,7 +125,7 @@ export class BossSpawnSystem {
     this.currentBossIndex = (this.currentBossIndex + 1) % this.bossRotation.length;
     
     // Emit boss spawn event
-    GameEvents.emit(EVENTS.BOSS_SPAWN, boss);
+    emitBossSpawn({ boss });
     
     return boss;
   }
@@ -175,7 +175,7 @@ export class BossSpawnSystem {
     }
     
     // Emit warning event
-    GameEvents.emit(EVENTS.BOSS_WARNING, bossName);
+    emitBossWarning({ bossType: bossName });
     
     // Remove after warning duration
     setTimeout(() => {

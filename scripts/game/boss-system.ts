@@ -2,9 +2,9 @@
 console.log('BOSS SYSTEM FILE LOADED');
 
 import { Boss, ChurchPaladin } from '../entities/bosses';
-import { GameEvents, EVENTS } from '../utils/event-system';
 import CONFIG from '../config';
 import { createLogger } from '../utils/logger';
+import { emitBossWarning } from '../utils/game-event-emitters';
 
 const logger = createLogger('BossSystem');
 
@@ -124,7 +124,7 @@ export class BossSpawnSystem {
     console.log(`BOSS SYSTEM: Showing warning for ${bossType} boss at game time ${Math.floor(Date.now()/1000)}s`);
     
     // Emit warning event
-    GameEvents.emit(EVENTS.BOSS_WARNING, bossType);
+    emitBossWarning({ bossType });
     
     // Create warning element
     const warning = document.createElement('div');

@@ -32,6 +32,7 @@
 
 ## Current Status
 
-- P0 event contracts are centralized through typed emitters.
+- P0 and P1 event contracts are centralized through typed emitters.
+- `scripts/game/combat-resolution.ts` owns the active projectile hit/death/lifesteal/drop decision slice.
 - Deterministic level progression tests exist.
-- Combat, loot, and collision extraction remain the next decomposition targets.
+- Loot lifecycle, collision pipeline extraction, and render sync adapter hardening remain the next decomposition targets.
