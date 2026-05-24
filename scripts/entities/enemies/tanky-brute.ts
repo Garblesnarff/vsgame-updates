@@ -1,6 +1,6 @@
 import { Enemy, EnemyOptions } from './base-enemy';
 import CONFIG from '../../config';
-import { GameEvents, EVENTS } from '../../utils/event-system';
+import { emitEnemyAttack, emitEnemyCharge } from '../../utils/game-event-emitters';
 
 /**
  * TankyBrute enemy class
@@ -136,7 +136,7 @@ export class TankyBrute extends Enemy {
     this.element.classList.add('brute-charging');
     
     // Emit event
-    GameEvents.emit(EVENTS.ENEMY_CHARGE, this);
+    emitEnemyCharge({ enemy: this });
   }
   
   /**
@@ -165,7 +165,7 @@ export class TankyBrute extends Enemy {
         player.takeDamage(this.slamAttackDamage);
         
         // Emit event
-        GameEvents.emit(EVENTS.ENEMY_ATTACK, this);
+        emitEnemyAttack({ enemy: this, attackType: 'slam' });
       }
     }
   }

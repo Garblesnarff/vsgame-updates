@@ -1,8 +1,12 @@
 import { Enemy, ParticleCreationFunction } from '../enemies/base-enemy';
 import CONFIG from '../../config';
-import { GameEvents, EVENTS } from '../../utils/event-system';
 import { createLogger } from '../../utils/logger';
-import { emitPlayerDeath } from '../../utils/game-event-emitters';
+import {
+  emitBossDefeated,
+  emitBossPhaseChange,
+  emitBossSpawn,
+  emitPlayerDeath,
+} from '../../utils/game-event-emitters';
 
 const logger = createLogger('Boss');
 
@@ -95,7 +99,7 @@ export class Boss extends Enemy {
     this.updatePosition();
     
     // Emit boss spawn event
-    GameEvents.emit(EVENTS.BOSS_SPAWN, this);
+    emitBossSpawn({ boss: this });
     
     logger.debug(`Boss initialized at position (${this.x}, ${this.y})`);
   }
@@ -272,7 +276,7 @@ export class Boss extends Enemy {
     this.phase++;
     
     // Trigger phase transition event
-    GameEvents.emit(EVENTS.BOSS_PHASE_CHANGE, this, this.phase);
+    emitBossPhaseChange({ boss: this, phase: this.phase });
     
     // Apply phase transition effects
     this.applyPhaseTransitionEffects();
@@ -439,7 +443,7 @@ export class Boss extends Enemy {
     logger.debug(`Boss ${this.id} dropping rewards`);
     
     // Emit rewards event
-    GameEvents.emit(EVENTS.BOSS_DEFEATED, this);
+    emitBossDefeated({ boss: this });
   }
   
   /**

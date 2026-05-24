@@ -1,7 +1,7 @@
 import { Enemy, EnemyOptions } from './base-enemy';
 import CONFIG from '../../config';
-import { GameEvents, EVENTS } from '../../utils/event-system';
 import { createLogger } from '../../utils/logger';
+import { emitEnemyAttack } from '../../utils/game-event-emitters';
 
 const logger = createLogger('VampireHunter');
 
@@ -242,7 +242,7 @@ export class VampireHunter extends Enemy {
     });
     
     // Emit event
-    GameEvents.emit(EVENTS.ENEMY_ATTACK, this);
+    emitEnemyAttack({ enemy: this, attackType: 'projectile' });
   }
   
   /**

@@ -82,6 +82,11 @@ These are high-traffic and/or cross-layer events with immediate regression risk.
 
 ## P1 (Second Wave)
 
+**Status**: Complete for boss lifecycle/combat, enemy behavior telemetry, and ability events.
+These events now have shared payload types and typed emitter helpers. Remaining work in this
+area should focus on narrowing broad metadata fields into discriminated unions as renderer/UI
+consumers become stricter.
+
 ### 6) Boss lifecycle/combat events
 - `BOSS_WARNING`, `BOSS_SPAWN`, `BOSS_DEFEATED`, `BOSS_PHASE_CHANGE`, `BOSS_ATTACK*`, `BOSS_SPECIAL_MOVE`, `BOSS_REWARD`
 - **Goal**: Normalize boss telemetry and UI/renderer integration.

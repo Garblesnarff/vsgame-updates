@@ -5,6 +5,7 @@ import { BossSpawnSystem } from './boss-system';
 import { Boss } from '../entities/bosses';
 import { GameEvents, EVENTS } from '../utils/event-system';
 import { createLogger } from '../utils/logger';
+import { emitBossDefeated, emitBossSpawn } from '../utils/game-event-emitters';
 
 // Create a logger for this integration module
 const logger = createLogger('GameBossIntegration');
@@ -113,7 +114,7 @@ export function addBossMethods(game: any): void {
     this.showBossEncounterNotification(boss.name);
     
     // Emit event
-    GameEvents.emit(EVENTS.BOSS_SPAWN, boss);
+    emitBossSpawn({ boss });
 
     // --- ADDED CODE: Ensure boss arena is created (Safeguard) ---
     // Check if the specific boss instance has arena-related methods/properties
@@ -156,7 +157,7 @@ export function addBossMethods(game: any): void {
     this.currentBoss = null;
     
     // Emit event
-    GameEvents.emit(EVENTS.BOSS_DEFEATED);
+    emitBossDefeated();
   };
   
   /**

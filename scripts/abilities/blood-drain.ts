@@ -1,8 +1,7 @@
 import { Ability } from "./ability-base";
 import { Player } from "../entities/player";
 import { Enemy } from "../entities/enemies/base-enemy";
-import GameEvents, { EVENTS } from "../utils/event-system";
-import { emitEnemyDeath, emitParticle } from "../utils/game-event-emitters";
+import { emitAbilityVisual, emitEnemyDeath, emitParticle } from "../utils/game-event-emitters";
 
 /**
  * Blood Drain ability - Drains health from nearby enemies
@@ -82,7 +81,7 @@ export class BloodDrain extends Ability {
     this.player.gameContainer.appendChild(this.visualEffect);
 
     // Emit ability visual event for Phaser rendering
-    GameEvents.emit(EVENTS.ABILITY_VISUAL, {
+    emitAbilityVisual({
       type: 'blood-drain',
       x: this.player.x + this.player.width / 2,
       y: this.player.y + this.player.height / 2,
@@ -125,7 +124,7 @@ export class BloodDrain extends Ability {
     }
 
     // Emit ability visual end event for Phaser rendering
-    GameEvents.emit(EVENTS.ABILITY_VISUAL, { type: 'blood-drain-end' });
+    emitAbilityVisual({ type: 'blood-drain-end' });
 
     // Clean up any legacy blood nova DOM elements (Phaser handles new particles)
     const bloodNovaElements = document.querySelectorAll('.blood-nova');
@@ -165,7 +164,7 @@ export class BloodDrain extends Ability {
     }
 
     // Update Phaser visual position
-    GameEvents.emit(EVENTS.ABILITY_VISUAL, {
+    emitAbilityVisual({
       type: 'blood-drain-update',
       x: this.player.x + this.player.width / 2,
       y: this.player.y + this.player.height / 2,

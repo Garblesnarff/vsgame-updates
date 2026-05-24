@@ -1,7 +1,7 @@
 import { Enemy, ParticleCreationFunction } from './base-enemy';
 import CONFIG from '../../config';
-import { GameEvents, EVENTS } from '../../utils/event-system';
 import { createLogger } from '../../utils/logger';
+import { emitEnemyAttack, emitEnemyAttackStart, emitEnemySpecialMove } from '../../utils/game-event-emitters';
 
 declare global {
   interface Window {
@@ -214,7 +214,7 @@ export class SilverMage extends Enemy {
     this.setChargingVisual(true);
     
     // Emit event for sound effects or other feedback
-    GameEvents.emit(EVENTS.ENEMY_ATTACK_START, this, 'silverMage');
+    emitEnemyAttackStart({ enemy: this, attackType: 'silverMage' });
   }
   
   /**
@@ -250,7 +250,7 @@ export class SilverMage extends Enemy {
     this.updatePosition();
     
     // Emit event for sound effects or other feedback
-    GameEvents.emit(EVENTS.ENEMY_SPECIAL_MOVE, this, 'teleport');
+    emitEnemySpecialMove({ enemy: this, moveType: 'teleport' });
   }
   
   /**
@@ -337,7 +337,7 @@ export class SilverMage extends Enemy {
     this.lastCastTime = Date.now();
     
     // Emit event for sound effects or other feedback
-    GameEvents.emit(EVENTS.ENEMY_ATTACK, this, 'silverZone');
+    emitEnemyAttack({ enemy: this, attackType: 'silverZone' });
   }
   
   /**
